@@ -6,7 +6,8 @@
 [![LICENSE](https://img.shields.io/badge/license-Apache-blue.svg?style=flat)](https://www.apache.org/licenses/LICENSE-2.0)
 [![paper](https://img.shields.io/badge/paper-arxiv-blue.svg?style=flat)](https://arxiv.org/abs/2411.09607)
 
-A powerful tool for extracting, scoring, and assigning information nuggets from text using LLMs.
+A powerful tool for information nugget creation, scoring, and assigning to RAG answers using LLMs.
+Enables the evaluation of fact recall of RAG answers.
 
 ## 📟 Installation
 
@@ -105,7 +106,7 @@ for nugget in assigned_nuggets:
 
 ### Processing Pool and RAG Answer Files
 
-To process a pool file (`pool.jsonl`) and a RAG answer file (`ragnarok.jsonl`), follow these steps:
+To generate nuggets with AutoNuggetizer on a pool file (`pool.jsonl`) and then assign them to RAG answers (`ragnarok.jsonl`), follow these steps:
 
 1. First, generate nuggets and score them:
 ```bash
@@ -172,11 +173,11 @@ The final output file (`final_assignments.jsonl`) will contain:
 
 The final metrics file (`metrics.jsonl`) will contain:
 - Per-response metrics:
-  - strict_vital_score: Score counting only full support for vital nuggets
-  - strict_all_score: Score counting only full support for all nuggets
-  - vital_score: Score counting full (1.0) and partial (0.5) support for vital nuggets
-  - all_score: Score counting full (1.0) and partial (0.5) support for all nuggets
-- Global mean metrics across all responses
+  - `strict_vital_score`: Score counting only full support for vital nuggets
+  - `strict_all_score`: Score counting only full support for all nuggets
+  - `vital_score`: Score counting full (1.0) and partial (0.5) support for vital nuggets
+  - `all_score`: Score counting full (1.0) and partial (0.5) support for all nuggets
+- Global mean metrics across all responses (indicated by `qid` as `all`)
 
 ### Advanced Configuration
 
@@ -204,9 +205,6 @@ assigner = NuggetAssigner(
     mode=NuggetAssignMode.SUPPORT_GRADE_3,  # 3-level support grading
     window_size=15
 )
-
-# Using non-Azure OpenAI models
-nuggetizer = Nuggetizer(model="claude-3")  # Will use regular OpenAI API
 ```
 
 ## 🤝 Contributing
@@ -219,4 +217,29 @@ This project is licensed under the Apache License - see the [LICENSE](LICENSE) f
 
 ## 🙏 Acknowledgments
 
-This project is built with Azure OpenAI and other powerful LLM technologies.
+This project is built with the support of Azure and their OpenAI credits.
+
+## ✨ References
+
+If you use RankLLM, please cite the following relevant papers:
+
+[[2411.09607] Initial Nugget Evaluation Results for the {TREC 2024 RAG Track} with the {AutoNuggetizer Framework}](https://arxiv.org/abs/2411.09607)
+
+```
+@ARTICLE{pradeep2024autonuggetizer,
+  title   = {Initial Nugget Evaluation Results for the {TREC 2024 RAG Track} with the {AutoNuggetizer Framework}},
+  author  = {Ronak Pradeep and Nandan Thakur and Shivani Upadhyay and Daniel Campos and Nick Craswell and Jimmy Lin},
+  year    = {2024},
+  journal = {arXiv:2411.09607}
+}
+```
+
+[[2406.16828] Ragnarök: A Reusable RAG Framework and Baselines for TREC 2024 Retrieval-Augmented Generation Track](https://arxiv.org/abs/2406.16828)
+```
+@ARTICLE{pradeep2024ragnarok,
+  title   = {{Ragnarök}: A Reusable RAG Framework and Baselines for TREC 2024 Retrieval-Augmented Generation Track},
+  author  = {Ronak Pradeep and Nandan Thakur and Sahel Sharifymoghaddam and Eric Zhang and Ryan Nguyen and Daniel Campos and Nick Craswell and Jimmy Lin},
+  year    = {2024},
+  journal = {arXiv:2406.16828},
+}
+```
