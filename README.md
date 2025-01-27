@@ -98,6 +98,11 @@ for nugget in assigned_nuggets:
     print(f"Assignment: {nugget.assignment}\n")
 ```
 
+You can also run a little more elaborate example with:
+```bash
+python3 examples/e2e.py
+```
+
 ## 🛠️ Components
 
 1. **Nuggetizer**: Extracts atomic information nuggets from text
