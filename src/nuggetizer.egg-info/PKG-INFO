@@ -1,0 +1,444 @@
+Metadata-Version: 2.2
+Name: nuggetizer
+Version: 0.0.1
+Summary: A package for Nuggetizer
+Author-email: Ronak Pradeep <rpradeep@uwaterloo.ca>
+License:                                  Apache License
+                                   Version 2.0, January 2004
+                                http://www.apache.org/licenses/
+        
+           TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+        
+           1. Definitions.
+        
+              "License" shall mean the terms and conditions for use, reproduction,
+              and distribution as defined by Sections 1 through 9 of this document.
+        
+              "Licensor" shall mean the copyright owner or entity authorized by
+              the copyright owner that is granting the License.
+        
+              "Legal Entity" shall mean the union of the acting entity and all
+              other entities that control, are controlled by, or are under common
+              control with that entity. For the purposes of this definition,
+              "control" means (i) the power, direct or indirect, to cause the
+              direction or management of such entity, whether by contract or
+              otherwise, or (ii) ownership of fifty percent (50%) or more of the
+              outstanding shares, or (iii) beneficial ownership of such entity.
+        
+              "You" (or "Your") shall mean an individual or Legal Entity
+              exercising permissions granted by this License.
+        
+              "Source" form shall mean the preferred form for making modifications,
+              including but not limited to software source code, documentation
+              source, and configuration files.
+        
+              "Object" form shall mean any form resulting from mechanical
+              transformation or translation of a Source form, including but
+              not limited to compiled object code, generated documentation,
+              and conversions to other media types.
+        
+              "Work" shall mean the work of authorship, whether in Source or
+              Object form, made available under the License, as indicated by a
+              copyright notice that is included in or attached to the work
+              (an example is provided in the Appendix below).
+        
+              "Derivative Works" shall mean any work, whether in Source or Object
+              form, that is based on (or derived from) the Work and for which the
+              editorial revisions, annotations, elaborations, or other modifications
+              represent, as a whole, an original work of authorship. For the purposes
+              of this License, Derivative Works shall not include works that remain
+              separable from, or merely link (or bind by name) to the interfaces of,
+              the Work and Derivative Works thereof.
+        
+              "Contribution" shall mean any work of authorship, including
+              the original version of the Work and any modifications or additions
+              to that Work or Derivative Works thereof, that is intentionally
+              submitted to Licensor for inclusion in the Work by the copyright owner
+              or by an individual or Legal Entity authorized to submit on behalf of
+              the copyright owner. For the purposes of this definition, "submitted"
+              means any form of electronic, verbal, or written communication sent
+              to the Licensor or its representatives, including but not limited to
+              communication on electronic mailing lists, source code control systems,
+              and issue tracking systems that are managed by, or on behalf of, the
+              Licensor for the purpose of discussing and improving the Work, but
+              excluding communication that is conspicuously marked or otherwise
+              designated in writing by the copyright owner as "Not a Contribution."
+        
+              "Contributor" shall mean Licensor and any individual or Legal Entity
+              on behalf of whom a Contribution has been received by Licensor and
+              subsequently incorporated within the Work.
+        
+           2. Grant of Copyright License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              copyright license to reproduce, prepare Derivative Works of,
+              publicly display, publicly perform, sublicense, and distribute the
+              Work and such Derivative Works in Source or Object form.
+        
+           3. Grant of Patent License. Subject to the terms and conditions of
+              this License, each Contributor hereby grants to You a perpetual,
+              worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+              (except as stated in this section) patent license to make, have made,
+              use, offer to sell, sell, import, and otherwise transfer the Work,
+              where such license applies only to those patent claims licensable
+              by such Contributor that are necessarily infringed by their
+              Contribution(s) alone or by combination of their Contribution(s)
+              with the Work to which such Contribution(s) was submitted. If You
+              institute patent litigation against any entity (including a
+              cross-claim or counterclaim in a lawsuit) alleging that the Work
+              or a Contribution incorporated within the Work constitutes direct
+              or contributory patent infringement, then any patent licenses
+              granted to You under this License for that Work shall terminate
+              as of the date such litigation is filed.
+        
+           4. Redistribution. You may reproduce and distribute copies of the
+              Work or Derivative Works thereof in any medium, with or without
+              modifications, and in Source or Object form, provided that You
+              meet the following conditions:
+        
+              (a) You must give any other recipients of the Work or
+                  Derivative Works a copy of this License; and
+        
+              (b) You must cause any modified files to carry prominent notices
+                  stating that You changed the files; and
+        
+              (c) You must retain, in the Source form of any Derivative Works
+                  that You distribute, all copyright, patent, trademark, and
+                  attribution notices from the Source form of the Work,
+                  excluding those notices that do not pertain to any part of
+                  the Derivative Works; and
+        
+              (d) If the Work includes a "NOTICE" text file as part of its
+                  distribution, then any Derivative Works that You distribute must
+                  include a readable copy of the attribution notices contained
+                  within such NOTICE file, excluding those notices that do not
+                  pertain to any part of the Derivative Works, in at least one
+                  of the following places: within a NOTICE text file distributed
+                  as part of the Derivative Works; within the Source form or
+                  documentation, if provided along with the Derivative Works; or,
+                  within a display generated by the Derivative Works, if and
+                  wherever such third-party notices normally appear. The contents
+                  of the NOTICE file are for informational purposes only and
+                  do not modify the License. You may add Your own attribution
+                  notices within Derivative Works that You distribute, alongside
+                  or as an addendum to the NOTICE text from the Work, provided
+                  that such additional attribution notices cannot be construed
+                  as modifying the License.
+        
+              You may add Your own copyright statement to Your modifications and
+              may provide additional or different license terms and conditions
+              for use, reproduction, or distribution of Your modifications, or
+              for any such Derivative Works as a whole, provided Your use,
+              reproduction, and distribution of the Work otherwise complies with
+              the conditions stated in this License.
+        
+           5. Submission of Contributions. Unless You explicitly state otherwise,
+              any Contribution intentionally submitted for inclusion in the Work
+              by You to the Licensor shall be under the terms and conditions of
+              this License, without any additional terms or conditions.
+              Notwithstanding the above, nothing herein shall supersede or modify
+              the terms of any separate license agreement you may have executed
+              with Licensor regarding such Contributions.
+        
+           6. Trademarks. This License does not grant permission to use the trade
+              names, trademarks, service marks, or product names of the Licensor,
+              except as required for reasonable and customary use in describing the
+              origin of the Work and reproducing the content of the NOTICE file.
+        
+           7. Disclaimer of Warranty. Unless required by applicable law or
+              agreed to in writing, Licensor provides the Work (and each
+              Contributor provides its Contributions) on an "AS IS" BASIS,
+              WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+              implied, including, without limitation, any warranties or conditions
+              of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+              PARTICULAR PURPOSE. You are solely responsible for determining the
+              appropriateness of using or redistributing the Work and assume any
+              risks associated with Your exercise of permissions under this License.
+        
+           8. Limitation of Liability. In no event and under no legal theory,
+              whether in tort (including negligence), contract, or otherwise,
+              unless required by applicable law (such as deliberate and grossly
+              negligent acts) or agreed to in writing, shall any Contributor be
+              liable to You for damages, including any direct, indirect, special,
+              incidental, or consequential damages of any character arising as a
+              result of this License or out of the use or inability to use the
+              Work (including but not limited to damages for loss of goodwill,
+              work stoppage, computer failure or malfunction, or any and all
+              other commercial damages or losses), even if such Contributor
+              has been advised of the possibility of such damages.
+        
+           9. Accepting Warranty or Additional Liability. While redistributing
+              the Work or Derivative Works thereof, You may choose to offer,
+              and charge a fee for, acceptance of support, warranty, indemnity,
+              or other liability obligations and/or rights consistent with this
+              License. However, in accepting such obligations, You may act only
+              on Your own behalf and on Your sole responsibility, not on behalf
+              of any other Contributor, and only if You agree to indemnify,
+              defend, and hold each Contributor harmless for any liability
+              incurred by, or claims asserted against, such Contributor by reason
+              of your accepting any such warranty or additional liability.
+        
+           END OF TERMS AND CONDITIONS
+        
+           APPENDIX: How to apply the Apache License to your work.
+        
+              To apply the Apache License to your work, attach the following
+              boilerplate notice, with the fields enclosed by brackets "[]"
+              replaced with your own identifying information. (Don't include
+              the brackets!)  The text should be enclosed in the appropriate
+              comment syntax for the file format. We also recommend that a
+              file or class name and description of purpose be included on the
+              same "printed page" as the copyright notice for easier
+              identification within third-party archives.
+        
+           Copyright [yyyy] [name of copyright owner]
+        
+           Licensed under the Apache License, Version 2.0 (the "License");
+           you may not use this file except in compliance with the License.
+           You may obtain a copy of the License at
+        
+               http://www.apache.org/licenses/LICENSE-2.0
+        
+           Unless required by applicable law or agreed to in writing, software
+           distributed under the License is distributed on an "AS IS" BASIS,
+           WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+           See the License for the specific language governing permissions and
+           limitations under the License.
+        
+Project-URL: Homepage, https://github.com/castorini/nuggetizer
+Keywords: Nuggetizer,Fact Recall,LLM,Nuggets,Fact Extraction
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Provides: nuggetizer
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: openai>=1.57.0
+Requires-Dist: python-dotenv>=0.19.0
+Requires-Dist: typing-extensions>=4.0.0
+Requires-Dist: requests>=2.25.0
+Requires-Dist: tqdm>=4.65.0
+Requires-Dist: tiktoken>=0.8
+
+# nuggetizer
+
+[![PyPI](https://img.shields.io/pypi/v/nuggetizer?color=brightgreen)](https://pypi.org/project/nuggetizer/)
+[![Downloads](https://static.pepy.tech/personalized-badge/nuggetizer?period=total&units=international_system&left_color=grey&right_color=brightgreen&left_text=downloads)](https://pepy.tech/project/nuggetizer)
+[![Downloads](https://static.pepy.tech/personalized-badge/nuggetizer?period=week&units=international_system&left_color=grey&right_color=brightgreen&left_text=downloads/week)](https://pepy.tech/project/nuggetizer)
+[![LICENSE](https://img.shields.io/badge/license-Apache-blue.svg?style=flat)](https://www.apache.org/licenses/LICENSE-2.0)
+[![paper](https://img.shields.io/badge/paper-arxiv-blue.svg?style=flat)](https://arxiv.org/abs/2411.09607)
+
+A powerful tool for extracting, scoring, and assigning information nuggets from text using LLMs.
+
+## 📟 Installation
+
+### Create Conda Environment
+
+```bash
+conda create -n nuggetizer python=3.10
+conda activate nuggetizer
+```
+
+### Pip Installation
+
+```bash
+pip install nuggetizer
+```
+
+### Development Installation
+
+For development or the latest features, install from source:
+
+```bash
+git clone https://github.com/castorini/nuggetizer.git
+cd nuggetizer
+pip install -e .
+```
+
+### Environment Setup
+
+Create a `.env` file with your OpenAI credentials. For Azure OpenAI (default for GPT models):
+
+```bash
+AZURE_OPENAI_API_BASE=your_azure_endpoint
+AZURE_OPENAI_API_VERSION=your_api_version
+AZURE_OPENAI_API_KEY=your_api_key
+```
+
+Or for OpenAI API:
+
+```bash
+OPEN_AI_API_KEY=your_openai_api_key
+```
+
+## 🚀 Quick Start
+
+Here's a simple example of how to use nuggetizer:
+
+```python
+from nuggetizer.core.types import Query, Document, Request
+from nuggetizer.models.nuggetizer import Nuggetizer
+from nuggetizer.models.scorer import NuggetScorer
+from nuggetizer.models.assigner import NuggetAssigner
+
+# Create a sample request
+query = Query(qid="1", text="What are the main features of Python?")
+documents = [
+    Document(
+        docid="1",
+        segment="""Python is a high-level programming language known for its 
+        simplicity and readability. It supports multiple programming paradigms 
+        including procedural, object-oriented, and functional programming."""
+    ),
+    Document(
+        docid="2",
+        segment="""Python was created by Guido van Rossum in 1991."""
+    ),
+    Document(
+        docid="3",
+        segment="""Python is widely used in web development, data analysis, 
+        artificial intelligence, and scientific computing."""
+    ),
+]
+request = Request(query=query, documents=documents)
+
+# Initialize components (API keys and configuration are loaded automatically)
+nuggetizer = Nuggetizer(model="gpt-4o")  # Uses Azure OpenAI by default for GPT models
+scorer = NuggetScorer(model="gpt-4o")
+assigner = NuggetAssigner(model="gpt-4o")
+
+# Process the request
+nuggets, _ = nuggetizer.process(request)
+scored_nuggets = scorer.score(nuggets)
+assigned_nuggets = assigner.assign(documents[0].segment, scored_nuggets)
+
+# Print results
+for nugget in assigned_nuggets:
+    print(f"Nugget: {nugget.text}")
+    print(f"Importance: {nugget.importance}")
+    print(f"Assignment: {nugget.assignment}\n")
+```
+
+## 🛠️ Components
+
+1. **Nuggetizer**: Extracts atomic information nuggets from text
+2. **NuggetScorer**: Scores nuggets based on their importance
+3. **NuggetAssigner**: Assigns nuggets to specific text passages
+
+### Processing Pool and RAG Answer Files
+
+To process a pool file (`pool.jsonl`) and a RAG answer file (`ragnarok.jsonl`), follow these steps:
+
+1. First, generate nuggets and score them:
+```bash
+# Extract nuggets
+python3 scripts/create_nuggets.py --input_file pool.jsonl --output_file nuggets.jsonl --log_level 1
+
+# Score the nuggets
+python3 scripts/score_nuggets.py --input_file nuggets.jsonl --output_file scored_nuggets.jsonl
+```
+
+2. For RAG answers, we assume they take on the format laid out by the wonderful [TREC 2024 RAG Track](https://trec-rag.github.io/annoucements/2024-track-guidelines/):
+
+```json
+{
+    "run_id": "ragnarok",
+    "topic_id": "2027497", # query_id
+    "topic": "how often should you take your toddler to the potty when potty training", # query
+    "references": [ # top-k segments returned used from the retrieval step. We have k equals to 20 segments for this example.
+        "msmarco_v2.1_doc_51_766815931#2_1606878413", "msmarco_v2.1_doc_51_766815931#1_1606876582", "msmarco_v2.1_doc_51_766815931#5_1606882767", 
+        "msmarco_v2.1_doc_51_766815931#6_1606884302", "msmarco_v2.1_doc_51_766815931#3_1606879951", "msmarco_v2.1_doc_51_766815931#4_1606881348", 
+        "msmarco_v2.1_doc_37_463237391#10_984448281", "msmarco_v2.1_doc_51_766815931#0_1606874600", "msmarco_v2.1_doc_37_463237391#9_984446615", 
+        "msmarco_v2.1_doc_28_472446307#22_1012988885", "msmarco_v2.1_doc_51_766815931#7_1606885873", "msmarco_v2.1_doc_28_472446307#21_1012986800", 
+        "msmarco_v2.1_doc_29_562342450#23_1356565296", "msmarco_v2.1_doc_29_562342450#17_1356555947", "msmarco_v2.1_doc_49_418787959#7_861728734", 
+        "msmarco_v2.1_doc_49_418787959#6_861726964", "msmarco_v2.1_doc_26_680625866#7_1289507527", "msmarco_v2.1_doc_10_1346272776#19_2165266355", 
+        "msmarco_v2.1_doc_56_1491300640#3_3012150696", "msmarco_v2.1_doc_10_672519892#5_1260010758"], 
+    "response_length": 192, 
+    "answer": [ # RAG answer broken into sentences with each answer sentence grounding information from the index mentioned in references.
+            {"text": "The frequency with which you should take your toddler to the potty depends on their readiness for potty training.", "citations": [0, 1, 12, 13, 19]}, 
+            {"text": "Some sources suggest that toddlers should be taken to the potty about three times a day: first thing in the morning, after mealtimes, and again before bedtime.", "citations": [0, 4, 6, 8]}, 
+            {"text": "It is recommended that you watch for facial expressions or poses that may signal that they need to \"go\".", "citations": [6, 8]}, 
+            {"text": "If they are reluctant to use the potty, don't force them.", "citations": [6, 8]}, 
+            {"text": "Other sources suggest that toddlers should be taken to the potty every two hours, whether they have to go or not.", "citations": [14, 15]}, 
+            {"text": "This includes first thing in the morning, before leaving the house, and before naps and bedtime.", "citations": [14, 15]}, 
+            {"text": "Some sources recommend taking toddlers to the potty every 30 minutes to an hour.", "citations": [9, 11, 17]}, 
+            {"text": "This is to increase the chances of them peeing in the potty instead of on the floor.", "citations": [9, 11]}, 
+            {"text": "It is important to keep in mind that every toddler is different, and their potty training journey will be unique to them.", "citations": [0, 4]}, 
+            {"text": "It is recommended that you let your toddler lead the way and be gentle throughout the process, as their self-esteem can be fragile during this time.", "citations": [0, 1]}
+        ]
+}
+```
+To *easily* generate answers in this format, consider using [Ragnarök](https://github.com/castorini/ragnarok).
+Let's now assign the nuggets to the RAG answers:
+
+```bash
+# Assign nuggets to RAG answers
+python3 scripts/assign_nuggets.py \
+    --nugget_file scored_nuggets.jsonl \
+    --answer_file ragnarok.jsonl \
+    --output_file final_assignments.jsonl
+
+# Calculate metrics
+python3 scripts/calculate_metrics.py \
+    --input_file final_assignments.jsonl \
+    --output_file metrics.jsonl
+```
+
+The final output file (`final_assignments.jsonl`) will contain:
+- query: The original query
+- qid: Query ID
+- answer_text: Full answer text
+- response_length: Response length
+- run_id: Run ID (derived from the RAG answer filename)
+- nuggets: Nuggets with their importance labels and assignments
+
+The final metrics file (`metrics.jsonl`) will contain:
+- Per-response metrics:
+  - strict_vital_score: Score counting only full support for vital nuggets
+  - strict_all_score: Score counting only full support for all nuggets
+  - vital_score: Score counting full (1.0) and partial (0.5) support for vital nuggets
+  - all_score: Score counting full (1.0) and partial (0.5) support for all nuggets
+- Global mean metrics across all responses
+
+### Advanced Configuration
+
+While the default configuration works out of the box, you can customize the behavior:
+
+```python
+# Custom window size and mode
+nuggetizer = Nuggetizer(
+    model="gpt-4o",
+    window_size=10,  # Process more documents at once
+    stride=10,        # Overlap between windows
+    max_nuggets=30   # Maximum number of nuggets to extract
+)
+
+# Custom scoring mode
+scorer = NuggetScorer(
+    model="gpt-4o",
+    mode=NuggetScoreMode.VITAL_OKAY,
+    window_size=20
+)
+
+# Custom assignment mode
+assigner = NuggetAssigner(
+    model="gpt-4o",
+    mode=NuggetAssignMode.SUPPORT_GRADE_3,  # 3-level support grading
+    window_size=15
+)
+
+# Using non-Azure OpenAI models
+nuggetizer = Nuggetizer(model="claude-3")  # Will use regular OpenAI API
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📝 License
+
+This project is licensed under the Apache License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+This project is built with Azure OpenAI and other powerful LLM technologies.

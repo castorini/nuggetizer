@@ -1,0 +1,21 @@
+data/*
+.env
+
+.DS_Store
+# Remove all __pycache__ folders
+__pycache__/
+*/__pycache__/
+*/*/__pycache__/
+*/*/*/__pycache__/
+
+# Remove all .pyc files
+*.pyc
+*.pyo
+*.pyd
+
+# Remove all egg-info folders
+*/egg-info/
+*/*/egg-info/
+*/*/*/egg-info/
+
+*jsonl
