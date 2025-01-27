@@ -122,9 +122,9 @@ python3 scripts/score_nuggets.py --input_file nuggets.jsonl --output_file scored
 ```json
 {
     "run_id": "ragnarok",
-    "topic_id": "2027497", # query_id
-    "topic": "how often should you take your toddler to the potty when potty training", # query
-    "references": [ # top-k segments returned used from the retrieval step. We have k equals to 20 segments for this example.
+    "topic_id": "2027497",
+    "topic": "how often should you take your toddler to the potty when potty training",
+    "references": [
         "msmarco_v2.1_doc_51_766815931#2_1606878413", "msmarco_v2.1_doc_51_766815931#1_1606876582", "msmarco_v2.1_doc_51_766815931#5_1606882767", 
         "msmarco_v2.1_doc_51_766815931#6_1606884302", "msmarco_v2.1_doc_51_766815931#3_1606879951", "msmarco_v2.1_doc_51_766815931#4_1606881348", 
         "msmarco_v2.1_doc_37_463237391#10_984448281", "msmarco_v2.1_doc_51_766815931#0_1606874600", "msmarco_v2.1_doc_37_463237391#9_984446615", 
@@ -133,7 +133,7 @@ python3 scripts/score_nuggets.py --input_file nuggets.jsonl --output_file scored
         "msmarco_v2.1_doc_49_418787959#6_861726964", "msmarco_v2.1_doc_26_680625866#7_1289507527", "msmarco_v2.1_doc_10_1346272776#19_2165266355", 
         "msmarco_v2.1_doc_56_1491300640#3_3012150696", "msmarco_v2.1_doc_10_672519892#5_1260010758"], 
     "response_length": 192, 
-    "answer": [ # RAG answer broken into sentences with each answer sentence grounding information from the index mentioned in references.
+    "answer": [
             {"text": "The frequency with which you should take your toddler to the potty depends on their readiness for potty training.", "citations": [0, 1, 12, 13, 19]}, 
             {"text": "Some sources suggest that toddlers should be taken to the potty about three times a day: first thing in the morning, after mealtimes, and again before bedtime.", "citations": [0, 4, 6, 8]}, 
             {"text": "It is recommended that you watch for facial expressions or poses that may signal that they need to \"go\".", "citations": [6, 8]}, 
