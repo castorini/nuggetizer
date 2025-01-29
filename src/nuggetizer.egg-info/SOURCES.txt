@@ -14,9 +14,6 @@ src/nuggetizer/core/llm.py
 src/nuggetizer/core/metrics.py
 src/nuggetizer/core/types.py
 src/nuggetizer/models/__init__.py
-src/nuggetizer/models/assigner.py
 src/nuggetizer/models/nuggetizer.py
-src/nuggetizer/models/scorer.py
 src/nuggetizer/utils/__init__.py
 src/nuggetizer/utils/api.py
-src/nuggetizer/utils/io.py

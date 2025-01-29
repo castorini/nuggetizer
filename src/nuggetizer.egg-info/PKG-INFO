@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: nuggetizer
-Version: 0.0.1
+Version: 0.0.2
 Summary: A package for Nuggetizer
 Author-email: Ronak Pradeep <rpradeep@uwaterloo.ca>
 License:                                  Apache License
@@ -228,7 +228,8 @@ Requires-Dist: tiktoken>=0.8
 [![LICENSE](https://img.shields.io/badge/license-Apache-blue.svg?style=flat)](https://www.apache.org/licenses/LICENSE-2.0)
 [![paper](https://img.shields.io/badge/paper-arxiv-blue.svg?style=flat)](https://arxiv.org/abs/2411.09607)
 
-A powerful tool for extracting, scoring, and assigning information nuggets from text using LLMs.
+A powerful tool for information nugget creation, scoring, and assigning to RAG answers using LLMs.
+Enables the evaluation of fact recall of RAG answers.
 
 ## 📟 Installation
 
@@ -278,8 +279,6 @@ Here's a simple example of how to use nuggetizer:
 ```python
 from nuggetizer.core.types import Query, Document, Request
 from nuggetizer.models.nuggetizer import Nuggetizer
-from nuggetizer.models.scorer import NuggetScorer
-from nuggetizer.models.assigner import NuggetAssigner
 
 # Create a sample request
 query = Query(qid="1", text="What are the main features of Python?")
@@ -302,40 +301,52 @@ documents = [
 ]
 request = Request(query=query, documents=documents)
 
-# Initialize components (API keys and configuration are loaded automatically)
-nuggetizer = Nuggetizer(model="gpt-4o")  # Uses Azure OpenAI by default for GPT models
-scorer = NuggetScorer(model="gpt-4o")
-assigner = NuggetAssigner(model="gpt-4o")
+# Option 1: Single model for all components
+nuggetizer = Nuggetizer(model="gpt-4o")  # Uses same model for all components
 
-# Process the request
-nuggets, _ = nuggetizer.process(request)
-scored_nuggets = scorer.score(nuggets)
-assigned_nuggets = assigner.assign(documents[0].segment, scored_nuggets)
+# Option 2: Different models for each component
+nuggetizer_mixed = Nuggetizer(
+    creator_model="gpt-4o",  # Model for nugget creation
+    scorer_model="gpt-3.5-turbo",  # Model for nugget scoring
+    assigner_model="gpt-4o"  # Model for nugget assignment
+)
 
-# Print results
+# Create and score nuggets
+scored_nuggets = nuggetizer.create(request)
+
+# Print nuggets and their importance
+for nugget in scored_nuggets:
+    print(f"Nugget: {nugget.text}")
+    print(f"Importance: {nugget.importance}\n")
+
+# Assign nuggets to a specific document
+assigned_nuggets = nuggetizer.assign(documents[0].segment, scored_nuggets)
+
+# Print assignments
 for nugget in assigned_nuggets:
     print(f"Nugget: {nugget.text}")
     print(f"Importance: {nugget.importance}")
     print(f"Assignment: {nugget.assignment}\n")
 ```
 
+You can also run a little more elaborate example with:
+```bash
+python3 examples/e2e.py
+```
+
 ## 🛠️ Components
 
-1. **Nuggetizer**: Extracts atomic information nuggets from text
-2. **NuggetScorer**: Scores nuggets based on their importance
-3. **NuggetAssigner**: Assigns nuggets to specific text passages
+The Nuggetizer class provides a unified interface for:
 
-### Processing Pool and RAG Answer Files
+1. **Nugget Creation & Scoring**: Extracts and scores atomic information nuggets from text
+2. **Nugget Assignment**: Assigns nuggets to specific texts
 
-To process a pool file (`pool.jsonl`) and a RAG answer file (`ragnarok.jsonl`), follow these steps:
+The following scripts are provided to help you with through the process for the TREC 2024 RAG Track:
 
-1. First, generate nuggets and score them:
+1. First, generate nuggets:
 ```bash
 # Extract nuggets
 python3 scripts/create_nuggets.py --input_file pool.jsonl --output_file nuggets.jsonl --log_level 1
-
-# Score the nuggets
-python3 scripts/score_nuggets.py --input_file nuggets.jsonl --output_file scored_nuggets.jsonl
 ```
 
 2. For RAG answers, we assume they take on the format laid out by the wonderful [TREC 2024 RAG Track](https://trec-rag.github.io/annoucements/2024-track-guidelines/):
@@ -343,9 +354,9 @@ python3 scripts/score_nuggets.py --input_file nuggets.jsonl --output_file scored
 ```json
 {
     "run_id": "ragnarok",
-    "topic_id": "2027497", # query_id
-    "topic": "how often should you take your toddler to the potty when potty training", # query
-    "references": [ # top-k segments returned used from the retrieval step. We have k equals to 20 segments for this example.
+    "topic_id": "2027497",
+    "topic": "how often should you take your toddler to the potty when potty training",
+    "references": [
         "msmarco_v2.1_doc_51_766815931#2_1606878413", "msmarco_v2.1_doc_51_766815931#1_1606876582", "msmarco_v2.1_doc_51_766815931#5_1606882767", 
         "msmarco_v2.1_doc_51_766815931#6_1606884302", "msmarco_v2.1_doc_51_766815931#3_1606879951", "msmarco_v2.1_doc_51_766815931#4_1606881348", 
         "msmarco_v2.1_doc_37_463237391#10_984448281", "msmarco_v2.1_doc_51_766815931#0_1606874600", "msmarco_v2.1_doc_37_463237391#9_984446615", 
@@ -354,7 +365,7 @@ python3 scripts/score_nuggets.py --input_file nuggets.jsonl --output_file scored
         "msmarco_v2.1_doc_49_418787959#6_861726964", "msmarco_v2.1_doc_26_680625866#7_1289507527", "msmarco_v2.1_doc_10_1346272776#19_2165266355", 
         "msmarco_v2.1_doc_56_1491300640#3_3012150696", "msmarco_v2.1_doc_10_672519892#5_1260010758"], 
     "response_length": 192, 
-    "answer": [ # RAG answer broken into sentences with each answer sentence grounding information from the index mentioned in references.
+    "answer": [
             {"text": "The frequency with which you should take your toddler to the potty depends on their readiness for potty training.", "citations": [0, 1, 12, 13, 19]}, 
             {"text": "Some sources suggest that toddlers should be taken to the potty about three times a day: first thing in the morning, after mealtimes, and again before bedtime.", "citations": [0, 4, 6, 8]}, 
             {"text": "It is recommended that you watch for facial expressions or poses that may signal that they need to \"go\".", "citations": [6, 8]}, 
@@ -374,7 +385,7 @@ Let's now assign the nuggets to the RAG answers:
 ```bash
 # Assign nuggets to RAG answers
 python3 scripts/assign_nuggets.py \
-    --nugget_file scored_nuggets.jsonl \
+    --nugget_file nuggets.jsonl \
     --answer_file ragnarok.jsonl \
     --output_file final_assignments.jsonl
 
@@ -394,42 +405,11 @@ The final output file (`final_assignments.jsonl`) will contain:
 
 The final metrics file (`metrics.jsonl`) will contain:
 - Per-response metrics:
-  - strict_vital_score: Score counting only full support for vital nuggets
-  - strict_all_score: Score counting only full support for all nuggets
-  - vital_score: Score counting full (1.0) and partial (0.5) support for vital nuggets
-  - all_score: Score counting full (1.0) and partial (0.5) support for all nuggets
-- Global mean metrics across all responses
-
-### Advanced Configuration
-
-While the default configuration works out of the box, you can customize the behavior:
-
-```python
-# Custom window size and mode
-nuggetizer = Nuggetizer(
-    model="gpt-4o",
-    window_size=10,  # Process more documents at once
-    stride=10,        # Overlap between windows
-    max_nuggets=30   # Maximum number of nuggets to extract
-)
-
-# Custom scoring mode
-scorer = NuggetScorer(
-    model="gpt-4o",
-    mode=NuggetScoreMode.VITAL_OKAY,
-    window_size=20
-)
-
-# Custom assignment mode
-assigner = NuggetAssigner(
-    model="gpt-4o",
-    mode=NuggetAssignMode.SUPPORT_GRADE_3,  # 3-level support grading
-    window_size=15
-)
-
-# Using non-Azure OpenAI models
-nuggetizer = Nuggetizer(model="claude-3")  # Will use regular OpenAI API
-```
+  - `strict_vital_score`: Score counting only full support for vital nuggets
+  - `strict_all_score`: Score counting only full support for all nuggets
+  - `vital_score`: Score counting full (1.0) and partial (0.5) support for vital nuggets
+  - `all_score`: Score counting full (1.0) and partial (0.5) support for all nuggets
+- Global mean metrics across all responses (indicated by `qid` as `all`)
 
 ## 🤝 Contributing
 
@@ -441,4 +421,29 @@ This project is licensed under the Apache License - see the [LICENSE](LICENSE) f
 
 ## 🙏 Acknowledgments
 
-This project is built with Azure OpenAI and other powerful LLM technologies.
+This project is built with the support of Azure and their OpenAI credits.
+
+## ✨ References
+
+If you use Nuggetizer, please cite the following relevant papers:
+
+[[2411.09607] Initial Nugget Evaluation Results for the {TREC 2024 RAG Track} with the {AutoNuggetizer Framework}](https://arxiv.org/abs/2411.09607)
+
+```
+@ARTICLE{pradeep2024autonuggetizer,
+  title   = {Initial Nugget Evaluation Results for the {TREC 2024 RAG Track} with the {AutoNuggetizer Framework}},
+  author  = {Ronak Pradeep and Nandan Thakur and Shivani Upadhyay and Daniel Campos and Nick Craswell and Jimmy Lin},
+  year    = {2024},
+  journal = {arXiv:2411.09607}
+}
+```
+
+[[2406.16828] Ragnarök: A Reusable RAG Framework and Baselines for TREC 2024 Retrieval-Augmented Generation Track](https://arxiv.org/abs/2406.16828)
+```
+@ARTICLE{pradeep2024ragnarok,
+  title   = {{Ragnarök}: A Reusable RAG Framework and Baselines for TREC 2024 Retrieval-Augmented Generation Track},
+  author  = {Ronak Pradeep and Nandan Thakur and Sahel Sharifymoghaddam and Eric Zhang and Ryan Nguyen and Daniel Campos and Nick Craswell and Jimmy Lin},
+  year    = {2024},
+  journal = {arXiv:2406.16828},
+}
+```
