@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Dict, List
 
 from nuggetizer.core.types import ScoredNugget
-from nuggetizer.models.assigner import NuggetAssigner
+from nuggetizer.models.nuggetizer import Nuggetizer
 
 
 def setup_logging(log_level: int) -> None:
@@ -36,7 +36,7 @@ def get_run_id(file_path: str) -> str:
     return Path(file_path).stem
 
 
-def process_record(answer_record: Dict, nugget_record: Dict, run_id: str, assigner: NuggetAssigner, logger: logging.Logger) -> Dict:
+def process_record(answer_record: Dict, nugget_record: Dict, run_id: str, nuggetizer: Nuggetizer, logger: logging.Logger) -> Dict:
     """Process records from answer and nugget files to create output record."""
     # Construct answer text by joining all answer segments
     answer_text = " ".join(a["text"] for a in answer_record["answer"])
@@ -50,7 +50,7 @@ def process_record(answer_record: Dict, nugget_record: Dict, run_id: str, assign
     logger.info("Processing query: %s (qid: %s)", nugget_record.get('query', 'N/A'), nugget_record.get('qid', 'N/A'))
     logger.info("Assigning %d nuggets to answer text (length: %d)", len(nuggets), len(answer_text))
     
-    assigned_nuggets = assigner.assign(answer_text, nuggets)
+    assigned_nuggets = nuggetizer.assign(answer_text, nuggets)
     
     # Create output record
     output_record = {
@@ -117,9 +117,9 @@ def main():
     run_id = get_run_id(args.answer_file)
     logger.info("Using run_id: %s", run_id)
     
-    # Initialize assigner
-    logger.info("Initializing NuggetAssigner with model: %s", args.model)
-    assigner = NuggetAssigner(model=args.model, log_level=args.log_level)
+    # Initialize nuggetizer (only using assigner component)
+    logger.info("Initializing Nuggetizer with model: %s", args.model)
+    nuggetizer = Nuggetizer(assigner_model=args.model, log_level=args.log_level)
     
     # Read input files
     logger.info("Reading nugget file: %s", args.nugget_file)
@@ -143,7 +143,7 @@ def main():
                 
             logger.info("Processing record pair %d/%d", i, len(nugget_data))
             try:
-                processed_record = process_record(answer_record, nugget_record, run_id, assigner, logger)
+                processed_record = process_record(answer_record, nugget_record, run_id, nuggetizer, logger)
                 f.write(json.dumps(processed_record) + '\n')
                 f.flush()  # Ensure the record is written immediately
             except Exception as e:

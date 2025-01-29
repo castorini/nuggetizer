@@ -57,8 +57,6 @@ Here's a simple example of how to use nuggetizer:
 ```python
 from nuggetizer.core.types import Query, Document, Request
 from nuggetizer.models.nuggetizer import Nuggetizer
-from nuggetizer.models.scorer import NuggetScorer
-from nuggetizer.models.assigner import NuggetAssigner
 
 # Create a sample request
 query = Query(qid="1", text="What are the main features of Python?")
@@ -81,17 +79,28 @@ documents = [
 ]
 request = Request(query=query, documents=documents)
 
-# Initialize components (API keys and configuration are loaded automatically)
-nuggetizer = Nuggetizer(model="gpt-4o")  # Uses Azure OpenAI by default for GPT models
-scorer = NuggetScorer(model="gpt-4o")
-assigner = NuggetAssigner(model="gpt-4o")
+# Option 1: Single model for all components
+nuggetizer = Nuggetizer(model="gpt-4o")  # Uses same model for all components
 
-# Process the request
-nuggets, _ = nuggetizer.process(request)
-scored_nuggets = scorer.score(nuggets)
-assigned_nuggets = assigner.assign(documents[0].segment, scored_nuggets)
+# Option 2: Different models for each component
+nuggetizer_mixed = Nuggetizer(
+    creator_model="gpt-4o",  # Model for nugget creation
+    scorer_model="gpt-3.5-turbo",  # Model for nugget scoring
+    assigner_model="gpt-4o"  # Model for nugget assignment
+)
 
-# Print results
+# Create and score nuggets
+scored_nuggets = nuggetizer.create(request)
+
+# Print nuggets and their importance
+for nugget in scored_nuggets:
+    print(f"Nugget: {nugget.text}")
+    print(f"Importance: {nugget.importance}\n")
+
+# Assign nuggets to a specific document
+assigned_nuggets = nuggetizer.assign(documents[0].segment, scored_nuggets)
+
+# Print assignments
 for nugget in assigned_nuggets:
     print(f"Nugget: {nugget.text}")
     print(f"Importance: {nugget.importance}")
@@ -105,21 +114,17 @@ python3 examples/e2e.py
 
 ## 🛠️ Components
 
-1. **Nuggetizer**: Extracts atomic information nuggets from text
-2. **NuggetScorer**: Scores nuggets based on their importance
-3. **NuggetAssigner**: Assigns nuggets to specific text passages
+The Nuggetizer class provides a unified interface for:
 
-### Processing Pool and RAG Answer Files
+1. **Nugget Creation & Scoring**: Extracts and scores atomic information nuggets from text
+2. **Nugget Assignment**: Assigns nuggets to specific texts
 
-To generate nuggets with AutoNuggetizer on a pool file (`pool.jsonl`) and then assign them to RAG answers (`ragnarok.jsonl`), follow these steps:
+The following scripts are provided to help you with through the process for the TREC 2024 RAG Track:
 
-1. First, generate nuggets and score them:
+1. First, generate nuggets:
 ```bash
 # Extract nuggets
 python3 scripts/create_nuggets.py --input_file pool.jsonl --output_file nuggets.jsonl --log_level 1
-
-# Score the nuggets
-python3 scripts/score_nuggets.py --input_file nuggets.jsonl --output_file scored_nuggets.jsonl
 ```
 
 2. For RAG answers, we assume they take on the format laid out by the wonderful [TREC 2024 RAG Track](https://trec-rag.github.io/annoucements/2024-track-guidelines/):
@@ -158,7 +163,7 @@ Let's now assign the nuggets to the RAG answers:
 ```bash
 # Assign nuggets to RAG answers
 python3 scripts/assign_nuggets.py \
-    --nugget_file scored_nuggets.jsonl \
+    --nugget_file nuggets.jsonl \
     --answer_file ragnarok.jsonl \
     --output_file final_assignments.jsonl
 
@@ -183,34 +188,6 @@ The final metrics file (`metrics.jsonl`) will contain:
   - `vital_score`: Score counting full (1.0) and partial (0.5) support for vital nuggets
   - `all_score`: Score counting full (1.0) and partial (0.5) support for all nuggets
 - Global mean metrics across all responses (indicated by `qid` as `all`)
-
-### Advanced Configuration
-
-While the default configuration works out of the box, you can customize the behavior:
-
-```python
-# Custom window size and mode
-nuggetizer = Nuggetizer(
-    model="gpt-4o",
-    window_size=10,  # Process more documents at once
-    stride=10,        # Overlap between windows
-    max_nuggets=30   # Maximum number of nuggets to extract
-)
-
-# Custom scoring mode
-scorer = NuggetScorer(
-    model="gpt-4o",
-    mode=NuggetScoreMode.VITAL_OKAY,
-    window_size=20
-)
-
-# Custom assignment mode
-assigner = NuggetAssigner(
-    model="gpt-4o",
-    mode=NuggetAssignMode.SUPPORT_GRADE_3,  # 3-level support grading
-    window_size=15
-)
-```
 
 ## 🤝 Contributing
 

@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 from nuggetizer.core.types import Query, Document, Request
 from nuggetizer.models.nuggetizer import Nuggetizer
-from nuggetizer.models.scorer import NuggetScorer
-from nuggetizer.models.assigner import NuggetAssigner
 from nuggetizer.core.metrics import calculate_nugget_scores
 
 
@@ -51,30 +49,33 @@ def process_request(request: Request) -> None:
     """Process a request through the nuggetizer pipeline."""
     print("🚀 Initializing components...")
     # Initialize components - API keys and Azure config are loaded automatically
-    nuggetizer = Nuggetizer(model="gpt-4o")
-    scorer = NuggetScorer(model="gpt-4o")
-    assigner = NuggetAssigner(model="gpt-4o")
     
-    # Extract nuggets
-    print("\n📝 Extracting nuggets...")
-    nuggets, _ = nuggetizer.process(request)
-    print(f"Found {len(nuggets)} nuggets:")
-    for i, nugget in enumerate(nuggets, 1):
-        print(f"{i}. {nugget.text}")
+    # Option 1: Single model for all components
+    nuggetizer1 = Nuggetizer(model="gpt-4o")
     
-    # Score nuggets
-    print("\n⭐ Scoring nuggets...")
-    scored_nuggets = scorer.score(nuggets)
-    print("Nugget importance scores:")
-    for nugget in scored_nuggets:
-        print(f"- {nugget.text}: {nugget.importance}")
+    # Option 2: Different models for each component
+    nuggetizer2 = Nuggetizer(
+        creator_model="gpt-4o",
+        scorer_model="gpt-3.5-turbo",
+        assigner_model="gpt-4o"
+    )
+    
+    # Use nuggetizer1 for this example
+    nuggetizer = nuggetizer1
+    
+    # Extract and score nuggets
+    print("\n📝 Extracting and scoring nuggets...")
+    scored_nuggets = nuggetizer.create(request)
+    print(f"Found {len(scored_nuggets)} nuggets:")
+    for i, nugget in enumerate(scored_nuggets, 1):
+        print(f"{i}. {nugget.text} (Importance: {nugget.importance})")
     
     # Assign nuggets to documents
     print("\n🎯 Assigning nuggets to documents...")
     for doc in request.documents:
         print(f"\nDocument: {doc.docid}")
         print("Segment:", doc.segment)
-        assigned_nuggets = assigner.assign(doc.segment, scored_nuggets)
+        assigned_nuggets = nuggetizer.assign(doc.segment, scored_nuggets)
         print("\nAssignments:")
         for nugget in assigned_nuggets:
             print(f"- {nugget.text}")

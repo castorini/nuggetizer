@@ -50,21 +50,19 @@ def process_input_record(record: Dict) -> Request:
     return Request(query=query, documents=documents)
 
 
-def format_output(request: Request, nuggets: List[Dict], nugget_trajectory: List[List[Dict]] = None) -> Dict:
+def format_output(request: Request, scored_nuggets: List[Dict]) -> Dict:
     """Format output according to required schema."""
-    if nugget_trajectory is None:
-        return {
-            "query": request.query.text,
-            "qid": request.query.qid,
-            "nuggets": [{"text": n.text} for n in nuggets],
-        }
-    else:
-        return {
-            "query": request.query.text,
-            "qid": request.query.qid,
-            "nuggets": [{"text": n.text} for n in nuggets],
-            "nugget_trajectory": [[{"text": n.text} for n in nugget_list] for nugget_list in nugget_trajectory],
-        }
+    return {
+        "query": request.query.text,
+        "qid": request.query.qid,
+        "nuggets": [
+            {
+                "text": n.text,
+                "importance": n.importance
+            } 
+            for n in scored_nuggets
+        ]
+    }
 
 
 def get_processed_qids(output_file: str) -> set:
@@ -84,11 +82,14 @@ def get_processed_qids(output_file: str) -> set:
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Extract nuggets from input JSONL file')
-    parser.add_argument('--input_file', type=str, help='Path to input JSONL file')
-    parser.add_argument('--output_file', type=str, help='Path to output JSONL file')
-    parser.add_argument('--model', type=str, default='gpt-4o', help='Model to use for nugget extraction')
-    parser.add_argument('--store_trajectory', action='store_true', help='Store nugget trajectory')
+    parser = argparse.ArgumentParser(description='Extract and score nuggets from input JSONL file')
+    parser.add_argument('--input_file', type=str, required=True, help='Path to input JSONL file')
+    parser.add_argument('--output_file', type=str, required=True, help='Path to output JSONL file')
+    parser.add_argument('--model', type=str, default='gpt-4o', help='Model to use for all operations')
+    parser.add_argument('--creator_model', type=str, help='Model to use for nugget creation')
+    parser.add_argument('--scorer_model', type=str, help='Model to use for nugget scoring')
+    parser.add_argument('--window_size', type=int, help='Window size for processing')
+    parser.add_argument('--max_nuggets', type=int, help='Maximum number of nuggets to extract')
     parser.add_argument('--log_level', type=int, default=0, choices=[0, 1, 2],
                       help='Logging level: 0=warnings only, 1=info, 2=debug')
     args = parser.parse_args()
@@ -101,9 +102,26 @@ def main():
     processed_qids = get_processed_qids(args.output_file)
     logger.info("Found %d already processed records", len(processed_qids))
 
-    # Initialize nuggetizer
-    logger.info("Initializing Nuggetizer with model: %s", args.model)
-    nuggetizer = Nuggetizer(model=args.model, log_level=args.log_level)
+    # Initialize nuggetizer with all configurations
+    logger.info("Initializing Nuggetizer")
+    nuggetizer_kwargs = {
+        'log_level': args.log_level
+    }
+    
+    if args.creator_model or args.scorer_model:
+        nuggetizer_kwargs.update({
+            'creator_model': args.creator_model or args.model,
+            'scorer_model': args.scorer_model or args.model
+        })
+    else:
+        nuggetizer_kwargs['model'] = args.model
+        
+    if args.window_size:
+        nuggetizer_kwargs['window_size'] = args.window_size
+    if args.max_nuggets:
+        nuggetizer_kwargs['max_nuggets'] = args.max_nuggets
+        
+    nuggetizer = Nuggetizer(**nuggetizer_kwargs)
     
     # Process each record
     logger.info("Reading input file: %s", args.input_file)
@@ -119,14 +137,11 @@ def main():
             logger.info("Processing record %d/%d", i, len(input_data))
             try:
                 request = process_input_record(record)
-                nuggets, nugget_trajectory = nuggetizer.process(request)
-                if args.store_trajectory:
-                    output_record = format_output(request, nuggets, nugget_trajectory)
-                else:
-                    output_record = format_output(request, nuggets)
+                scored_nuggets = nuggetizer.create(request)
+                output_record = format_output(request, scored_nuggets)
                 f.write(json.dumps(output_record) + '\n')
-                f.flush()  # Ensure the record is written immediately
-                logger.info("Generated %d nuggets for record %d", len(nuggets), i)
+                f.flush()
+                logger.info("Generated %d nuggets for record %d", len(scored_nuggets), i)
             except Exception as e:
                 logger.error("Error processing record %s: %s", record['query']['qid'], str(e))
                 continue

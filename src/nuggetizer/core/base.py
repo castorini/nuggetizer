@@ -7,11 +7,27 @@ from .types import (
 
 class BaseNuggetizer(ABC):
     @abstractmethod
-    def process(self, request: Request) -> List[Nugget]:
+    def create(self, request: Request) -> List[ScoredNugget]:
         pass
 
     @abstractmethod
-    def process_batch(self, requests: List[Request]) -> List[List[Nugget]]:
+    def assign(
+        self, 
+        context: str, 
+        nuggets: List[ScoredNugget]
+    ) -> List[AssignedScoredNugget]:
+        pass
+
+    @abstractmethod
+    def create_batch(self, requests: List[Request]) -> List[List[ScoredNugget]]:
+        pass
+
+    @abstractmethod
+    def assign_batch(
+        self,
+        contexts: List[str],
+        nuggets_list: List[List[ScoredNugget]]
+    ) -> List[List[AssignedScoredNugget]]:
         pass
 
 class BaseNuggetScorer(ABC):
