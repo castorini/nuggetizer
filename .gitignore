@@ -1,4 +1,5 @@
 data/*
+dist/
 .env
 
 .DS_Store
