@@ -203,7 +203,7 @@ This project is built with the support of Azure and their OpenAI credits.
 
 ## ✨ References
 
-If you use RankLLM, please cite the following relevant papers:
+If you use Nuggetizer, please cite the following relevant papers:
 
 [[2411.09607] Initial Nugget Evaluation Results for the {TREC 2024 RAG Track} with the {AutoNuggetizer Framework}](https://arxiv.org/abs/2411.09607)
 
