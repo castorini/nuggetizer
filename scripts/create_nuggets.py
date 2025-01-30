@@ -44,7 +44,7 @@ def process_input_record(record: Dict) -> Request:
             docid=candidate['docid'],
             segment=candidate['doc']['segment']
         )
-        if 'judgment' in candidate and candidate['judgment'] > 0:
+        if 'judgment' not in candidate or ('judgment' in candidate and candidate['judgment'] > 0):
             documents.append(doc)
     
     return Request(query=query, documents=documents)
@@ -92,6 +92,7 @@ def main():
     parser.add_argument('--max_nuggets', type=int, help='Maximum number of nuggets to extract')
     parser.add_argument('--log_level', type=int, default=0, choices=[0, 1, 2],
                       help='Logging level: 0=warnings only, 1=info, 2=debug')
+    parser.add_argument('--use_azure_openai', action='store_true', help='Use Azure OpenAI')
     args = parser.parse_args()
 
     # Setup logging
@@ -105,7 +106,8 @@ def main():
     # Initialize nuggetizer with all configurations
     logger.info("Initializing Nuggetizer")
     nuggetizer_kwargs = {
-        'log_level': args.log_level
+        'log_level': args.log_level,
+        'use_azure_openai': args.use_azure_openai
     }
     
     if args.creator_model or args.scorer_model:

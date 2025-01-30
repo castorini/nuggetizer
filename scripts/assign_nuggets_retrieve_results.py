@@ -22,6 +22,7 @@ def setup_logging(log_level: int) -> None:
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
+
 def read_jsonl(file_path: str) -> List[Dict]:
     """Read JSONL file and return list of dictionaries."""
     data = []
@@ -31,34 +32,24 @@ def read_jsonl(file_path: str) -> List[Dict]:
     return data
 
 
-def get_run_id(file_path: str) -> str:
-    """Extract run_id from the filename by dropping the .jsonl extension."""
-    return Path(file_path).stem
-
-
-def process_record(answer_record: Dict, nugget_record: Dict, run_id: str, nuggetizer: Nuggetizer, logger: logging.Logger) -> Dict:
-    """Process records from answer and nugget files to create output record."""
-    # Construct answer text by joining all answer segments
-    answer_text = " ".join(a["text"] for a in answer_record["answer"])
-        
+def process_candidate(nugget_record: Dict, candidate: Dict, nuggetizer: Nuggetizer, logger: logging.Logger) -> Dict:
+    """Process a single candidate and assign nuggets to it."""
     # Convert nuggets to Nugget objects with importance scores
     nuggets = [
         ScoredNugget(text=n['text'], importance=n.get('importance', 'vital'))
         for n in nugget_record['nuggets']
     ]
-    
     logger.info("Processing query: %s (qid: %s)", nugget_record.get('query', 'N/A'), nugget_record.get('qid', 'N/A'))
-    logger.info("Assigning %d nuggets to answer text (length: %d)", len(nuggets), len(answer_text))
+    logger.info("Assigning %d nuggets to candidate text (length: %d)", len(nuggets), len(candidate['doc']['segment']))
     
-    assigned_nuggets = nuggetizer.assign(answer_text, nuggets)
+    assigned_nuggets = nuggetizer.assign(candidate['doc']['segment'], nuggets)
     
     # Create output record
     output_record = {
-        "query": nugget_record["query"],
+        "text": nugget_record["query"],
         "qid": nugget_record["qid"],
-        "answer_text": answer_text,
-        "response_length": answer_record["response_length"],
-        "run_id": run_id,
+        "candidate_text": candidate['doc']['segment'],
+        "docid": candidate['docid'],
         "nuggets": [
             {
                 "text": n.text,
@@ -79,44 +70,40 @@ def process_record(answer_record: Dict, nugget_record: Dict, run_id: str, nugget
     return output_record
 
 
-def get_processed_qids(output_file: str) -> set:
-    """Read the output file and return a set of already processed qids."""
-    processed_qids = set()
+def get_processed_entries(output_file: str) -> set:
+    """Read the output file and return a set of already processed (qid, docid) pairs."""
+    processed_entries = set()
     try:
         with open(output_file, 'r') as f:
             for line in f:
                 try:
                     record = json.loads(line)
-                    processed_qids.add(record['qid'])
+                    processed_entries.add((record['qid'], record['docid']))
                 except json.JSONDecodeError:
                     continue
     except FileNotFoundError:
         pass
-    return processed_qids
+    return processed_entries
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Assign nuggets to answer text from input JSONL files')
+    parser = argparse.ArgumentParser(description='Assign nuggets to retrieved candidate segments')
     parser.add_argument('--nugget_file', type=str, required=True, help='Path to nugget JSONL file')
-    parser.add_argument('--answer_file', type=str, required=True, help='Path to answer JSONL file')
+    parser.add_argument('--retrieve_results_file', type=str, required=True, help='Path to retrieval results JSONL file')
     parser.add_argument('--output_file', type=str, required=True, help='Path to output JSONL file')
-    parser.add_argument('--model', type=str, default='gpt-4o', help='Model to use for assignment')
-    parser.add_argument('--use_azure_openai', action='store_true', help='Use Azure OpenAI')
+    parser.add_argument('--model', type=str, default='gpt-4', help='Model to use for assignment')
     parser.add_argument('--log_level', type=int, default=0, choices=[0, 1, 2],
                       help='Logging level: 0=warnings only, 1=info, 2=debug')
+    parser.add_argument('--use_azure_openai', action='store_true', help='Use Azure OpenAI')
     args = parser.parse_args()
 
     # Setup logging
     setup_logging(args.log_level)
     logger = logging.getLogger(__name__)
 
-    # Get already processed qids
-    processed_qids = get_processed_qids(args.output_file)
-    logger.info("Found %d already processed records", len(processed_qids))
-
-    # Get run_id from answer file name
-    run_id = get_run_id(args.answer_file)
-    logger.info("Using run_id: %s", run_id)
+    # Get already processed entries
+    processed_entries = get_processed_entries(args.output_file)
+    logger.info("Found %d already processed entries", len(processed_entries))
     
     # Initialize nuggetizer (only using assigner component)
     logger.info("Initializing Nuggetizer with model: %s", args.model)
@@ -125,34 +112,46 @@ def main():
     # Read input files
     logger.info("Reading nugget file: %s", args.nugget_file)
     nugget_data = read_jsonl(args.nugget_file)
-    logger.info("Reading answer file: %s", args.answer_file)
-    answer_data = read_jsonl(args.answer_file)
-    qid_to_answer_data = {a['topic_id']: a for a in answer_data}
+    logger.info("Reading retrieval results file: %s", args.retrieve_results_file)
+    retrieve_data = read_jsonl(args.retrieve_results_file)
     
-    # Process each pair of records
-    logger.info("Processing %d record pairs", len(nugget_data))
+    # Create mapping from qid to nugget record
+    qid_to_nuggets = {record['qid']: record for record in nugget_data}
+    
+    # Process each retrieval result
+    logger.info("Processing retrieval results")
     
     with open(args.output_file, 'a') as f:
-        for i, nugget_record in enumerate(nugget_data, 1):
-            answer_record = qid_to_answer_data.get(nugget_record['qid'])
-            if answer_record is None:
-                answer_record = {"answer": [], "response_length": 0, "qid": nugget_record['qid']}
-                # Default to setting each nugget to not_support
-            if nugget_record['qid'] in processed_qids:
-                logger.info("Skipping already processed record %s", nugget_record['qid'])
+        for i, retrieve_record in enumerate(retrieve_data, 1):
+            qid = retrieve_record['query']['qid']
+            nugget_record = qid_to_nuggets.get(qid)
+            
+            if not nugget_record:
+                logger.warning(f"No nuggets found for qid {qid}")
                 continue
                 
-            logger.info("Processing record pair %d/%d", i, len(nugget_data))
-            try:
-                processed_record = process_record(answer_record, nugget_record, run_id, nuggetizer, logger)
-                f.write(json.dumps(processed_record) + '\n')
-                f.flush()  # Ensure the record is written immediately
-            except Exception as e:
-                logger.error("Error processing record %s: %s", nugget_record['qid'], str(e))
-                continue
+            # Process each candidate for this query
+            for candidate in retrieve_record['candidates']:
+                # Skip if already processed
+                if (qid, candidate['docid']) in processed_entries:
+                    logger.info("Skipping already processed entry (qid: %s, docid: %s)", 
+                              qid, candidate['docid'])
+                    continue
+                
+                logger.info("Processing candidate %d for query %s", 
+                          retrieve_record['candidates'].index(candidate) + 1, qid)
+                
+                try:
+                    processed_record = process_candidate(nugget_record, candidate, nuggetizer, logger)
+                    f.write(json.dumps(processed_record) + '\n')
+                    f.flush()  # Ensure the record is written immediately
+                except Exception as e:
+                    logger.error("Error processing candidate for qid %s, docid %s: %s", 
+                               qid, candidate['docid'], str(e))
+                    continue
     
     logger.info("Processing complete")
 
 
 if __name__ == '__main__':
-    main()
+    main() 

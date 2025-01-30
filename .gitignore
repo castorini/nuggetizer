@@ -18,5 +18,6 @@ __pycache__/
 */egg-info/
 */*/egg-info/
 */*/*/egg-info/
+src/nuggetizer.egg-info/
 
 *jsonl
