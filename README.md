@@ -112,6 +112,12 @@ You can also run a little more elaborate example with:
 python3 examples/e2e.py
 ```
 
+We also provide an async version of the Nuggetizer class, `AsyncNuggetizer`, in `src/nuggetizer/models/async_nuggetizer.py`. To run this example, use:
+
+```bash
+python3 examples/async_e2e.py
+```
+
 ## 🛠️ Components
 
 The Nuggetizer class provides a unified interface for:

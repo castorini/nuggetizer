@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 import argparse
+import asyncio
 import time
 
 from nuggetizer.core.types import Query, Document, Request
-from nuggetizer.models.nuggetizer import Nuggetizer
+from nuggetizer.models.async_nuggetizer import AsyncNuggetizer
 from nuggetizer.core.metrics import calculate_nugget_scores
 
 
@@ -98,13 +99,13 @@ def create_sample_request() -> Request:
 Conclusion
 
 Python's simplicity, versatility, vast ecosystem, and strong community support make it one of the most powerful and widely used programming languages across industries."""
-        )
+        ),
     ]
     
     return Request(query=query, documents=documents)
 
 
-def process_request(request: Request, model: str, use_azure_openai: bool) -> None:
+async def process_request(request: Request, model: str, use_azure_openai: bool) -> None:
     """Process a request through the nuggetizer pipeline."""
     start_time = time.time()
     
@@ -112,10 +113,10 @@ def process_request(request: Request, model: str, use_azure_openai: bool) -> Non
     # Initialize components - API keys and Azure config are loaded automatically
     
     # Option 1: Single model for all components
-    nuggetizer1 = Nuggetizer(model=model, use_azure_openai=use_azure_openai)
+    nuggetizer1 = AsyncNuggetizer(model=model, use_azure_openai=use_azure_openai)
     
     # Option 2: Different models for each component
-    nuggetizer2 = Nuggetizer(
+    nuggetizer2 = AsyncNuggetizer(
         creator_model="gpt-4o",
         scorer_model="gpt-3.5-turbo",
         assigner_model="gpt-4o",
@@ -128,23 +129,33 @@ def process_request(request: Request, model: str, use_azure_openai: bool) -> Non
     # Extract and score nuggets
     print("\n📝 Extracting and scoring nuggets...")
     create_start = time.time()
-    scored_nuggets = nuggetizer.create(request)
+    scored_nuggets = await nuggetizer.create(request)
     create_time = time.time() - create_start
     print(f"Found {len(scored_nuggets)} nuggets (took {create_time:.2f}s):")
     for i, nugget in enumerate(scored_nuggets, 1):
-        importance_emoji = "⭐" if nugget.importance == "vital" else "✔️"
+        importance_emoji = "⭐" if nugget.importance == "vital" else "✨"
         print(f"{i}. {importance_emoji} {nugget.text} (Importance: {nugget.importance})")
     
-    # Assign nuggets to documents
+    # Assign nuggets to documents in parallel
     print("\n🎯 Assigning nuggets to documents...")
     assign_start = time.time()
+    # Create tasks for parallel assignment
+    assignment_tasks = []
     for doc in request.documents:
         print(f"\nDocument: {doc.docid}")
         print("Segment:", doc.segment)
-        assigned_nuggets = nuggetizer.assign(doc.segment, scored_nuggets)
-        print("\nAssignments:")
+        assignment_tasks.append(nuggetizer.assign(doc.segment, scored_nuggets))
+    
+    # Run all assignments in parallel
+    assigned_nuggets_list = await asyncio.gather(*assignment_tasks)
+    assign_time = time.time() - assign_start
+    print(f"\nAssignment completed in {assign_time:.2f}s")
+    
+    # Process results
+    for doc, assigned_nuggets in zip(request.documents, assigned_nuggets_list):
+        print(f"\nAssignments for document: {doc.docid}")
         for nugget in assigned_nuggets:
-            importance_emoji = "⭐" if nugget.importance == "vital" else "✨"
+            importance_emoji = "⭐" if nugget.importance == "vital" else "✔️"
             assignment_emoji = {
                 "support": "✅",
                 "partial_support": "🟡",
@@ -170,7 +181,6 @@ def process_request(request: Request, model: str, use_azure_openai: bool) -> Non
         print(f"  Vital Score: {metrics.vital_score:.2f}")
         print(f"  All Score: {metrics.all_score:.2f}")
     
-    assign_time = time.time() - assign_start
     total_time = time.time() - start_time
     print(f"\n⏱️ Timing Summary:")
     print(f"  Creation time: {create_time:.2f}s")
@@ -178,19 +188,20 @@ def process_request(request: Request, model: str, use_azure_openai: bool) -> Non
     print(f"  Total time: {total_time:.2f}s")
 
 
-def main():
-    """Run the e2e example."""
-    parser = argparse.ArgumentParser(description='Run the e2e example')
+async def main():
+    """Run the async e2e example."""
+    parser = argparse.ArgumentParser(description='Run the async e2e example')
     parser.add_argument('--use_azure_openai', action='store_true', help='Use Azure OpenAI')
     parser.add_argument('--model', type=str, default="gpt-4o", help='Model to use')
     args = parser.parse_args()
 
-    print("🔧 Starting E2E Nuggetizer Example...")
+    print("🔧 Starting Async E2E Nuggetizer Example...")
     print(f"Using model: {args.model}")
+    
     request = create_sample_request()
-    process_request(request, args.model, args.use_azure_openai)
+    await process_request(request, args.model, args.use_azure_openai)
     print("\n✨ Example completed!")
 
 
 if __name__ == "__main__":
-    main() 
+    asyncio.run(main()) 
