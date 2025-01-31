@@ -305,10 +305,8 @@ Labels:"""
         return assigned_nuggets
 
     async def create_batch(self, requests: List[Request]) -> List[List[ScoredNugget]]:
-        results = []
-        for request in requests:
-            result = await self.create(request)
-            results.append(result)
+        tasks = [self.create(request) for request in requests]
+        results = await asyncio.gather(*tasks)
         return results
 
     async def assign_batch(

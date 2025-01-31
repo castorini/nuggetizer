@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 
 def get_openai_api_key() -> str:
     load_dotenv(dotenv_path=f".env")
-    return os.getenv("OPEN_AI_API_KEY")
+    openai_api_key = os.getenv("OPEN_AI_API_KEY") or os.getenv("OPENAI_API_KEY")
+    return openai_api_key
 
 
 def get_azure_openai_args() -> Dict[str, str]:
