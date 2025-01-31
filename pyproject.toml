@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nuggetizer"
-version = "0.0.3.1"
-description = "A package for Nuggetizer"
+version = "0.0.4"
+description = "A package for Nuggetizer - a tool for information nugget creation and assignment to LLM-generated answers."
 readme = "README.md"
 authors = [
     { name = "Ronak Pradeep", email = "rpradeep@uwaterloo.ca" },
@@ -15,7 +15,7 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
 ]
-keywords = ["Nuggetizer", "Fact Recall", "LLM", "Nuggets", "Fact Extraction"]
+keywords = ["Nuggetizer", "Fact Recall", "LLM", "Nuggets", "Fact Extraction", "RAG Evaluation", "Evaluation", "RAG"]
 dynamic = ["dependencies"]
 requires-python = ">= 3.10"
 
@@ -26,7 +26,7 @@ dependencies = {file = ["requirements.txt"]}
 Homepage = "https://github.com/castorini/nuggetizer"
 
 [tool.bumpver]
-current_version = "0.0.3.1"
+current_version = "0.0.4"
 version_pattern = "MAJOR.MINOR.PATCH"
 commit_message = "Bump version {old_version} -> {new_version}"
 commit = true

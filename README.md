@@ -205,7 +205,7 @@ This project is licensed under the Apache License - see the [LICENSE](LICENSE) f
 
 ## 🙏 Acknowledgments
 
-This project is built with the support of Azure and their OpenAI credits.
+This project is built with the support of Azure's OpenAI credits.
 
 ## ✨ References
 
