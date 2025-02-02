@@ -52,7 +52,7 @@ class AsyncLLMHandler:
         temperature: float = 0
     ) -> Tuple[str, int]:
         while True:
-            if "o1" in self.model:
+            if "o1" in self.model or "o3" in self.model:
                 # System message is not supported for o1 models
                 new_messages = messages[1:]
                 new_messages[0]["content"] = messages[0]["content"] + "\n" + messages[1]["content"]

@@ -51,7 +51,6 @@ class AsyncNuggetizer(BaseNuggetizer):
         self.creator_llm = AsyncLLMHandler(creator_model, api_keys, **llm_kwargs)
         self.scorer_llm = AsyncLLMHandler(scorer_model, api_keys, **llm_kwargs)
         self.assigner_llm = AsyncLLMHandler(assigner_model, api_keys, **llm_kwargs)
-        
         if max_nuggets is not None:
             self.creator_max_nuggets = max_nuggets
             self.scorer_max_nuggets = max_nuggets
@@ -62,6 +61,8 @@ class AsyncNuggetizer(BaseNuggetizer):
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO if log_level > 0 else logging.WARNING)
         self.log_level = log_level
+        if self.log_level >= 1:
+            self.logger.info(f"Initialized Nuggetizer with models: {creator_model}, {scorer_model}, {assigner_model}")
 
     def _create_nugget_prompt(self, request: Request, start: int, end: int, nuggets: List[str]) -> List[Dict[str, str]]:
         messages = [

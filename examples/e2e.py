@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 import argparse
 import time
-
+import logging
 from nuggetizer.core.types import Query, Document, Request
 from nuggetizer.models.nuggetizer import Nuggetizer
 from nuggetizer.core.metrics import calculate_nugget_scores
-
 
 def create_sample_request() -> Request:
     """Create a sample request with a query and documents."""
@@ -104,7 +103,7 @@ Python's simplicity, versatility, vast ecosystem, and strong community support m
     return Request(query=query, documents=documents)
 
 
-def process_request(request: Request, model: str, use_azure_openai: bool) -> None:
+def process_request(request: Request, model: str, use_azure_openai: bool, log_level: int) -> None:
     """Process a request through the nuggetizer pipeline."""
     start_time = time.time()
     
@@ -112,15 +111,16 @@ def process_request(request: Request, model: str, use_azure_openai: bool) -> Non
     # Initialize components - API keys and Azure config are loaded automatically
     
     # Option 1: Single model for all components
-    nuggetizer1 = Nuggetizer(model=model, use_azure_openai=use_azure_openai)
+    nuggetizer1 = Nuggetizer(model=model, use_azure_openai=use_azure_openai, log_level=log_level)
     
     # Option 2: Different models for each component
-    nuggetizer2 = Nuggetizer(
-        creator_model="gpt-4o",
-        scorer_model="gpt-3.5-turbo",
-        assigner_model="gpt-4o",
-        use_azure_openai=use_azure_openai
-    )
+    # nuggetizer2 = Nuggetizer(
+    #     creator_model="gpt-4o",
+    #     scorer_model="gpt-3.5-turbo",
+    #     assigner_model="gpt-4o",
+    #     use_azure_openai=use_azure_openai,
+    #     log_level=log_level
+    # )
     
     # Use nuggetizer1 for this example
     nuggetizer = nuggetizer1
@@ -183,12 +183,13 @@ def main():
     parser = argparse.ArgumentParser(description='Run the e2e example')
     parser.add_argument('--use_azure_openai', action='store_true', help='Use Azure OpenAI')
     parser.add_argument('--model', type=str, default="gpt-4o", help='Model to use')
+    parser.add_argument('--log_level', type=int, default=0, help='Log level')
     args = parser.parse_args()
 
     print("🔧 Starting E2E Nuggetizer Example...")
     print(f"Using model: {args.model}")
     request = create_sample_request()
-    process_request(request, args.model, args.use_azure_openai)
+    process_request(request, args.model, args.use_azure_openai, args.log_level)
     print("\n✨ Example completed!")
 
 
