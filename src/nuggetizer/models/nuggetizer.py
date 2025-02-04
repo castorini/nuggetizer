@@ -88,6 +88,7 @@ class Nuggetizer(BaseNuggetizer):
 Search Query: {request.query.text}
 Context:
 {context}
+Search Query: {request.query.text}
 Initial Nugget List: {nuggets}
 Initial Nugget List Length: {len(nuggets)}
 
