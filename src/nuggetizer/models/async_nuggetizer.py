@@ -83,68 +83,63 @@ class AsyncNuggetizer(BaseNuggetizer):
             for i, doc in enumerate(request.documents[start:end])
         ])
         
-        return f"""Update the list of atomic nuggets of information (1-12 words), if needed, so they best provide the information required for the query. Leverage only the initial list of nuggets (if exists) and the provided context (this is an iterative process).
+        return f"""Update the list of atomic nuggets of information (1-12 words), if needed, so they best provide the information required for the query. Leverage only the initial list of nuggets (if exists) and the provided context (this is an iterative process).  Return only the final list of all nuggets in a Pythonic list format (even if no updates). Make sure there is no redundant information. Ensure the updated nugget list has at most {self.creator_max_nuggets} nuggets (can be less), keeping only the most vital ones. Order them in decreasing order of importance. Prefer nuggets that provide more interesting information.
 
 Search Query: {request.query.text}
 Context:
 {context}
 Initial Nugget List: {nuggets}
+Initial Nugget List Length: {len(nuggets)}
 
-Return only the final list of all nuggets in a Pythonic list format. Make sure there is no redundant information. Ensure the updated nugget list has at most {self.creator_max_nuggets} nuggets, keeping only the most vital ones. Order them in decreasing order of importance.
-
+Only update the list of atomic nuggets (if needed, else return as is). Do not explain. Always answer in short nuggets (not questions). List in the form ["a", "b", ...] and a and b are strings with no mention of ".
 Updated Nugget List:"""
 
-    def _create_score_prompt(self, nuggets: List[Nugget]) -> List[Dict[str, str]]:
+    def _create_score_prompt(self, query: str, nuggets: List[Nugget]) -> List[Dict[str, str]]:
         messages = [
             {
                 "role": "system",
-                "content": "You are NuggetizeScoreLLM, an intelligent assistant that can label atomic nuggets based on their importance."
+                "content": "You are NuggetizeScoreLLM, an intelligent assistant that can label a list of atomic nuggets based on their importance for a given search query."
             },
             {
                 "role": "user",
-                "content": f"""Label each nugget as either 'vital' or 'okay' based on their importance. Vital nuggets represent concepts that must be present in a "good" answer, while okay nuggets contribute worthwhile but non-essential information.
+                "content": f"""Based on the query, label each of the {len(nuggets)} nuggets either a vital or okay based on the following criteria. Vital nuggets represent concepts that must be present in a “good” answer; on the other hand, okay nuggets contribute worthwhile information about the target but are not essential. Return the list of labels in a Pythonic list format (type: List[str]). The list should be in the same order as the input nuggets. Make sure to provide a label for each nugget.
 
-Nuggets to score:
-{[nugget.text for nugget in nuggets]}
+Search Query: {query}
+Nugget List: {[nugget.text for nugget in nuggets]}
 
-Return only a Python list of labels (["vital", "okay", ...]) in the same order as the input nuggets.
-
+Only return the list of labels (List[str]). Do not explain.
 Labels:"""
             }
         ]
         return messages
 
-    def _create_assign_prompt(self, context: str, nuggets: List[ScoredNugget]) -> List[Dict[str, str]]:
+    def _create_assign_prompt(self, query: str, context: str, nuggets: List[ScoredNugget]) -> List[Dict[str, str]]:
         messages = [
             {
                 "role": "system",
-                "content": "You are NuggetizeAssignerLLM, an intelligent assistant that can determine how well a passage supports given nuggets of information."
+                "content": "You are NuggetizeAssignerLLM, an intelligent assistant that can label a list of atomic nuggets based on if they are captured by a given passage."
             },
             {
                 "role": "user",
-                "content": self._get_assign_prompt_content(context, nuggets)
+                "content": self._get_assign_prompt_content(query, context, nuggets)
             }
         ]
         return messages
 
-    def _get_assign_prompt_content(self, context: str, nuggets: List[ScoredNugget]) -> str:
+    def _get_assign_prompt_content(self, query: str, context: str, nuggets: List[ScoredNugget]) -> str:
         nugget_texts = [nugget.text for nugget in nuggets]
         
         if self.assigner_mode == NuggetAssignMode.SUPPORT_GRADE_2:
-            instruction = """Label each nugget as either 'support' or 'not_support' based on whether it is fully supported by the passage."""
+            instruction = f"""Based on the query and passage, label each of the {len(nuggets)} nuggets either as support or not_support using the following criteria. A nugget that is fully captured in the passage should be labeled as support; otherwise, label them as not_support. Return the list of labels in a Pythonic list format (type: List[str]). The list should be in the same order as the input nuggets. Make sure to provide a label for each nugget."""
         else:
-            instruction = """Label each nugget as 'support' (fully supported), 'partial_support' (partially supported), or 'not_support' (not supported) based on how well it is supported by the passage."""
+            instruction = f"""Based on the query and passage, label each of the {len(nuggets)} nuggets either as support, partial_support, or not_support using the following criteria. A nugget that is fully captured in the passage should be labeled as support. A nugget that is partially captured in the passage should be labeled as partial_support. If the nugget is not captured at all, label it as not_support. Return the list of labels in a Pythonic list format (type: List[str]). The list should be in the same order as the input nuggets. Make sure to provide a label for each nugget."""
             
         return f"""{instruction}
 
-Passage:
-{context}
-
-Nuggets to assess:
-{nugget_texts}
-
-Return only a Python list of labels in the same order as the input nuggets.
-
+Search Query: {query}
+Passage: {context}
+Nugget List: {nugget_texts}
+Only return the list of labels (List[str]). Do not explain.
 Labels:"""
 
     async def create(self, request: Request) -> List[ScoredNugget]:
@@ -200,7 +195,7 @@ Labels:"""
             end = min(start + self.scorer_window_size, len(nuggets))
             window_nuggets = nuggets[start:end]
             
-            prompt = self._create_score_prompt(window_nuggets)
+            prompt = self._create_score_prompt(request.query.text, window_nuggets)
             trial_count = 500
             temperature = 0.0
             while trial_count > 0:
@@ -233,7 +228,7 @@ Labels:"""
             self.logger.info(f"Completed nugget creation with {len(scored_nuggets)} nuggets")
         return scored_nuggets
 
-    async def assign(self, context: str, nuggets: List[ScoredNugget]) -> List[AssignedScoredNugget]:
+    async def assign(self, query: str, context: str, nuggets: List[ScoredNugget]) -> List[AssignedScoredNugget]:
         if context.strip() == "":
             return [AssignedScoredNugget(text=nugget.text, importance=nugget.importance, assignment='not_support') for nugget in nuggets]
         
@@ -253,7 +248,7 @@ Labels:"""
             if self.log_level >= 1:
                 self.logger.info(f"Processing window of {len(window_nuggets)} nuggets")
 
-            prompt = self._create_assign_prompt(context, window_nuggets)
+            prompt = self._create_assign_prompt(query, context, window_nuggets)
             if self.log_level >= 2:
                 self.logger.info(f"Generated prompt:\n{prompt}")
 
@@ -312,10 +307,11 @@ Labels:"""
 
     async def assign_batch(
         self,
+        queries: List[str],
         contexts: List[str],
         nuggets_list: List[List[ScoredNugget]]
     ) -> List[List[AssignedScoredNugget]]:
         # Create tasks for each context and nuggets list
-        tasks = [self.assign(context, nuggets) for context, nuggets in zip(contexts, nuggets_list)]
+        tasks = [self.assign(query, context, nuggets) for query, context, nuggets in zip(queries, contexts, nuggets_list)]
         results = await asyncio.gather(*tasks)
         return results 

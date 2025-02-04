@@ -98,7 +98,7 @@ for nugget in scored_nuggets:
     print(f"Importance: {nugget.importance}\n")
 
 # Assign nuggets to a specific document
-assigned_nuggets = nuggetizer.assign(documents[0].segment, scored_nuggets)
+assigned_nuggets = nuggetizer.assign(query.text, documents[0].segment, scored_nuggets)
 
 # Print assignments
 for nugget in assigned_nuggets:

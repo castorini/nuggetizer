@@ -146,7 +146,7 @@ async def process_request(request: Request, model: str, use_azure_openai: bool, 
     for doc in request.documents:
         print(f"\nDocument: {doc.docid}")
         print("Segment:", doc.segment)
-        assignment_tasks.append(nuggetizer.assign(doc.segment, scored_nuggets))
+        assignment_tasks.append(nuggetizer.assign(request.query.text, doc.segment, scored_nuggets))
     
     # Run all assignments in parallel
     assigned_nuggets_list = await asyncio.gather(*assignment_tasks)
@@ -157,7 +157,7 @@ async def process_request(request: Request, model: str, use_azure_openai: bool, 
     for doc, assigned_nuggets in zip(request.documents, assigned_nuggets_list):
         print(f"\nAssignments for document: {doc.docid}")
         for nugget in assigned_nuggets:
-            importance_emoji = "⭐" if nugget.importance == "vital" else "✔️"
+            importance_emoji = "⭐" if nugget.importance == "vital" else "✨"
             assignment_emoji = {
                 "support": "✅",
                 "partial_support": "🟡",

@@ -141,7 +141,7 @@ def process_request(request: Request, model: str, use_azure_openai: bool, log_le
     for doc in request.documents:
         print(f"\nDocument: {doc.docid}")
         print("Segment:", doc.segment)
-        assigned_nuggets = nuggetizer.assign(doc.segment, scored_nuggets)
+        assigned_nuggets = nuggetizer.assign(request.query.text, doc.segment, scored_nuggets)
         print("\nAssignments:")
         for nugget in assigned_nuggets:
             importance_emoji = "⭐" if nugget.importance == "vital" else "✨"
