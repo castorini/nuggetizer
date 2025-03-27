@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nuggetizer"
-version = "0.0.4"
+version = "0.0.6"
 description = "A package for Nuggetizer - a tool for information nugget creation and assignment to LLM-generated answers."
 readme = "README.md"
 authors = [
@@ -26,7 +26,7 @@ dependencies = {file = ["requirements.txt"]}
 Homepage = "https://github.com/castorini/nuggetizer"
 
 [tool.bumpver]
-current_version = "0.0.4"
+current_version = "0.0.6"
 version_pattern = "MAJOR.MINOR.PATCH"
 commit_message = "Bump version {old_version} -> {new_version}"
 commit = true

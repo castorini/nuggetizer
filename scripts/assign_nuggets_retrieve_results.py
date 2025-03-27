@@ -2,7 +2,6 @@
 import argparse
 import json
 import logging
-from pathlib import Path
 from typing import Dict, List
 
 from nuggetizer.core.types import ScoredNugget
@@ -42,7 +41,9 @@ def process_candidate(nugget_record: Dict, candidate: Dict, nuggetizer: Nuggetiz
     logger.info("Processing query: %s (qid: %s)", nugget_record.get('query', 'N/A'), nugget_record.get('qid', 'N/A'))
     logger.info("Assigning %d nuggets to candidate text (length: %d)", len(nuggets), len(candidate['doc']['segment']))
     
-    assigned_nuggets = nuggetizer.assign(candidate['doc']['segment'], nuggets)
+    assigned_nuggets = nuggetizer.assign(candidate['doc']['segment'], 
+                                         context=candidate['doc']['context'],
+                                         nuggets=nuggets)
     
     # Create output record
     output_record = {

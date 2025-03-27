@@ -1,4 +1,4 @@
-from typing import List, Dict, Union
+from typing import List, Dict
 from dataclasses import dataclass
 from statistics import mean
 
@@ -40,7 +40,7 @@ def calculate_nugget_scores(qid: str, nuggets: List[Dict]) -> NuggetMetrics:
     )
 
 
-def calculate_global_metrics(records: List[Dict]) -> Dict[str, float]:
+def calculate_global_metrics(records: List[Dict]) -> Dict[str, float | str]:
     """Calculate global mean metrics across all responses."""
     metrics_list = [calculate_nugget_scores(record['qid'], record['nuggets']) for record in records]
     

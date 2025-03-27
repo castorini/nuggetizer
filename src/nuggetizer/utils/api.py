@@ -5,13 +5,13 @@ from dotenv import load_dotenv
 
 
 def get_openai_api_key() -> str:
-    load_dotenv(dotenv_path=f".env")
+    load_dotenv(dotenv_path=".env")
     openai_api_key = os.getenv("OPEN_AI_API_KEY") or os.getenv("OPENAI_API_KEY")
     return openai_api_key
 
 
 def get_azure_openai_args() -> Dict[str, str]:
-    load_dotenv(dotenv_path=f".env")
+    load_dotenv(dotenv_path=".env")
     azure_args = {
         "api_type": "azure",
         "api_version": os.getenv("AZURE_OPENAI_API_VERSION"),
@@ -27,10 +27,10 @@ def get_azure_openai_args() -> Dict[str, str]:
 
 
 def get_cohere_api_key() -> str:
-    load_dotenv(dotenv_path=f".env.local")
+    load_dotenv(dotenv_path=".env.local")
     return os.getenv("CO_API_KEY")
 
 
 def get_anyscale_api_key() -> str:
-    load_dotenv(dotenv_path=f".env.local")
+    load_dotenv(dotenv_path=".env.local")
     return os.getenv("ANYSCALE_API_KEY")

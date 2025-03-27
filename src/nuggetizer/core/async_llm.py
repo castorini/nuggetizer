@@ -1,4 +1,3 @@
-import os
 import time
 from typing import Dict, List, Optional, Union, Tuple
 import tiktoken
@@ -69,7 +68,7 @@ class AsyncLLMHandler:
                 response = completion.choices[0].message.content
                 try:
                     encoding = tiktoken.get_encoding(self.model)
-                except:
+                except Exception:
                     encoding = tiktoken.get_encoding("cl100k_base")
                 return response, len(encoding.encode(response))
             except Exception as e:
