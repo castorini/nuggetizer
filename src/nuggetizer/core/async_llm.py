@@ -69,7 +69,7 @@ class AsyncLLMHandler:
                 try:
                     # For newer models like gpt-4o that may not have specific encodings yet
                     if "gpt-4o" in self.model:
-                        encoding = tiktoken.get_encoding("cl100k_base")
+                        encoding = tiktoken.get_encoding("o200k_base")
                     else:
                         encoding = tiktoken.get_encoding(self.model)
                 except Exception:
