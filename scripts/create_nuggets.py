@@ -2,7 +2,7 @@
 import argparse
 import json
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from nuggetizer.core.types import Query, Document, Request
 from nuggetizer.models.nuggetizer import Nuggetizer
@@ -49,7 +49,12 @@ def process_input_record(record: Dict) -> Request:
     return Request(query=query, documents=documents)
 
 
-def format_output(request: Request, scored_nuggets: List[Dict]) -> Dict:
+class ScoredNugget:
+    text: str
+    importance: str
+    assignment: Optional[str] = None
+
+def format_output(request: Request, scored_nuggets: List[ScoredNugget]) -> Dict:
     """Format output according to required schema."""
     return {
         "query": request.query.text,

@@ -46,11 +46,12 @@ def process_record(answer_record: Dict, nugget_record: Dict, run_id: str, nugget
         ScoredNugget(text=n['text'], importance=n.get('importance', 'vital'))
         for n in nugget_record['nuggets']
     ]
+    query = nugget_record.get('query', 'N/A')
     
-    logger.info("Processing query: %s (qid: %s)", nugget_record.get('query', 'N/A'), nugget_record.get('qid', 'N/A'))
+    logger.info("Processing query: %s (qid: %s)", query, nugget_record.get('qid', 'N/A'))
     logger.info("Assigning %d nuggets to answer text (length: %d)", len(nuggets), len(answer_text))
     
-    assigned_nuggets = nuggetizer.assign(answer_text, nuggets=nuggets)
+    assigned_nuggets = nuggetizer.assign(query, answer_text, nuggets=nuggets)
     
     # Create output record
     output_record = {

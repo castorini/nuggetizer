@@ -25,18 +25,20 @@ class AsyncNuggetizer(BaseNuggetizer):
         scorer_mode: NuggetScoreMode = NuggetScoreMode.VITAL_OKAY,
         assigner_mode: NuggetAssignMode = NuggetAssignMode.SUPPORT_GRADE_3,
         window_size: Optional[int] = None,
-        creator_window_size: Optional[int] = 10,
-        scorer_window_size: Optional[int] = 10,
-        assigner_window_size: Optional[int] = 10,
+        creator_window_size: int = 10,
+        scorer_window_size: int = 10,
+        assigner_window_size: int = 10,
         max_nuggets: Optional[int] = None,
-        creator_max_nuggets: Optional[int] = 30,
-        scorer_max_nuggets: Optional[int] = 30,
+        creator_max_nuggets: int = 30,
+        scorer_max_nuggets: int = 30,
         log_level: int = 0,
         **llm_kwargs
     ):
         self.creator_mode = creator_mode
         self.scorer_mode = scorer_mode
         self.assigner_mode = assigner_mode
+        
+        # Initialize window sizes
         if window_size is not None:
             self.creator_window_size = window_size
             self.scorer_window_size = window_size
@@ -52,9 +54,19 @@ class AsyncNuggetizer(BaseNuggetizer):
             scorer_model = model
             assigner_model = model
 
+        # Ensure models are not None before creating handlers
+        if creator_model is None:
+            creator_model = "gpt-4o"
+        if scorer_model is None:
+            scorer_model = "gpt-4o"
+        if assigner_model is None:
+            assigner_model = "gpt-4o"
+            
         self.creator_llm = AsyncLLMHandler(creator_model, api_keys, **llm_kwargs)
         self.scorer_llm = AsyncLLMHandler(scorer_model, api_keys, **llm_kwargs)
         self.assigner_llm = AsyncLLMHandler(assigner_model, api_keys, **llm_kwargs)
+        
+        # Initialize max nuggets
         if max_nuggets is not None:
             self.creator_max_nuggets = max_nuggets
             self.scorer_max_nuggets = max_nuggets
@@ -83,7 +95,14 @@ class AsyncNuggetizer(BaseNuggetizer):
     def _get_assign_prompt_content(self, query: str, context: str, nuggets: List[ScoredNugget]) -> str:
         return get_assign_prompt_content(query, context, nuggets, self.assigner_mode)
 
-    async def create(self, request: Request) -> List[ScoredNugget]:
+    # Implement BaseNuggetizer methods with sync wrappers
+    def create(self, request: Request) -> List[ScoredNugget]:
+        """Synchronous wrapper for async_create. Not meant to be used directly."""
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(self.async_create(request))
+        
+    async def async_create(self, request: Request) -> List[ScoredNugget]:
+        """Asynchronous implementation of create method."""
         if self.log_level >= 1:
             self.logger.info("Starting nugget creation process")
             self.logger.info(f"Processing request with {len(request.documents)} documents")
@@ -168,8 +187,14 @@ class AsyncNuggetizer(BaseNuggetizer):
         if self.log_level >= 1:
             self.logger.info(f"Completed nugget creation with {len(scored_nuggets)} nuggets")
         return scored_nuggets
-
-    async def assign(self, query: str, context: str, nuggets: List[ScoredNugget]) -> List[AssignedScoredNugget]:
+        
+    def assign(self, query: str, context: str, nuggets: List[ScoredNugget]) -> List[AssignedScoredNugget]:
+        """Synchronous wrapper for async_assign. Not meant to be used directly."""
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(self.async_assign(query, context, nuggets))
+        
+    async def async_assign(self, query: str, context: str, nuggets: List[ScoredNugget]) -> List[AssignedScoredNugget]:
+        """Asynchronous implementation of assign method."""
         if context.strip() == "":
             return [AssignedScoredNugget(text=nugget.text, importance=nugget.importance, assignment='not_support') for nugget in nuggets]
         
@@ -240,19 +265,36 @@ class AsyncNuggetizer(BaseNuggetizer):
         if self.log_level >= 1:
             self.logger.info(f"Completed assignment process with {len(assigned_nuggets)} nuggets")
         return assigned_nuggets
-
-    async def create_batch(self, requests: List[Request]) -> List[List[ScoredNugget]]:
-        tasks = [self.create(request) for request in requests]
+        
+    def create_batch(self, requests: List[Request]) -> List[List[ScoredNugget]]:
+        """Synchronous wrapper for async_create_batch. Not meant to be used directly."""
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(self.async_create_batch(requests))
+        
+    async def async_create_batch(self, requests: List[Request]) -> List[List[ScoredNugget]]:
+        """Asynchronous implementation of create_batch method."""
+        tasks = [self.async_create(request) for request in requests]
         results = await asyncio.gather(*tasks)
         return results
-
-    async def assign_batch(
+        
+    def assign_batch(
         self,
         queries: List[str],
         contexts: List[str],
         nuggets_list: List[List[ScoredNugget]]
     ) -> List[List[AssignedScoredNugget]]:
+        """Synchronous wrapper for async_assign_batch. Not meant to be used directly."""
+        loop = asyncio.get_event_loop()
+        return loop.run_until_complete(self.async_assign_batch(queries, contexts, nuggets_list))
+        
+    async def async_assign_batch(
+        self,
+        queries: List[str],
+        contexts: List[str],
+        nuggets_list: List[List[ScoredNugget]]
+    ) -> List[List[AssignedScoredNugget]]:
+        """Asynchronous implementation of assign_batch method."""
         # Create tasks for each context and nuggets list
-        tasks = [self.assign(query, context, nuggets) for query, context, nuggets in zip(queries, contexts, nuggets_list)]
+        tasks = [self.async_assign(query, context, nuggets) for query, context, nuggets in zip(queries, contexts, nuggets_list)]
         results = await asyncio.gather(*tasks)
         return results 

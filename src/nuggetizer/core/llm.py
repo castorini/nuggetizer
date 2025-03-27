@@ -1,4 +1,3 @@
-import os
 import time
 from typing import Dict, List, Optional, Union, Tuple
 import tiktoken
@@ -67,12 +66,18 @@ class LLMHandler:
                 )
                 response = completion.choices[0].message.content
                 try:
-                    encoding = tiktoken.get_encoding(self.model)
-                except:
+                    # For newer models like gpt-4o that may not have specific encodings yet
+                    if "gpt-4o" in self.model:
+                        encoding = tiktoken.get_encoding("cl100k_base")
+                    else:
+                        encoding = tiktoken.get_encoding(self.model)
+                except Exception as e:
+                    print(f"Error: {str(e)}")
                     encoding = tiktoken.get_encoding("cl100k_base")
                 return response, len(encoding.encode(response))
             except Exception as e:
                 print(f"Error: {str(e)}")
-                self.current_key_idx = (self.current_key_idx + 1) % len(self.api_keys)
-                self.client.api_key = self.api_keys[self.current_key_idx]
+                if self.api_keys is not None:
+                    self.current_key_idx = (self.current_key_idx + 1) % len(self.api_keys)
+                    self.client.api_key = self.api_keys[self.current_key_idx]
                 time.sleep(0.1)

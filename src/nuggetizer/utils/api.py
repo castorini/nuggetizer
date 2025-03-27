@@ -1,16 +1,16 @@
 import os
-from typing import Dict
+from typing import Dict, Optional
 
 from dotenv import load_dotenv
 
 
-def get_openai_api_key() -> str:
+def get_openai_api_key() -> Optional[str]:
     load_dotenv(dotenv_path=".env")
     openai_api_key = os.getenv("OPEN_AI_API_KEY") or os.getenv("OPENAI_API_KEY")
     return openai_api_key
 
 
-def get_azure_openai_args() -> Dict[str, str]:
+def get_azure_openai_args() -> Dict[str, Optional[str]]:
     load_dotenv(dotenv_path=".env")
     azure_args = {
         "api_type": "azure",
@@ -23,14 +23,20 @@ def get_azure_openai_args() -> Dict[str, str]:
     assert all(
         list(azure_args.values())
     ), "Ensure that `AZURE_OPENAI_API_BASE`, `AZURE_OPENAI_API_VERSION` are set"
-    return azure_args
+    for key, value in azure_args.items():
+        if value is None:
+            raise ValueError(f"{key} not found in environment variables")
+    else:
+        return azure_args
 
 
-def get_cohere_api_key() -> str:
+def get_cohere_api_key() -> Optional[str]:
     load_dotenv(dotenv_path=".env.local")
-    return os.getenv("CO_API_KEY")
+    co_api_key = os.getenv("CO_API_KEY")
+    return co_api_key
 
 
-def get_anyscale_api_key() -> str:
+def get_anyscale_api_key() -> Optional[str]:
     load_dotenv(dotenv_path=".env.local")
-    return os.getenv("ANYSCALE_API_KEY")
+    anyscale_api_key = os.getenv("ANYSCALE_API_KEY")
+    return anyscale_api_key

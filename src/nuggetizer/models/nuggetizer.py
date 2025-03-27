@@ -24,18 +24,20 @@ class Nuggetizer(BaseNuggetizer):
         scorer_mode: NuggetScoreMode = NuggetScoreMode.VITAL_OKAY,
         assigner_mode: NuggetAssignMode = NuggetAssignMode.SUPPORT_GRADE_3,
         window_size: Optional[int] = None,
-        creator_window_size: Optional[int] = 10,
-        scorer_window_size: Optional[int] = 10,
-        assigner_window_size: Optional[int] = 10,
+        creator_window_size: int = 10,
+        scorer_window_size: int = 10,
+        assigner_window_size: int = 10,
         max_nuggets: Optional[int] = None,
-        creator_max_nuggets: Optional[int] = 30,
-        scorer_max_nuggets: Optional[int] = 30,
+        creator_max_nuggets: int = 30,
+        scorer_max_nuggets: int = 30,
         log_level: int = 0,
         **llm_kwargs
     ):
         self.creator_mode = creator_mode
         self.scorer_mode = scorer_mode
         self.assigner_mode = assigner_mode
+        
+        # Initialize window sizes
         if window_size is not None:
             self.creator_window_size = window_size
             self.scorer_window_size = window_size
@@ -51,10 +53,19 @@ class Nuggetizer(BaseNuggetizer):
             scorer_model = model
             assigner_model = model
 
+        # Ensure models are not None before creating handlers
+        if creator_model is None:
+            creator_model = "gpt-4o"
+        if scorer_model is None:
+            scorer_model = "gpt-4o"
+        if assigner_model is None:
+            assigner_model = "gpt-4o"
+            
         self.creator_llm = LLMHandler(creator_model, api_keys, **llm_kwargs)
         self.scorer_llm = LLMHandler(scorer_model, api_keys, **llm_kwargs)
         self.assigner_llm = LLMHandler(assigner_model, api_keys, **llm_kwargs)
         
+        # Initialize max nuggets
         if max_nuggets is not None:
             self.creator_max_nuggets = max_nuggets
             self.scorer_max_nuggets = max_nuggets

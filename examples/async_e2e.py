@@ -2,7 +2,6 @@
 import argparse
 import asyncio
 import time
-import logging
 
 from nuggetizer.core.types import Query, Document, Request
 from nuggetizer.models.async_nuggetizer import AsyncNuggetizer
@@ -131,7 +130,7 @@ async def process_request(request: Request, model: str, use_azure_openai: bool, 
     # Extract and score nuggets
     print("\n📝 Extracting and scoring nuggets...")
     create_start = time.time()
-    scored_nuggets = await nuggetizer.create(request)
+    scored_nuggets = await nuggetizer.async_create(request)
     create_time = time.time() - create_start
     print(f"Found {len(scored_nuggets)} nuggets (took {create_time:.2f}s):")
     for i, nugget in enumerate(scored_nuggets, 1):
@@ -146,7 +145,7 @@ async def process_request(request: Request, model: str, use_azure_openai: bool, 
     for doc in request.documents:
         print(f"\nDocument: {doc.docid}")
         print("Segment:", doc.segment)
-        assignment_tasks.append(nuggetizer.assign(request.query.text, doc.segment, scored_nuggets))
+        assignment_tasks.append(nuggetizer.async_assign(request.query.text, doc.segment, scored_nuggets))
     
     # Run all assignments in parallel
     assigned_nuggets_list = await asyncio.gather(*assignment_tasks)
@@ -184,7 +183,7 @@ async def process_request(request: Request, model: str, use_azure_openai: bool, 
         print(f"  All Score: {metrics.all_score:.2f}")
     
     total_time = time.time() - start_time
-    print(f"\n⏱️ Timing Summary:")
+    print("\n⏱️ Timing Summary:")
     print(f"  Creation time: {create_time:.2f}s")
     print(f"  Assignment time: {assign_time:.2f}s")
     print(f"  Total time: {total_time:.2f}s")
