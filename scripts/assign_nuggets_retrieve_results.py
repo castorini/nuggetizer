@@ -41,8 +41,8 @@ def process_candidate(nugget_record: Dict, candidate: Dict, nuggetizer: Nuggetiz
     logger.info("Processing query: %s (qid: %s)", nugget_record.get('query', 'N/A'), nugget_record.get('qid', 'N/A'))
     logger.info("Assigning %d nuggets to candidate text (length: %d)", len(nuggets), len(candidate['doc']['segment']))
     
-    assigned_nuggets = nuggetizer.assign(candidate['doc']['segment'], 
-                                         context=candidate['doc']['context'],
+    assigned_nuggets = nuggetizer.assign(query=nugget_record.get('query', 'N/A'), 
+                                         context=candidate['doc']['segment'],
                                          nuggets=nuggets)
     
     # Create output record
