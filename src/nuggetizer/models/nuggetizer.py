@@ -121,6 +121,10 @@ class Nuggetizer(BaseNuggetizer):
                     response, _ = self.creator_llm.run(prompt, temperature=temperature)
                     if self.log_level >= 2:
                         self.logger.info(f"Raw LLM response:\n{response}")
+                except Exception as e:
+                    self.logger.error(f"Failed to create nuggets: {str(e)}")
+                    break
+                try:
                     response = response.replace("```python", "").replace("```", "").strip()
                     nugget_texts = ast.literal_eval(response)
                     current_nuggets = nugget_texts[:self.creator_max_nuggets]  # Ensure max nuggets
@@ -154,8 +158,15 @@ class Nuggetizer(BaseNuggetizer):
                 try:
                     response, _ = self.scorer_llm.run(prompt, temperature=temperature)
                     response = response.replace("```python", "").replace("```", "").strip()
+                except Exception as e:
+                    self.logger.error(f"Failed to score nuggets: {str(e)}")
+                    scored_nuggets.extend([
+                        ScoredNugget(text=nugget.text, importance="failed")
+                        for nugget in window_nuggets
+                    ])
+                    break
+                try:
                     importance_labels = ast.literal_eval(response)
-                
                     for nugget, importance in zip(window_nuggets, importance_labels):
                         scored_nuggets.append(
                             ScoredNugget(text=nugget.text, importance=importance.lower())
@@ -211,6 +222,14 @@ class Nuggetizer(BaseNuggetizer):
                     response, _ = self.assigner_llm.run(prompt, temperature=temperature)
                     if self.log_level >= 2:
                         self.logger.info(f"Raw LLM response:\n{response}")
+                except:
+                    self.logger.error(f"Failed to assign nuggets: {str(e)}")
+                    assigned_nuggets.extend([
+                        AssignedScoredNugget(text=nugget.text, importance=nugget.importance, assignment="failed")
+                        for nugget in window_nuggets
+                    ])
+                    break
+                try:
                     response = response.replace("```python", "").replace("```", "").strip()
                     assignments = ast.literal_eval(response)
                     for nugget, assignment in zip(window_nuggets, assignments):

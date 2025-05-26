@@ -49,7 +49,8 @@ class LLMHandler:
         messages: List[Dict[str, str]], 
         temperature: float = 0
     ) -> Tuple[str, int]:
-        while True:
+        remaining_retry = 5
+        while remaining_retry > 0:
             if "o1" in self.model:
                 # System message is not supported for o1 models
                 new_messages = messages[1:]
@@ -57,6 +58,7 @@ class LLMHandler:
                 messages = new_messages[:]
                 temperature = 1.0
             try:
+                completion = None
                 completion = self.client.chat.completions.create(
                     model=self.model,
                     messages=messages,
@@ -67,7 +69,7 @@ class LLMHandler:
                 response = completion.choices[0].message.content
                 try:
                     # For newer models like gpt-4o that may not have specific encodings yet
-                    if "gpt-4o" in self.model:
+                    if "gpt-4o" in self.model or "gpt-4.1" in self.model:
                         encoding = tiktoken.get_encoding("o200k_base")
                     else:
                         encoding = tiktoken.get_encoding(self.model)
@@ -77,6 +79,12 @@ class LLMHandler:
                 return response, len(encoding.encode(response))
             except Exception as e:
                 print(f"Error: {str(e)}")
+                remaining_retry -= 1
+                if remaining_retry <= 0:
+                    raise RuntimeError("Reached max of 5 retries")
+                # Don't retry in case of safety trigger.
+                if completion and completion.choices and completion.choices[0].finish_reason == "content_filter":
+                    raise ValueError("Request blocked by content filter")
                 if self.api_keys is not None:
                     self.current_key_idx = (self.current_key_idx + 1) % len(self.api_keys)
                     self.client.api_key = self.api_keys[self.current_key_idx]
