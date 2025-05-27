@@ -167,6 +167,7 @@ class Nuggetizer(BaseNuggetizer):
                 try:
                     response = response.replace("```python", "").replace("```", "").strip()
                     importance_labels = ast.literal_eval(response)
+
                     for nugget, importance in zip(window_nuggets, importance_labels):
                         scored_nuggets.append(
                             ScoredNugget(text=nugget.text, importance=importance.lower())

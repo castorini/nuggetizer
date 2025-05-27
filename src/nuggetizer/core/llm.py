@@ -81,7 +81,7 @@ class LLMHandler:
                 print(f"LLM Inference Error: {str(e)}")
                 remaining_retry -= 1
                 if remaining_retry <= 0:
-                    raise RuntimeError("Reached max of 5 retries")
+                    raise RuntimeError("Reached max of 5 retries.")
                 # Don't retry in case of safety trigger.
                 if completion and completion.choices and completion.choices[0].finish_reason == "content_filter":
                     raise ValueError("Request blocked by content filter.")
