@@ -157,7 +157,6 @@ class Nuggetizer(BaseNuggetizer):
             while trial_count > 0:
                 try:
                     response, _ = self.scorer_llm.run(prompt, temperature=temperature)
-                    response = response.replace("```python", "").replace("```", "").strip()
                 except Exception as e:
                     self.logger.error(f"Failed to score nuggets: {str(e)}")
                     scored_nuggets.extend([
@@ -166,6 +165,7 @@ class Nuggetizer(BaseNuggetizer):
                     ])
                     break
                 try:
+                    response = response.replace("```python", "").replace("```", "").strip()
                     importance_labels = ast.literal_eval(response)
                     for nugget, importance in zip(window_nuggets, importance_labels):
                         scored_nuggets.append(
@@ -222,7 +222,7 @@ class Nuggetizer(BaseNuggetizer):
                     response, _ = self.assigner_llm.run(prompt, temperature=temperature)
                     if self.log_level >= 2:
                         self.logger.info(f"Raw LLM response:\n{response}")
-                except:
+                except Exception as e:
                     self.logger.error(f"Failed to assign nuggets: {str(e)}")
                     assigned_nuggets.extend([
                         AssignedScoredNugget(text=nugget.text, importance=nugget.importance, assignment="failed")

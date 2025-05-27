@@ -63,7 +63,7 @@ class LLMHandler:
                     model=self.model,
                     messages=messages,
                     temperature=temperature,
-                    max_completion_tokens=2048,
+                    max_completion_tokens=4096,
                     timeout=30
                 )
                 response = completion.choices[0].message.content
@@ -78,13 +78,13 @@ class LLMHandler:
                     encoding = tiktoken.get_encoding("cl100k_base")
                 return response, len(encoding.encode(response))
             except Exception as e:
-                print(f"Error: {str(e)}")
+                print(f"LLM Inference Error: {str(e)}")
                 remaining_retry -= 1
                 if remaining_retry <= 0:
                     raise RuntimeError("Reached max of 5 retries")
                 # Don't retry in case of safety trigger.
                 if completion and completion.choices and completion.choices[0].finish_reason == "content_filter":
-                    raise ValueError("Request blocked by content filter")
+                    raise ValueError("Request blocked by content filter.")
                 if self.api_keys is not None:
                     self.current_key_idx = (self.current_key_idx + 1) % len(self.api_keys)
                     self.client.api_key = self.api_keys[self.current_key_idx]
