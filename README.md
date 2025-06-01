@@ -50,6 +50,15 @@ Or for OpenAI API:
 OPEN_AI_API_KEY=your_openai_api_key
 ```
 
+### OpenRouter API
+
+For OpenRouter models:
+
+```bash
+OPENROUTER_API_KEY=your_openrouter_api_key
+```
+You can also specify the site URL if needed (e.g. for custom deployments or proxies) by setting `OPENROUTER_API_BASE` (though this is less common for general OpenRouter use).
+
 ## 🚀 Quick Start
 
 Here's a simple example of how to use nuggetizer:
@@ -107,10 +116,30 @@ for nugget in assigned_nuggets:
     print(f"Assignment: {nugget.assignment}\n")
 ```
 
+**Using OpenRouter Models:**
+
+To use models from OpenRouter, you can specify the `api_type` and pass the full model name:
+
+```python
+# Ensure OPENROUTER_API_KEY is set in your environment
+nuggetizer_openrouter = Nuggetizer(
+    model="openrouter/mistralai/mistral-7b-instruct", # Example OpenRouter model
+    api_type="openrouter"
+    # You can also pass api_base if using a non-default OpenRouter endpoint
+    # api_base="https://your.openrouter.proxy/api/v1"
+)
+```
+The `model` parameter can be used for a single model, or you can specify OpenRouter models for `creator_model`, `scorer_model`, and `assigner_model` individually.
+
 You can also run a little more elaborate example with:
 ```bash
-python3 examples/e2e.py
+# For default OpenAI/Azure (ensure your .env is set up)
+python3 examples/e2e.py --model "gpt-4o"
+
+# To use OpenRouter (ensure OPENROUTER_API_KEY is set or use --api_key):
+python3 examples/e2e.py --model "openrouter/mistralai/mistral-7b-instruct" --api_type "openrouter"
 ```
+Similar options are available for `async_e2e.py`. Refer to the script's help (`--help`) or internal comments for more details on API configuration arguments.
 
 We also provide an async version of the Nuggetizer class, `AsyncNuggetizer`, in `src/nuggetizer/models/async_nuggetizer.py`. To run this example, use:
 

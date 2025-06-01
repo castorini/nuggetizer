@@ -2,10 +2,16 @@
 import argparse
 import asyncio
 import time
+from typing import Optional
 
 from nuggetizer.core.types import Query, Document, Request
 from nuggetizer.models.async_nuggetizer import AsyncNuggetizer
 from nuggetizer.core.metrics import calculate_nugget_scores
+
+# To use OpenRouter, set OPENROUTER_API_KEY environment variable and run with:
+# python examples/async_e2e.py --model "openrouter/mistralai/mistral-7b-instruct" --api_type "openrouter"
+# Or provide the key directly: --api_key "sk-or-..." --api_type "openrouter" --model "openrouter/mistralai/mistral-7b-instruct"
+# Or provide a custom base URL: --api_base "https://your-custom-openrouter-compatible-url/v1" --api_key "..." --api_type "openrouter" --model "openrouter/..."
 
 def create_sample_request() -> Request:
     """Create a sample request with a query and documents."""
@@ -104,19 +110,39 @@ Python's simplicity, versatility, vast ecosystem, and strong community support m
     return Request(query=query, documents=documents)
 
 
-async def process_request(request: Request, model: str, use_azure_openai: bool, log_level: int) -> None:
+async def process_request(request: Request, model: str, use_azure_openai: bool, log_level: int, api_type: Optional[str] = None, api_base: Optional[str] = None, api_key: Optional[str] = None) -> None:
     """Process a request through the nuggetizer pipeline."""
     start_time = time.time()
     
     print("🚀 Initializing components...")
-    # Initialize components - API keys and Azure config are loaded automatically
-    
+
+    llm_kwargs = {}
+    if api_type:
+        llm_kwargs['api_type'] = api_type
+    if api_base:
+        llm_kwargs['api_base'] = api_base
+    if api_key:
+        llm_kwargs['api_keys'] = api_key # AsyncLLMHandler expects api_keys (plural)
+
+    # Initialize components
     # Option 1: Single model for all components
     nuggetizer1 = AsyncNuggetizer(model=model, use_azure_openai=use_azure_openai,
-                                  log_level=log_level)
+                                  log_level=log_level, **llm_kwargs)
     
     # Option 2: Different models for each component
     # nuggetizer2 = AsyncNuggetizer(
+    #     creator_model="gpt-4o",
+    #     scorer_model="gpt-3.5-turbo",
+    #     assigner_model="gpt-4o",
+    #     use_azure_openai=use_azure_openai, # This would also need llm_kwargs if api_type is not azure
+    #     log_level=log_level,
+    #     **llm_kwargs
+    # )
+
+    # Use nuggetizer1 for this example
+    nuggetizer = nuggetizer1
+
+    # Extract and score nuggets
     #     creator_model="gpt-4o",
     #     scorer_model="gpt-3.5-turbo",
     #     assigner_model="gpt-4o",
@@ -192,16 +218,25 @@ async def process_request(request: Request, model: str, use_azure_openai: bool, 
 async def main():
     """Run the async e2e example."""
     parser = argparse.ArgumentParser(description='Run the async e2e example')
-    parser.add_argument('--use_azure_openai', action='store_true', help='Use Azure OpenAI')
-    parser.add_argument('--model', type=str, default="gpt-4o", help='Model to use')
+    parser.add_argument('--use_azure_openai', action='store_true', help='Use Azure OpenAI (can be overridden by --api_type)')
+    parser.add_argument('--model', type=str, default="gpt-4o", help='Model to use (e.g., gpt-4o, openrouter/mistralai/mistral-7b-instruct)')
     parser.add_argument('--log_level', type=int, default=0, help='Log level')
+    parser.add_argument('--api_type', type=str, default=None, help='Type of API to use (e.g., openai, azure, openrouter)')
+    parser.add_argument('--api_base', type=str, default=None, help='API base URL (for OpenRouter or custom OpenAI-compatible APIs)')
+    parser.add_argument('--api_key', type=str, default=None, help='API key (optional, overrides environment variables)')
     args = parser.parse_args()
 
     print("🔧 Starting Async E2E Nuggetizer Example...")
     print(f"Using model: {args.model}")
-    
+    if args.api_type:
+        print(f"API Type: {args.api_type}")
+    if args.api_base:
+        print(f"API Base: {args.api_base}")
+    if args.api_key:
+        print(f"API Key: Provided (hidden for security)")
+
     request = create_sample_request()
-    await process_request(request, args.model, args.use_azure_openai, args.log_level)
+    await process_request(request, args.model, args.use_azure_openai, args.log_level, args.api_type, args.api_base, args.api_key)
     print("\n✨ Example completed!")
 
 
