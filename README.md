@@ -50,12 +50,12 @@ AZURE_OPENAI_API_KEY=your_api_key
 OPEN_AI_API_KEY=your_openai_api_key
 ```
 
-**OpenRoute API (fallback when OpenAI key is not available):**
+**OpenRouter API:**
 ```bash
-OPENROUTE_API_KEY=your_openroute_api_key
+OPENROUTER_API_KEY=your_openrouter_api_key
 ```
 
-**Note:** Nuggetizer will automatically fallback to OpenRoute API if no OpenAI API key is found. You can also explicitly use OpenRoute by passing the `openroute_api_key` parameter to the Nuggetizer constructor.
+**Note:** Nuggetizer supports multiple API providers. If both OpenAI and OpenRouter keys are available, OpenAI will be used by default. You can explicitly use OpenRouter by passing the `openrouter_api_key` parameter to the Nuggetizer constructor.
 
 ## 🚀 Quick Start
 
@@ -96,10 +96,10 @@ nuggetizer_mixed = Nuggetizer(
     assigner_model="gpt-4o"  # Model for nugget assignment
 )
 
-# Option 3: Using OpenRoute API (automatic fallback or explicit)
-nuggetizer_openroute = Nuggetizer(
-    model="gpt-4o-mini",  # Model supported by OpenRoute
-    openroute_api_key="your_openroute_api_key"  # Optional: explicit OpenRoute key
+# Option 3: Using OpenRouter API
+nuggetizer_openrouter = Nuggetizer(
+    model="gpt-4o-mini",  # Model supported by OpenRouter
+    openrouter_api_key="your_openrouter_api_key"  # Explicit OpenRouter key
 )
 
 # Create and score nuggets
@@ -125,17 +125,17 @@ You can also run a little more elaborate example with:
 python3 examples/e2e.py
 ```
 
-**Running with OpenRoute API:**
-If you don't have an OpenAI API key, you can use OpenRoute API by setting the environment variable:
+**Running with OpenRouter API:**
+You can use OpenRouter API by setting the environment variable:
 ```bash
-# Set OpenRoute API key in environment
-export OPENROUTE_API_KEY=your_openroute_api_key
+# Set OpenRouter API key in environment
+export OPENROUTER_API_KEY=your_openrouter_api_key
 python3 examples/e2e.py
 ```
 
-Or create a `.env` file with your OpenRoute API key:
+Or create a `.env` file with your OpenRouter API key:
 ```bash
-echo "OPENROUTE_API_KEY=your_openroute_api_key" > .env
+echo "OPENROUTER_API_KEY=your_openrouter_api_key" > .env
 python3 examples/e2e.py
 ```
 
@@ -145,10 +145,10 @@ We also provide an async version of the Nuggetizer class, `AsyncNuggetizer`, in 
 python3 examples/async_e2e.py
 ```
 
-**Running async example with OpenRoute API:**
+**Running async example with OpenRouter API:**
 ```bash
-# Set OpenRoute API key in environment
-export OPENROUTE_API_KEY=your_openroute_api_key
+# Set OpenRouter API key in environment
+export OPENROUTER_API_KEY=your_openrouter_api_key
 python3 examples/async_e2e.py
 ```
 

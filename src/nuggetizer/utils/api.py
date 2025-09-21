@@ -42,7 +42,7 @@ def get_anyscale_api_key() -> Optional[str]:
     return anyscale_api_key
 
 
-def get_openroute_api_key() -> Optional[str]:
+def get_openrouter_api_key() -> Optional[str]:
     load_dotenv(dotenv_path=".env")
-    openroute_api_key = os.getenv("OPENROUTE_API_KEY")
-    return openroute_api_key
+    openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
+    return openrouter_api_key
