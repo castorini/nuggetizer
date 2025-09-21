@@ -36,19 +36,26 @@ pip install -e .
 
 ### Environment Setup
 
-Create a `.env` file with your OpenAI credentials. For Azure OpenAI (default for GPT models):
+Create a `.env` file with your API credentials. Nuggetizer supports multiple API providers:
 
+**Azure OpenAI (default for GPT models):**
 ```bash
 AZURE_OPENAI_API_BASE=your_azure_endpoint
 AZURE_OPENAI_API_VERSION=your_api_version
 AZURE_OPENAI_API_KEY=your_api_key
 ```
 
-Or for OpenAI API:
-
+**OpenAI API:**
 ```bash
 OPEN_AI_API_KEY=your_openai_api_key
 ```
+
+**OpenRoute API (fallback when OpenAI key is not available):**
+```bash
+OPENROUTE_API_KEY=your_openroute_api_key
+```
+
+**Note:** Nuggetizer will automatically fallback to OpenRoute API if no OpenAI API key is found. You can also explicitly use OpenRoute by passing the `openroute_api_key` parameter to the Nuggetizer constructor.
 
 ## 🚀 Quick Start
 
@@ -89,6 +96,12 @@ nuggetizer_mixed = Nuggetizer(
     assigner_model="gpt-4o"  # Model for nugget assignment
 )
 
+# Option 3: Using OpenRoute API (automatic fallback or explicit)
+nuggetizer_openroute = Nuggetizer(
+    model="gpt-4o-mini",  # Model supported by OpenRoute
+    openroute_api_key="your_openroute_api_key"  # Optional: explicit OpenRoute key
+)
+
 # Create and score nuggets
 scored_nuggets = nuggetizer.create(request)
 
@@ -112,9 +125,30 @@ You can also run a little more elaborate example with:
 python3 examples/e2e.py
 ```
 
+**Running with OpenRoute API:**
+If you don't have an OpenAI API key, you can use OpenRoute API by setting the environment variable:
+```bash
+# Set OpenRoute API key in environment
+export OPENROUTE_API_KEY=your_openroute_api_key
+python3 examples/e2e.py
+```
+
+Or create a `.env` file with your OpenRoute API key:
+```bash
+echo "OPENROUTE_API_KEY=your_openroute_api_key" > .env
+python3 examples/e2e.py
+```
+
 We also provide an async version of the Nuggetizer class, `AsyncNuggetizer`, in `src/nuggetizer/models/async_nuggetizer.py`. To run this example, use:
 
 ```bash
+python3 examples/async_e2e.py
+```
+
+**Running async example with OpenRoute API:**
+```bash
+# Set OpenRoute API key in environment
+export OPENROUTE_API_KEY=your_openroute_api_key
 python3 examples/async_e2e.py
 ```
 

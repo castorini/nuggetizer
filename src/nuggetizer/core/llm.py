@@ -2,7 +2,7 @@ import time
 from typing import Dict, List, Optional, Union, Tuple
 import tiktoken
 from openai import AzureOpenAI, OpenAI
-from ..utils.api import get_azure_openai_args, get_openai_api_key
+from ..utils.api import get_azure_openai_args, get_openai_api_key, get_openroute_api_key
 
 class LLMHandler:
     def __init__(
@@ -14,6 +14,7 @@ class LLMHandler:
         api_base: Optional[str] = None,
         api_version: Optional[str] = None,
         use_azure_openai: bool = False,
+        openroute_api_key: Optional[str] = None,
     ):
         self.model = model
         self.context_size = context_size
@@ -27,7 +28,14 @@ class LLMHandler:
             api_keys = azure_args.get("api_key", api_keys) or get_openai_api_key()
         else:
             api_type = "openai"
+            # Try OpenAI API key first, fallback to OpenRoute if not available
             api_keys = api_keys or get_openai_api_key()
+            if api_keys is None:
+                openroute_key = openroute_api_key or get_openroute_api_key()
+                if openroute_key is not None:
+                    api_keys = openroute_key
+                    api_base = "https://openrouter.ai/api/v1"
+                    api_type = "openrouter"
         self.api_keys = [api_keys] if isinstance(api_keys, str) else api_keys
         self.current_key_idx = 0
         self.client = self._initialize_client(api_type, api_base, api_version)
@@ -41,6 +49,11 @@ class LLMHandler:
             )
         elif api_type == "openai":
             return OpenAI(api_key=self.api_keys[0])
+        elif api_type == "openrouter":
+            return OpenAI(
+                api_key=self.api_keys[0],
+                base_url=api_base
+            )
         else:
             raise ValueError(f"Invalid API type: {api_type}")
 
