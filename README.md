@@ -36,19 +36,26 @@ pip install -e .
 
 ### Environment Setup
 
-Create a `.env` file with your OpenAI credentials. For Azure OpenAI (default for GPT models):
+Create a `.env` file with your API credentials. Nuggetizer supports multiple API providers:
 
+**Azure OpenAI (default for GPT models):**
 ```bash
 AZURE_OPENAI_API_BASE=your_azure_endpoint
 AZURE_OPENAI_API_VERSION=your_api_version
 AZURE_OPENAI_API_KEY=your_api_key
 ```
 
-Or for OpenAI API:
-
+**OpenAI API:**
 ```bash
 OPEN_AI_API_KEY=your_openai_api_key
 ```
+
+**OpenRouter API:**
+```bash
+OPENROUTER_API_KEY=your_openrouter_api_key
+```
+
+**Note:** Nuggetizer supports multiple API providers. If both OpenAI and OpenRouter keys are available, OpenAI will be used by default. You can explicitly use OpenRouter by passing the `use_openrouter=True` parameter to the Nuggetizer constructor or using the `--use_openrouter` flag in the examples.
 
 ## 🚀 Quick Start
 
@@ -89,6 +96,18 @@ nuggetizer_mixed = Nuggetizer(
     assigner_model="gpt-4o"  # Model for nugget assignment
 )
 
+# Option 3: Using OpenRouter API (supports multiple providers)
+nuggetizer_openrouter = Nuggetizer(
+    model="x-ai/grok-4-fast:free",  # Grok model via OpenRouter
+    use_openrouter=True  # Explicitly use OpenRouter
+)
+
+# Option 4: Other OpenRouter models
+nuggetizer_claude = Nuggetizer(
+    model="anthropic/claude-3.5-sonnet",  # Claude via OpenRouter
+    use_openrouter=True  # Explicitly use OpenRouter
+)
+
 # Create and score nuggets
 scored_nuggets = nuggetizer.create(request)
 
@@ -112,10 +131,44 @@ You can also run a little more elaborate example with:
 python3 examples/e2e.py
 ```
 
+**Running with OpenRouter API:**
+You can use OpenRouter API to access multiple model providers:
+```bash
+# Set OpenRouter API key in environment
+export OPENROUTER_API_KEY=your_openrouter_api_key
+
+# Use Grok model (free tier) with OpenRouter
+python3 examples/e2e.py --model "x-ai/grok-4-fast:free" --use_openrouter
+
+# Use Claude model with OpenRouter
+python3 examples/e2e.py --model "anthropic/claude-3.5-sonnet" --use_openrouter
+
+# Use OpenAI models via OpenRouter
+python3 examples/e2e.py --model "openai/gpt-4o-mini" --use_openrouter
+```
+
+Or create a `.env` file with your OpenRouter API key:
+```bash
+echo "OPENROUTER_API_KEY=your_openrouter_api_key" > .env
+python3 examples/e2e.py --model "x-ai/grok-4-fast:free" --use_openrouter
+```
+
 We also provide an async version of the Nuggetizer class, `AsyncNuggetizer`, in `src/nuggetizer/models/async_nuggetizer.py`. To run this example, use:
 
 ```bash
 python3 examples/async_e2e.py
+```
+
+**Running async example with OpenRouter API:**
+```bash
+# Set OpenRouter API key in environment
+export OPENROUTER_API_KEY=your_openrouter_api_key
+
+# Use Grok model (free tier) with OpenRouter
+python3 examples/async_e2e.py --model "x-ai/grok-4-fast:free" --use_openrouter
+
+# Use Claude model with OpenRouter
+python3 examples/async_e2e.py --model "anthropic/claude-3.5-sonnet" --use_openrouter
 ```
 
 ## 🛠️ Components

@@ -104,7 +104,7 @@ Python's simplicity, versatility, vast ecosystem, and strong community support m
     return Request(query=query, documents=documents)
 
 
-async def process_request(request: Request, model: str, use_azure_openai: bool, log_level: int) -> None:
+async def process_request(request: Request, model: str, use_azure_openai: bool, use_openrouter: bool, log_level: int) -> None:
     """Process a request through the nuggetizer pipeline."""
     start_time = time.time()
     
@@ -113,7 +113,7 @@ async def process_request(request: Request, model: str, use_azure_openai: bool, 
     
     # Option 1: Single model for all components
     nuggetizer1 = AsyncNuggetizer(model=model, use_azure_openai=use_azure_openai,
-                                  log_level=log_level)
+                                  use_openrouter=use_openrouter, log_level=log_level)
     
     # Option 2: Different models for each component
     # nuggetizer2 = AsyncNuggetizer(
@@ -193,6 +193,7 @@ async def main():
     """Run the async e2e example."""
     parser = argparse.ArgumentParser(description='Run the async e2e example')
     parser.add_argument('--use_azure_openai', action='store_true', help='Use Azure OpenAI')
+    parser.add_argument('--use_openrouter', action='store_true', help='Use OpenRouter API')
     parser.add_argument('--model', type=str, default="gpt-4o", help='Model to use')
     parser.add_argument('--log_level', type=int, default=0, help='Log level')
     args = parser.parse_args()
@@ -201,7 +202,7 @@ async def main():
     print(f"Using model: {args.model}")
     
     request = create_sample_request()
-    await process_request(request, args.model, args.use_azure_openai, args.log_level)
+    await process_request(request, args.model, args.use_azure_openai, args.use_openrouter, args.log_level)
     print("\n✨ Example completed!")
 
 
