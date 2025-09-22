@@ -15,6 +15,7 @@ class AsyncLLMHandler:
         api_base: Optional[str] = None,
         api_version: Optional[str] = None,
         use_azure_openai: bool = False,
+        use_openrouter: bool = False,
         openrouter_api_key: Optional[str] = None,
     ):
         self.model = model
@@ -30,18 +31,28 @@ class AsyncLLMHandler:
         else:
             # Check for explicit API keys first, then environment variables
             if api_keys is None:
-                # Try OpenAI API key first
-                openai_key = get_openai_api_key()
-                if openai_key is not None:
-                    api_keys = openai_key
-                    api_type = "openai"
-                else:
-                    # Try OpenRouter API key
+                if use_openrouter:
+                    # Use OpenRouter API
                     openrouter_key = openrouter_api_key or get_openrouter_api_key()
                     if openrouter_key is not None:
                         api_keys = openrouter_key
                         api_base = "https://openrouter.ai/api/v1"
                         api_type = "openrouter"
+                    else:
+                        raise ValueError("use_openrouter=True but no OpenRouter API key found")
+                else:
+                    # Try OpenAI API key first, then OpenRouter as fallback
+                    openai_key = get_openai_api_key()
+                    if openai_key is not None:
+                        api_keys = openai_key
+                        api_type = "openai"
+                    else:
+                        # Try OpenRouter API key as fallback
+                        openrouter_key = openrouter_api_key or get_openrouter_api_key()
+                        if openrouter_key is not None:
+                            api_keys = openrouter_key
+                            api_base = "https://openrouter.ai/api/v1"
+                            api_type = "openrouter"
             else:
                 # Use provided API keys with OpenAI by default
                 api_type = "openai"

@@ -20,6 +20,7 @@ class Nuggetizer(BaseNuggetizer):
         scorer_model: Optional[str] = "gpt-4o",
         assigner_model: Optional[str] = "gpt-4o",
         api_keys: Optional[str] = None,
+        use_openrouter: bool = False,
         openrouter_api_key: Optional[str] = None,
         creator_mode: NuggetMode = NuggetMode.ATOMIC,
         scorer_mode: NuggetScoreMode = NuggetScoreMode.VITAL_OKAY,
@@ -62,9 +63,9 @@ class Nuggetizer(BaseNuggetizer):
         if assigner_model is None:
             assigner_model = "gpt-4o"
             
-        self.creator_llm = LLMHandler(creator_model, api_keys, openrouter_api_key=openrouter_api_key, **llm_kwargs)
-        self.scorer_llm = LLMHandler(scorer_model, api_keys, openrouter_api_key=openrouter_api_key, **llm_kwargs)
-        self.assigner_llm = LLMHandler(assigner_model, api_keys, openrouter_api_key=openrouter_api_key, **llm_kwargs)
+        self.creator_llm = LLMHandler(creator_model, api_keys, use_openrouter=use_openrouter, openrouter_api_key=openrouter_api_key, **llm_kwargs)
+        self.scorer_llm = LLMHandler(scorer_model, api_keys, use_openrouter=use_openrouter, openrouter_api_key=openrouter_api_key, **llm_kwargs)
+        self.assigner_llm = LLMHandler(assigner_model, api_keys, use_openrouter=use_openrouter, openrouter_api_key=openrouter_api_key, **llm_kwargs)
         
         # Initialize max nuggets
         if max_nuggets is not None:
