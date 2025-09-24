@@ -2,7 +2,7 @@ import time
 from typing import Dict, List, Optional, Union, Tuple
 import tiktoken
 from openai import AzureOpenAI, OpenAI
-from ..utils.api import get_azure_openai_args, get_openai_api_key, get_openrouter_api_key
+from ..utils.api import get_azure_openai_args, get_openai_api_key, get_openrouter_api_key, get_vllm_api_key
 
 class LLMHandler:
     def __init__(
@@ -15,7 +15,9 @@ class LLMHandler:
         api_version: Optional[str] = None,
         use_azure_openai: bool = False,
         use_openrouter: bool = False,
+        use_vllm: bool = False,
         openrouter_api_key: Optional[str] = None,
+        vllm_port: int = 8000,
     ):
         self.model = model
         self.context_size = context_size
@@ -30,7 +32,12 @@ class LLMHandler:
         else:
             # Check for explicit API keys first, then environment variables
             if api_keys is None:
-                if use_openrouter:
+                if use_vllm:
+                    # Use vLLM local server
+                    api_keys = get_vllm_api_key()
+                    api_base = f"http://localhost:{vllm_port}/v1"
+                    api_type = "vllm"
+                elif use_openrouter:
                     # Use OpenRouter API
                     openrouter_key = openrouter_api_key or get_openrouter_api_key()
                     if openrouter_key is not None:
@@ -62,7 +69,8 @@ class LLMHandler:
                 "1. OpenAI API key (OPEN_AI_API_KEY environment variable)\n"
                 "2. OpenRouter API key (OPENROUTER_API_KEY environment variable)\n"
                 "3. Azure OpenAI credentials (AZURE_OPENAI_API_KEY, etc.)\n"
-                "4. Pass api_keys parameter directly to Nuggetizer constructor"
+                "4. Use vLLM local server (use_vllm=True)\n"
+                "5. Pass api_keys parameter directly to Nuggetizer constructor"
             )
         
         self.api_keys = [api_keys] if isinstance(api_keys, str) else api_keys
@@ -79,6 +87,11 @@ class LLMHandler:
         elif api_type == "openai":
             return OpenAI(api_key=self.api_keys[0])
         elif api_type == "openrouter":
+            return OpenAI(
+                api_key=self.api_keys[0],
+                base_url=api_base
+            )
+        elif api_type == "vllm":
             return OpenAI(
                 api_key=self.api_keys[0],
                 base_url=api_base
