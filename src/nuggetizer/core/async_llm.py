@@ -95,7 +95,7 @@ class AsyncLLMHandler:
         elif api_type == "vllm":
             return AsyncOpenAI(
                 api_key=self.api_keys[0],
-                base_url=api_base
+                base_url=api_base + "/v1"
             )
         else:
             raise ValueError(f"Invalid API type: {api_type}")

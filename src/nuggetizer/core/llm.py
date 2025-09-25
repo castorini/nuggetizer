@@ -35,7 +35,7 @@ class LLMHandler:
                 if use_vllm:
                     # Use vLLM local server
                     api_keys = get_vllm_api_key()
-                    api_base = f"http://localhost:{vllm_port}/v1"
+                    api_base = f"http://localhost:{vllm_port}"
                     api_type = "vllm"
                 elif use_openrouter:
                     # Use OpenRouter API
@@ -75,6 +75,7 @@ class LLMHandler:
         
         self.api_keys = [api_keys] if isinstance(api_keys, str) else api_keys
         self.current_key_idx = 0
+        self.vllm_port = vllm_port
         self.client = self._initialize_client(api_type, api_base, api_version)
         
     def _initialize_client(self, api_type, api_base, api_version):
@@ -92,9 +93,11 @@ class LLMHandler:
                 base_url=api_base
             )
         elif api_type == "vllm":
+            full_url = api_base + "/v1"
+            print(f"vLLM base URL: {full_url}")
             return OpenAI(
                 api_key=self.api_keys[0],
-                base_url=api_base
+                base_url=full_url
             )
         else:
             raise ValueError(f"Invalid API type: {api_type}")
@@ -104,6 +107,7 @@ class LLMHandler:
         messages: List[Dict[str, str]], 
         temperature: float = 0
     ) -> Tuple[str, int]:
+        
         remaining_retry = 5
         while remaining_retry > 0:
             if "o1" in self.model:
@@ -114,14 +118,42 @@ class LLMHandler:
                 temperature = 1.0
             try:
                 completion = None
-                completion = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    temperature=temperature,
-                    max_completion_tokens=4096,
-                    timeout=30
-                )
+                print(f"Sending request to model: {self.model}")
+                print(f"Messages: {messages}")
+                # Use different parameters for vLLM vs other APIs
+                if hasattr(self.client, 'base_url') and 'localhost' in str(self.client.base_url):
+                    # vLLM specific parameters
+                    completion = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=messages,
+                        temperature=temperature,
+                        max_tokens=2048,
+                        timeout=120
+                    )
+                else:
+                    # Standard OpenAI/other APIs
+                    completion = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=messages,
+                        temperature=temperature,
+                        max_completion_tokens=4096,
+                        timeout=60
+                    )
+                print(f"Completion object: {completion}")
+                print(f"Completion choices: {completion.choices}")
                 response = completion.choices[0].message.content
+                print(f"Response type: {type(response)}, Response value: {repr(response)}")
+                
+                # Handle thinking models that put content in reasoning_content
+                if response is None and hasattr(completion.choices[0].message, 'reasoning_content'):
+                    reasoning_content = completion.choices[0].message.reasoning_content
+                    print(f"Using reasoning_content: {repr(reasoning_content)}")
+                    response = reasoning_content if reasoning_content else ""
+                
+                # Handle None response
+                if response is None:
+                    response = ""
+                
                 try:
                     # For newer models like gpt-4o that may not have specific encodings yet
                     if "gpt-4o" in self.model or "gpt-4.1" in self.model:
