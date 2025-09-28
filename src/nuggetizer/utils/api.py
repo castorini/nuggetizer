@@ -46,3 +46,8 @@ def get_openrouter_api_key() -> Optional[str]:
     load_dotenv(dotenv_path=".env")
     openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
     return openrouter_api_key
+
+
+def get_vllm_api_key() -> Optional[str]:
+    """vLLM doesn't require authentication for local use, but we return a placeholder."""
+    return "EMPTY"

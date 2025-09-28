@@ -55,7 +55,10 @@ OPEN_AI_API_KEY=your_openai_api_key
 OPENROUTER_API_KEY=your_openrouter_api_key
 ```
 
-**Note:** Nuggetizer supports multiple API providers. If both OpenAI and OpenRouter keys are available, OpenAI will be used by default. You can explicitly use OpenRouter by passing the `use_openrouter=True` parameter to the Nuggetizer constructor or using the `--use_openrouter` flag in the examples.
+**vLLM Local Server:**
+No environment variables needed. vLLM runs locally and doesn't require authentication.
+
+**Note:** Nuggetizer supports multiple API providers. If both OpenAI and OpenRouter keys are available, OpenAI will be used by default. You can explicitly use OpenRouter by passing the `use_openrouter=True` parameter to the Nuggetizer constructor or using the `--use_openrouter` flag in the examples. For vLLM, use `use_vllm=True` and optionally specify `vllm_port` (default: 8000).
 
 ## 🚀 Quick Start
 
@@ -108,6 +111,13 @@ nuggetizer_claude = Nuggetizer(
     use_openrouter=True  # Explicitly use OpenRouter
 )
 
+# Option 5: Using vLLM local server
+nuggetizer_vllm = Nuggetizer(
+    model="Qwen/Qwen3-30B-A3B-Instruct-2507",  # Model name as served by vLLM
+    use_vllm=True,  # Use vLLM local server
+    vllm_port=8000  # Optional: specify port (default: 8000)
+)
+
 # Create and score nuggets
 scored_nuggets = nuggetizer.create(request)
 
@@ -153,6 +163,16 @@ echo "OPENROUTER_API_KEY=your_openrouter_api_key" > .env
 python3 examples/e2e.py --model "x-ai/grok-4-fast:free" --use_openrouter
 ```
 
+**Running with vLLM Local Server:**
+You can use vLLM to run models locally:
+```bash
+# Use vLLM with default port (8000)
+python3 examples/e2e.py --model "Qwen/Qwen3-30B-A3B-Instruct-2507" --use_vllm
+
+# Use vLLM with custom port (8001)
+python3 examples/e2e.py --model "Qwen/Qwen3-30B-A3B-Instruct-2507" --use_vllm --vllm_port 8001
+```
+
 We also provide an async version of the Nuggetizer class, `AsyncNuggetizer`, in `src/nuggetizer/models/async_nuggetizer.py`. To run this example, use:
 
 ```bash
@@ -169,6 +189,15 @@ python3 examples/async_e2e.py --model "x-ai/grok-4-fast:free" --use_openrouter
 
 # Use Claude model with OpenRouter
 python3 examples/async_e2e.py --model "anthropic/claude-3.5-sonnet" --use_openrouter
+```
+
+**Running async example with vLLM:**
+```bash
+# Use vLLM with default port (8000)
+python3 examples/async_e2e.py --model "Qwen/Qwen3-30B-A3B-Instruct-2507" --use_vllm
+
+# Use vLLM with custom port (8001)
+python3 examples/async_e2e.py --model "Qwen/Qwen3-30B-A3B-Instruct-2507" --use_vllm --vllm_port 8001
 ```
 
 ## 🛠️ Components

@@ -2,7 +2,7 @@ import time
 from typing import Dict, List, Optional, Union, Tuple
 import tiktoken
 from openai import AzureOpenAI, OpenAI
-from ..utils.api import get_azure_openai_args, get_openai_api_key, get_openrouter_api_key
+from ..utils.api import get_azure_openai_args, get_openai_api_key, get_openrouter_api_key, get_vllm_api_key
 
 class LLMHandler:
     def __init__(
@@ -15,7 +15,9 @@ class LLMHandler:
         api_version: Optional[str] = None,
         use_azure_openai: bool = False,
         use_openrouter: bool = False,
+        use_vllm: bool = False,
         openrouter_api_key: Optional[str] = None,
+        vllm_port: int = 8000,
     ):
         self.model = model
         self.context_size = context_size
@@ -30,7 +32,12 @@ class LLMHandler:
         else:
             # Check for explicit API keys first, then environment variables
             if api_keys is None:
-                if use_openrouter:
+                if use_vllm:
+                    # Use vLLM local server
+                    api_keys = get_vllm_api_key()
+                    api_base = f"http://localhost:{vllm_port}/v1"
+                    api_type = "vllm"
+                elif use_openrouter:
                     # Use OpenRouter API
                     openrouter_key = openrouter_api_key or get_openrouter_api_key()
                     if openrouter_key is not None:
@@ -62,11 +69,13 @@ class LLMHandler:
                 "1. OpenAI API key (OPEN_AI_API_KEY environment variable)\n"
                 "2. OpenRouter API key (OPENROUTER_API_KEY environment variable)\n"
                 "3. Azure OpenAI credentials (AZURE_OPENAI_API_KEY, etc.)\n"
-                "4. Pass api_keys parameter directly to Nuggetizer constructor"
+                "4. Use vLLM local server (use_vllm=True)\n"
+                "5. Pass api_keys parameter directly to Nuggetizer constructor"
             )
         
         self.api_keys = [api_keys] if isinstance(api_keys, str) else api_keys
         self.current_key_idx = 0
+        self.vllm_port = vllm_port
         self.client = self._initialize_client(api_type, api_base, api_version)
         
     def _initialize_client(self, api_type, api_base, api_version):
@@ -83,6 +92,13 @@ class LLMHandler:
                 api_key=self.api_keys[0],
                 base_url=api_base
             )
+        elif api_type == "vllm":
+            full_url = api_base
+            print(f"vLLM base URL: {full_url}")
+            return OpenAI(
+                api_key=self.api_keys[0],
+                base_url=full_url
+            )
         else:
             raise ValueError(f"Invalid API type: {api_type}")
 
@@ -91,6 +107,7 @@ class LLMHandler:
         messages: List[Dict[str, str]], 
         temperature: float = 0
     ) -> Tuple[str, int]:
+        
         remaining_retry = 5
         while remaining_retry > 0:
             if "o1" in self.model:
@@ -101,14 +118,36 @@ class LLMHandler:
                 temperature = 1.0
             try:
                 completion = None
-                completion = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    temperature=temperature,
-                    max_completion_tokens=4096,
-                    timeout=30
-                )
+                # Use different parameters for vLLM vs other APIs
+                if hasattr(self.client, 'base_url') and 'localhost' in str(self.client.base_url):
+                    # vLLM specific parameters
+                    completion = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=messages,
+                        temperature=temperature,
+                        max_tokens=4096,
+                        timeout=60
+                    )
+                else:
+                    # Standard OpenAI/other APIs
+                    completion = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=messages,
+                        temperature=temperature,
+                        max_completion_tokens=4096,
+                        timeout=60
+                    )
                 response = completion.choices[0].message.content
+                
+                # Handle thinking models that put content in reasoning_content
+                if response is None and hasattr(completion.choices[0].message, 'reasoning_content'):
+                    reasoning_content = completion.choices[0].message.reasoning_content
+                    response = reasoning_content if reasoning_content else ""
+                
+                # Handle None response
+                if response is None:
+                    response = ""
+                
                 try:
                     # For newer models like gpt-4o that may not have specific encodings yet
                     if "gpt-4o" in self.model or "gpt-4.1" in self.model:

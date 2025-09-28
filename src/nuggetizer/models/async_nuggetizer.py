@@ -22,7 +22,9 @@ class AsyncNuggetizer(BaseNuggetizer):
         assigner_model: Optional[str] = "gpt-4o",
         api_keys: Optional[str] = None,
         use_openrouter: bool = False,
+        use_vllm: bool = False,
         openrouter_api_key: Optional[str] = None,
+        vllm_port: int = 8000,
         creator_mode: NuggetMode = NuggetMode.ATOMIC,
         scorer_mode: NuggetScoreMode = NuggetScoreMode.VITAL_OKAY,
         assigner_mode: NuggetAssignMode = NuggetAssignMode.SUPPORT_GRADE_3,
@@ -68,7 +70,9 @@ class AsyncNuggetizer(BaseNuggetizer):
         llm_config = {
             'api_keys': api_keys,
             'use_openrouter': use_openrouter,
+            'use_vllm': use_vllm,
             'openrouter_api_key': openrouter_api_key,
+            'vllm_port': vllm_port,
             **llm_kwargs,
         }
 
