@@ -35,7 +35,7 @@ class LLMHandler:
                 if use_vllm:
                     # Use vLLM local server
                     api_keys = get_vllm_api_key()
-                    api_base = f"http://localhost:{vllm_port}"
+                    api_base = f"http://localhost:{vllm_port}/v1"
                     api_type = "vllm"
                 elif use_openrouter:
                     # Use OpenRouter API
@@ -93,7 +93,7 @@ class LLMHandler:
                 base_url=api_base
             )
         elif api_type == "vllm":
-            full_url = api_base + "/v1"
+            full_url = api_base
             print(f"vLLM base URL: {full_url}")
             return OpenAI(
                 api_key=self.api_keys[0],
@@ -118,8 +118,6 @@ class LLMHandler:
                 temperature = 1.0
             try:
                 completion = None
-                print(f"Sending request to model: {self.model}")
-                print(f"Messages: {messages}")
                 # Use different parameters for vLLM vs other APIs
                 if hasattr(self.client, 'base_url') and 'localhost' in str(self.client.base_url):
                     # vLLM specific parameters
@@ -127,8 +125,8 @@ class LLMHandler:
                         model=self.model,
                         messages=messages,
                         temperature=temperature,
-                        max_tokens=2048,
-                        timeout=120
+                        max_tokens=4096,
+                        timeout=60
                     )
                 else:
                     # Standard OpenAI/other APIs
@@ -139,15 +137,11 @@ class LLMHandler:
                         max_completion_tokens=4096,
                         timeout=60
                     )
-                print(f"Completion object: {completion}")
-                print(f"Completion choices: {completion.choices}")
                 response = completion.choices[0].message.content
-                print(f"Response type: {type(response)}, Response value: {repr(response)}")
                 
                 # Handle thinking models that put content in reasoning_content
                 if response is None and hasattr(completion.choices[0].message, 'reasoning_content'):
                     reasoning_content = completion.choices[0].message.reasoning_content
-                    print(f"Using reasoning_content: {repr(reasoning_content)}")
                     response = reasoning_content if reasoning_content else ""
                 
                 # Handle None response

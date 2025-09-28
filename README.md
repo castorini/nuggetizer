@@ -113,7 +113,7 @@ nuggetizer_claude = Nuggetizer(
 
 # Option 5: Using vLLM local server
 nuggetizer_vllm = Nuggetizer(
-    model="Qwen/Qwen3-30B-A3B-Thinking-2507",  # Model name as served by vLLM
+    model="Qwen/Qwen3-8B-A3B-Thinking-2507",  # Model name as served by vLLM
     use_vllm=True,  # Use vLLM local server
     vllm_port=8000  # Optional: specify port (default: 8000)
 )
@@ -167,10 +167,10 @@ python3 examples/e2e.py --model "x-ai/grok-4-fast:free" --use_openrouter
 You can use vLLM to run models locally:
 ```bash
 # Use vLLM with default port (8000)
-python3 examples/e2e.py --model "Qwen/Qwen3-30B-A3B-Thinking-2507" --use_vllm
+python3 examples/e2e.py --model "Qwen/Qwen3-8B-A3B-Thinking-2507" --use_vllm
 
 # Use vLLM with custom port (8001)
-python3 examples/e2e.py --model "Qwen/Qwen3-30B-A3B-Thinking-2507" --use_vllm --vllm_port 8001
+python3 examples/e2e.py --model "Qwen/Qwen3-8B-A3B-Thinking-2507" --use_vllm --vllm_port 8001
 ```
 
 We also provide an async version of the Nuggetizer class, `AsyncNuggetizer`, in `src/nuggetizer/models/async_nuggetizer.py`. To run this example, use:
@@ -194,10 +194,10 @@ python3 examples/async_e2e.py --model "anthropic/claude-3.5-sonnet" --use_openro
 **Running async example with vLLM:**
 ```bash
 # Use vLLM with default port (8000)
-python3 examples/async_e2e.py --model "Qwen/Qwen3-30B-A3B-Thinking-2507" --use_vllm
+python3 examples/async_e2e.py --model "Qwen/Qwen3-8B-A3B-Thinking-2507" --use_vllm
 
 # Use vLLM with custom port (8001)
-python3 examples/async_e2e.py --model "Qwen/Qwen3-30B-A3B-Thinking-2507" --use_vllm --vllm_port 8001
+python3 examples/async_e2e.py --model "Qwen/Qwen3-38B-A3B-Thinking-2507" --use_vllm --vllm_port 8001
 ```
 
 ## 🛠️ Components
