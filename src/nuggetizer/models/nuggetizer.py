@@ -35,6 +35,7 @@ class Nuggetizer(BaseNuggetizer):
         creator_max_nuggets: int = 30,
         scorer_max_nuggets: int = 30,
         log_level: int = 0,
+        print_reasoning: bool = False,
         **llm_kwargs
     ):
         self.creator_mode = creator_mode
@@ -72,6 +73,7 @@ class Nuggetizer(BaseNuggetizer):
             'use_vllm': use_vllm,
             'openrouter_api_key': openrouter_api_key,
             'vllm_port': vllm_port,
+            'print_reasoning': print_reasoning,
             **llm_kwargs,
         }
 
