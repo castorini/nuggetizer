@@ -103,7 +103,7 @@ Python's simplicity, versatility, vast ecosystem, and strong community support m
     return Request(query=query, documents=documents)
 
 
-def process_request(request: Request, model: str, use_azure_openai: bool, use_openrouter: bool, use_vllm: bool, vllm_port: int, log_level: int) -> None:
+def process_request(request: Request, model: str, use_azure_openai: bool, use_openrouter: bool, use_vllm: bool, vllm_port: int, log_level: int, print_reasoning: bool = False) -> None:
     """Process a request through the nuggetizer pipeline."""
     start_time = time.time()
     
@@ -111,7 +111,7 @@ def process_request(request: Request, model: str, use_azure_openai: bool, use_op
     # Initialize components - API keys and Azure config are loaded automatically
     
     # Option 1: Single model for all components
-    nuggetizer1 = Nuggetizer(model=model, use_azure_openai=use_azure_openai, use_openrouter=use_openrouter, use_vllm=use_vllm, vllm_port=vllm_port, log_level=log_level)
+    nuggetizer1 = Nuggetizer(model=model, use_azure_openai=use_azure_openai, use_openrouter=use_openrouter, use_vllm=use_vllm, vllm_port=vllm_port, log_level=log_level, print_reasoning=print_reasoning)
     
     # Option 2: Different models for each component
     # nuggetizer2 = Nuggetizer(
@@ -187,12 +187,13 @@ def main():
     parser.add_argument('--vllm_port', type=int, default=8000, help='vLLM server port (default: 8000)')
     parser.add_argument('--model', type=str, default="gpt-4o", help='Model to use')
     parser.add_argument('--log_level', type=int, default=0, help='Log level')
+    parser.add_argument('--print_reasoning', action='store_true', help='Print reasoning content')
     args = parser.parse_args()
 
     print("🔧 Starting E2E Nuggetizer Example...")
     print(f"Using model: {args.model}")
     request = create_sample_request()
-    process_request(request, args.model, args.use_azure_openai, args.use_openrouter, args.use_vllm, args.vllm_port, args.log_level)
+    process_request(request, args.model, args.use_azure_openai, args.use_openrouter, args.use_vllm, args.vllm_port, args.log_level, args.print_reasoning)
     print("\n✨ Example completed!")
 
 

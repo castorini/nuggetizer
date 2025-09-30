@@ -18,6 +18,7 @@ class LLMHandler:
         use_vllm: bool = False,
         openrouter_api_key: Optional[str] = None,
         vllm_port: int = 8000,
+        print_reasoning: bool = False,
     ):
         self.model = model
         self.context_size = context_size
@@ -76,6 +77,7 @@ class LLMHandler:
         self.api_keys = [api_keys] if isinstance(api_keys, str) else api_keys
         self.current_key_idx = 0
         self.vllm_port = vllm_port
+        self.print_reasoning = print_reasoning
         self.client = self._initialize_client(api_type, api_base, api_version)
         
     def _initialize_client(self, api_type, api_base, api_version):
@@ -121,23 +123,39 @@ class LLMHandler:
                 # Use different parameters for vLLM vs other APIs
                 if hasattr(self.client, 'base_url') and 'localhost' in str(self.client.base_url):
                     # vLLM specific parameters
-                    completion = self.client.chat.completions.create(
-                        model=self.model,
-                        messages=messages,
-                        temperature=temperature,
-                        max_tokens=4096,
-                        timeout=60
-                    )
+                    completion_params = {
+                        "model": self.model,
+                        "messages": messages,
+                        "temperature": temperature,
+                        "max_tokens": 4096,
+                        "timeout": 60
+                    }
                 else:
                     # Standard OpenAI/other APIs
-                    completion = self.client.chat.completions.create(
-                        model=self.model,
-                        messages=messages,
-                        temperature=temperature,
-                        max_completion_tokens=4096,
-                        timeout=60
-                    )
+                    completion_params = {
+                        "model": self.model,
+                        "messages": messages,
+                        "temperature": temperature,
+                        "max_completion_tokens": 4096,
+                        "timeout": 60
+                    }
+                
+                completion = self.client.chat.completions.create(**completion_params)
                 response = completion.choices[0].message.content
+                
+                # Print reasoning if requested and available
+                if self.print_reasoning:
+                    message = completion.choices[0].message
+                    # Check for reasoning field in the message
+                    if hasattr(message, 'reasoning') and message.reasoning:
+                        print(f"REASONING: {message.reasoning}")
+                    elif hasattr(message, 'reasoning_content') and message.reasoning_content:
+                        print(f"REASONING: {message.reasoning_content}")
+                    # Also check if it's a dict with reasoning field
+                    elif isinstance(message, dict) and 'reasoning' in message and message['reasoning']:
+                        print(f"REASONING: {message['reasoning']}")
+                    elif isinstance(message, dict) and 'reasoning_content' in message and message['reasoning_content']:
+                        print(f"REASONING: {message['reasoning_content']}")
                 
                 # Handle thinking models that put content in reasoning_content
                 if response is None and hasattr(completion.choices[0].message, 'reasoning_content'):

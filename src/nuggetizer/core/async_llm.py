@@ -19,6 +19,7 @@ class AsyncLLMHandler:
         use_vllm: bool = False,
         openrouter_api_key: Optional[str] = None,
         vllm_port: int = 8000,
+        print_reasoning: bool = False,
     ):
         self.model = model
         self.context_size = context_size
@@ -76,6 +77,7 @@ class AsyncLLMHandler:
         
         self.api_keys = [api_keys] if isinstance(api_keys, str) else api_keys
         self.current_key_idx = 0
+        self.print_reasoning = print_reasoning
         self.client = self._initialize_client(api_type, api_base, api_version)
         
     def _initialize_client(self, api_type, api_base, api_version):
@@ -121,6 +123,25 @@ class AsyncLLMHandler:
                     timeout=30
                 )
                 response = completion.choices[0].message.content
+                
+                # Print reasoning if requested and available
+                if self.print_reasoning:
+                    message = completion.choices[0].message
+                    # Check for reasoning field in the message
+                    if hasattr(message, 'reasoning') and message.reasoning:
+                        print(f"REASONING: {message.reasoning}")
+                    elif hasattr(message, 'reasoning_content') and message.reasoning_content:
+                        print(f"REASONING: {message.reasoning_content}")
+                    # Also check if it's a dict with reasoning field
+                    elif isinstance(message, dict) and 'reasoning' in message and message['reasoning']:
+                        print(f"REASONING: {message['reasoning']}")
+                    elif isinstance(message, dict) and 'reasoning_content' in message and message['reasoning_content']:
+                        print(f"REASONING: {message['reasoning_content']}")
+                
+                # Handle None response
+                if response is None:
+                    response = ""
+                
                 try:
                     # For newer models like gpt-4o that may not have specific encodings yet
                     if "gpt-4o" in self.model:
@@ -129,7 +150,10 @@ class AsyncLLMHandler:
                         encoding = tiktoken.get_encoding(self.model)
                 except Exception:
                     encoding = tiktoken.get_encoding("cl100k_base")
-                return response, len(encoding.encode(response))
+                
+                # Ensure response is a string before encoding
+                response_str = str(response) if response is not None else ""
+                return response_str, len(encoding.encode(response_str))
             except Exception as e:
                 print(f"Error: {str(e)}")
                 if self.api_keys is not None:
