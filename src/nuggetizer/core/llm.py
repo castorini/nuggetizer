@@ -132,7 +132,7 @@ class LLMHandler:
                         "messages": messages,
                         "temperature": temperature,
                         "max_tokens": 512,
-                        "timeout": 120
+                        "timeout": 60
                     }
                 else:
                     # Standard OpenAI/other APIs
