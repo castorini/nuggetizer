@@ -134,10 +134,19 @@ class AsyncLLMHandler:
                 # Extract reasoning content if available
                 reasoning_content = None
                 message = completion.choices[0].message
+                # Check for reasoning field in the message
                 if hasattr(message, 'reasoning') and message.reasoning:
                     reasoning_content = message.reasoning
                 elif hasattr(message, 'reasoning_content') and message.reasoning_content:
                     reasoning_content = message.reasoning_content
+                # Also check if it's a dict with reasoning field
+                elif isinstance(message, dict) and 'reasoning' in message and message['reasoning']:
+                    reasoning_content = message['reasoning']
+                elif isinstance(message, dict) and 'reasoning_content' in message and message['reasoning_content']:
+                    reasoning_content = message['reasoning_content']
+                else:
+                    print(f"No reasoning found in response from {self.model}")
+                    print(f"Response: {response[:200]}..." if response else "Response: None")
                 
                 # Handle None response
                 if response is None:
