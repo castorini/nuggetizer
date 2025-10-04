@@ -131,8 +131,8 @@ class LLMHandler:
                         "model": self.model,
                         "messages": messages,
                         "temperature": temperature,
-                        "max_tokens": 4096,
-                        "timeout": 60
+                        "max_tokens": 512,
+                        "timeout": 120
                     }
                 else:
                     # Standard OpenAI/other APIs
@@ -140,7 +140,7 @@ class LLMHandler:
                         "model": self.model,
                         "messages": messages,
                         "temperature": temperature,
-                        "max_completion_tokens": 4096,
+                        "max_completion_tokens": 1024,
                         "timeout": 60
                     }
                 

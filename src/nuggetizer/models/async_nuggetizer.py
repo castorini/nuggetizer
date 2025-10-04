@@ -13,6 +13,9 @@ from ..prompts import (
 )
 import asyncio
 
+# Maximum number of trials for LLM calls
+MAX_TRIALS = 500
+
 class AsyncNuggetizer(BaseNuggetizer):
     def __init__(
         self,
@@ -135,11 +138,11 @@ class AsyncNuggetizer(BaseNuggetizer):
                 self.logger.info(f"Generated prompt:\n{prompt}")
             
             temperature = 0.0
-            trial_count = 500
+            trial_count = MAX_TRIALS
             while trial_count > 0:
                 try:
                     if self.log_level >= 1:
-                        self.logger.info(f"Attempting LLM call (trial {500-trial_count+1})")
+                        self.logger.info(f"Attempting LLM call (trial {MAX_TRIALS-trial_count+1})")
                     response, _ = await self.creator_llm.run(prompt, temperature=temperature)
                     if self.log_level >= 2:
                         self.logger.info(f"Raw LLM response:\n{response}")
@@ -174,7 +177,7 @@ class AsyncNuggetizer(BaseNuggetizer):
             window_nuggets = nuggets[start:end]
             
             prompt = self._create_score_prompt(request.query.text, window_nuggets)
-            trial_count = 500
+            trial_count = MAX_TRIALS
             temperature = 0.0
             while trial_count > 0:
                 try:
@@ -244,12 +247,12 @@ class AsyncNuggetizer(BaseNuggetizer):
             if self.log_level >= 2:
                 self.logger.info(f"Generated prompt:\n{prompt}")
 
-            trial_count = 500
+            trial_count = MAX_TRIALS
             temperature = 0.0
             while trial_count > 0:
                 try:
                     if self.log_level >= 1:
-                        self.logger.info(f"Attempting LLM call (trial {500-trial_count+1})")
+                        self.logger.info(f"Attempting LLM call (trial {MAX_TRIALS-trial_count+1})")
                     response, _ = await self.assigner_llm.run(prompt, temperature=temperature)
                     if self.log_level >= 2:
                         self.logger.info(f"Raw LLM response:\n{response}")

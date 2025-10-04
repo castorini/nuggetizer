@@ -13,6 +13,9 @@ from ..prompts import (
     create_score_prompt, create_assign_prompt, get_assign_prompt_content
 )
 
+# Maximum number of trials for LLM calls
+MAX_TRIALS = 500
+
 class Nuggetizer(BaseNuggetizer):
     def __init__(
         self,
@@ -37,7 +40,7 @@ class Nuggetizer(BaseNuggetizer):
         scorer_max_nuggets: int = 30,
         log_level: int = 0,
         print_reasoning: bool = False,
-        store_trace: bool = True,
+        store_trace: bool = False,
         store_reasoning: bool = False,
         **llm_kwargs
     ):
@@ -141,11 +144,11 @@ class Nuggetizer(BaseNuggetizer):
                 self.logger.info(f"Generated prompt:\n{prompt}")
             
             temperature = 0.0
-            trial_count = 500
+            trial_count = MAX_TRIALS
             while trial_count > 0:
                 try:
                     if self.log_level >= 1:
-                        self.logger.info(f"Attempting LLM call (trial {500-trial_count+1})")
+                        self.logger.info(f"Attempting LLM call (trial {MAX_TRIALS-trial_count+1})")
                     
                     # Call LLM and get response with metadata
                     response, token_count, usage_metadata, reasoning_content = self.creator_llm.run(prompt, temperature=temperature)
@@ -181,11 +184,11 @@ class Nuggetizer(BaseNuggetizer):
                 self.logger.info(f"Generated scoring prompt:\n{prompt}")
             
             temperature = 0.0
-            trial_count = 500
+            trial_count = MAX_TRIALS
             while trial_count > 0:
                 try:
                     if self.log_level >= 1:
-                        self.logger.info(f"Attempting scoring LLM call (trial {500-trial_count+1})")
+                        self.logger.info(f"Attempting scoring LLM call (trial {MAX_TRIALS-trial_count+1})")
                     
                     # Call LLM and get response with metadata
                     response, token_count, usage_metadata, reasoning_content = self.scorer_llm.run(prompt, temperature=temperature)
@@ -271,11 +274,11 @@ class Nuggetizer(BaseNuggetizer):
                 self.logger.info(f"Generated assignment prompt:\n{prompt}")
             
             temperature = 0.0
-            trial_count = 500
+            trial_count = MAX_TRIALS
             while trial_count > 0:
                 try:
                     if self.log_level >= 1:
-                        self.logger.info(f"Attempting assignment LLM call (trial {500-trial_count+1})")
+                        self.logger.info(f"Attempting assignment LLM call (trial {MAX_TRIALS-trial_count+1})")
                     
                     # Call LLM and get response with metadata
                     response, token_count, usage_metadata, reasoning_content = self.assigner_llm.run(prompt, temperature=temperature)
