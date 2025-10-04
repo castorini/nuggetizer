@@ -351,3 +351,22 @@ class Nuggetizer(BaseNuggetizer):
             start = end
 
         return assigned_nuggets
+
+    def create_batch(self, requests: List[Request]) -> List[List[ScoredNugget]]:
+        """Create nuggets for multiple requests."""
+        return [self.create(request) for request in requests]
+
+    def assign_batch(
+        self,
+        queries: List[str],
+        contexts: List[str],
+        nuggets_list: List[List[ScoredNugget]]
+    ) -> List[List[AssignedScoredNugget]]:
+        """Assign nuggets for multiple query-context pairs."""
+        if len(queries) != len(contexts) or len(queries) != len(nuggets_list):
+            raise ValueError("queries, contexts, and nuggets_list must have the same length")
+        
+        return [
+            self.assign(query, context, nuggets)
+            for query, context, nuggets in zip(queries, contexts, nuggets_list)
+        ]
