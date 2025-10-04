@@ -96,7 +96,6 @@ class LLMHandler:
             )
         elif api_type == "vllm":
             full_url = api_base
-            print(f"vLLM base URL: {full_url}")
             return OpenAI(
                 api_key=self.api_keys[0],
                 base_url=full_url
@@ -108,8 +107,13 @@ class LLMHandler:
         self, 
         messages: List[Dict[str, str]], 
         temperature: float = 0
-    ) -> Tuple[str, int]:
+    ) -> Tuple[str, int, Optional[Dict[str, any]], Optional[str]]:
+        """
+        Run LLM inference and return content, token count, usage metadata, and reasoning.
         
+        Returns:
+            Tuple of (content, token_count, usage_metadata, reasoning_content)
+        """
         remaining_retry = 5
         while remaining_retry > 0:
             if "o1" in self.model:
@@ -143,39 +147,42 @@ class LLMHandler:
                 completion = self.client.chat.completions.create(**completion_params)
                 response = completion.choices[0].message.content
                 
-                # Print reasoning if requested and available
-                if self.print_reasoning:
-                    message = completion.choices[0].message
-                    # Check for reasoning field in the message
-                    if hasattr(message, 'reasoning') and message.reasoning:
-                        print(f"REASONING: {message.reasoning}")
-                    elif hasattr(message, 'reasoning_content') and message.reasoning_content:
-                        print(f"REASONING: {message.reasoning_content}")
-                    # Also check if it's a dict with reasoning field
-                    elif isinstance(message, dict) and 'reasoning' in message and message['reasoning']:
-                        print(f"REASONING: {message['reasoning']}")
-                    elif isinstance(message, dict) and 'reasoning_content' in message and message['reasoning_content']:
-                        print(f"REASONING: {message['reasoning_content']}")
-                
-                # Handle thinking models that put content in reasoning_content
-                if response is None and hasattr(completion.choices[0].message, 'reasoning_content'):
-                    reasoning_content = completion.choices[0].message.reasoning_content
-                    response = reasoning_content if reasoning_content else ""
+                # Extract reasoning content if available
+                reasoning_content = None
+                message = completion.choices[0].message
+                if hasattr(message, 'reasoning') and message.reasoning:
+                    reasoning_content = message.reasoning
+                elif hasattr(message, 'reasoning_content') and message.reasoning_content:
+                    reasoning_content = message.reasoning_content
                 
                 # Handle None response
                 if response is None:
                     response = ""
                 
+                # Extract usage metadata
+                usage_metadata = None
+                if hasattr(completion, 'usage') and completion.usage:
+                    usage_metadata = {
+                        "prompt_tokens": getattr(completion.usage, 'prompt_tokens', None),
+                        "completion_tokens": getattr(completion.usage, 'completion_tokens', None),
+                        "total_tokens": getattr(completion.usage, 'total_tokens', None)
+                    }
+                
                 try:
                     # For newer models like gpt-4o that may not have specific encodings yet
                     if "gpt-4o" in self.model or "gpt-4.1" in self.model:
                         encoding = tiktoken.get_encoding("o200k_base")
+                    elif "qwen" in self.model.lower() or "qwen2" in self.model.lower() or "qwen3" in self.model.lower():
+                        # Use cl100k_base for Qwen models as they typically use similar tokenization
+                        encoding = tiktoken.get_encoding("cl100k_base")
                     else:
                         encoding = tiktoken.get_encoding(self.model)
                 except Exception as e:
-                    print(f"Error: {str(e)}")
                     encoding = tiktoken.get_encoding("cl100k_base")
-                return response, len(encoding.encode(response))
+                
+                # Ensure response is a string before encoding
+                response_str = str(response) if response is not None else ""
+                return response_str, len(encoding.encode(response_str)), usage_metadata, reasoning_content
             except Exception as e:
                 print(f"LLM Inference Error: {str(e)}")
                 remaining_retry -= 1

@@ -1,10 +1,11 @@
 import ast
 import logging
+from datetime import datetime
 from typing import List, Dict, Optional
 from ..core.base import BaseNuggetizer
 from ..core.llm import LLMHandler
 from ..core.types import (
-    Request, Nugget, ScoredNugget, AssignedScoredNugget,
+    Request, Nugget, ScoredNugget, AssignedScoredNugget, Trace,
     NuggetMode, NuggetScoreMode, NuggetAssignMode
 )
 from ..prompts import (
@@ -36,11 +37,15 @@ class Nuggetizer(BaseNuggetizer):
         scorer_max_nuggets: int = 30,
         log_level: int = 0,
         print_reasoning: bool = False,
+        store_trace: bool = True,
+        store_reasoning: bool = False,
         **llm_kwargs
     ):
         self.creator_mode = creator_mode
         self.scorer_mode = scorer_mode
         self.assigner_mode = assigner_mode
+        self.store_trace = store_trace
+        self.store_reasoning = store_reasoning
         
         # Initialize window sizes
         if window_size is not None:
@@ -89,42 +94,49 @@ class Nuggetizer(BaseNuggetizer):
             self.creator_max_nuggets = creator_max_nuggets
             self.scorer_max_nuggets = scorer_max_nuggets
         
+        # Initialize logging
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.INFO if log_level > 0 else logging.WARNING)
         self.log_level = log_level
-        if self.log_level >= 1:
-            self.logger.info(f"Initialized Nuggetizer with models: {creator_model}, {scorer_model}, {assigner_model}")
-
-    def _create_nugget_prompt(self, request: Request, start: int, end: int, nuggets: List[str]) -> List[Dict[str, str]]:
-        return create_nugget_prompt(request, start, end, nuggets)
+        if log_level >= 1:
+            self.logger.setLevel(logging.INFO)
+        if log_level >= 2:
+            self.logger.setLevel(logging.DEBUG)
 
     def _get_nugget_prompt_content(self, request: Request, start: int, end: int, nuggets: List[str]) -> str:
-        return get_nugget_prompt_content(request, start, end, nuggets, self.creator_max_nuggets)
+        """Get the prompt content for nugget creation."""
+        return get_nugget_prompt_content(
+            request, start, end, nuggets, 
+            self.creator_max_nuggets, self.creator_mode
+        )
 
-    def _create_score_prompt(self, query: str, nuggets: List[Nugget]) -> List[Dict[str, str]]:
-        return create_score_prompt(query, nuggets)
-
-    def _create_assign_prompt(self, query: str, context: str, nuggets: List[ScoredNugget]) -> List[Dict[str, str]]:
-        return create_assign_prompt(query, context, nuggets, self.assigner_mode)
-
-    def _get_assign_prompt_content(self, query: str, context: str, nuggets: List[ScoredNugget]) -> str:
-        return get_assign_prompt_content(query, context, nuggets, self.assigner_mode)
+    def _create_trace(self, component: str, model: str, params: Dict, messages: List[Dict[str, str]], 
+                     usage: Optional[Dict] = None, raw_output: Optional[str] = None,
+                     window_start: Optional[int] = None, window_end: Optional[int] = None) -> Trace:
+        """Create a Trace object with the given parameters."""
+        return Trace(
+            component=component,
+            model=model,
+            params=params,
+            messages=messages,
+            usage=usage,
+            raw_output=raw_output,
+            window_start=window_start,
+            window_end=window_end,
+            timestamp_utc=datetime.utcnow().isoformat() + "Z"
+        )
 
     def create(self, request: Request) -> List[ScoredNugget]:
-        if self.log_level >= 1:
-            self.logger.info("Starting nugget creation process")
-            self.logger.info(f"Processing request with {len(request.documents)} documents")
+        """Create and score nuggets from the request documents."""
+        current_nuggets = []
         
         start = 0
-        current_nuggets: List[str] = []
-        
         while start < len(request.documents):
             end = min(start + self.creator_window_size, len(request.documents))
             
             if self.log_level >= 1:
                 self.logger.info(f"Processing window {start} to {end} of {len(request.documents)} documents")
             
-            prompt = self._create_nugget_prompt(request, start, end, current_nuggets)
+            prompt = create_nugget_prompt(request, start, end, current_nuggets)
             if self.log_level >= 2:
                 self.logger.info(f"Generated prompt:\n{prompt}")
             
@@ -134,7 +146,10 @@ class Nuggetizer(BaseNuggetizer):
                 try:
                     if self.log_level >= 1:
                         self.logger.info(f"Attempting LLM call (trial {500-trial_count+1})")
-                    response, _ = self.creator_llm.run(prompt, temperature=temperature)
+                    
+                    # Call LLM and get response with metadata
+                    response, token_count, usage_metadata, reasoning_content = self.creator_llm.run(prompt, temperature=temperature)
+                    
                     if self.log_level >= 2:
                         self.logger.info(f"Raw LLM response:\n{response}")
                 except Exception as e:
@@ -151,94 +166,122 @@ class Nuggetizer(BaseNuggetizer):
                     self.logger.warning(f"Failed to parse response: {str(e)}")
                     temperature = 0.2
                     trial_count -= 1
-                    if trial_count == 0:
-                        self.logger.error("Failed to parse response after 500 attempts")
-            
-            start += self.creator_window_size
-            if self.log_level >= 1:
-                self.logger.info(f"Moving window by stride {self.creator_window_size}, new start: {start}")
-        
+
         # Score the nuggets
-        nuggets = [Nugget(text=text) for text in current_nuggets]
         scored_nuggets = []
         start = 0
-        
-        while start < len(nuggets):
-            end = min(start + self.scorer_window_size, len(nuggets))
-            window_nuggets = nuggets[start:end]
+        while start < len(current_nuggets):
+            end = min(start + self.scorer_window_size, len(current_nuggets))
             
-            prompt = self._create_score_prompt(request.query.text, window_nuggets)
-            trial_count = 500
+            if self.log_level >= 1:
+                self.logger.info(f"Scoring window {start} to {end} of {len(current_nuggets)} nuggets")
+            
+            prompt = create_score_prompt(request, current_nuggets[start:end])
+            if self.log_level >= 2:
+                self.logger.info(f"Generated scoring prompt:\n{prompt}")
+            
             temperature = 0.0
+            trial_count = 500
             while trial_count > 0:
                 try:
-                    response, _ = self.scorer_llm.run(prompt, temperature=temperature)
+                    if self.log_level >= 1:
+                        self.logger.info(f"Attempting scoring LLM call (trial {500-trial_count+1})")
+                    
+                    # Call LLM and get response with metadata
+                    response, token_count, usage_metadata, reasoning_content = self.scorer_llm.run(prompt, temperature=temperature)
+                    
+                    if self.log_level >= 2:
+                        self.logger.info(f"Raw scoring response:\n{response}")
                 except Exception as e:
                     self.logger.error(f"Failed to score nuggets: {str(e)}")
-                    scored_nuggets.extend([
-                        ScoredNugget(text=nugget.text, importance="failed")
-                        for nugget in window_nuggets
-                    ])
                     break
                 try:
                     response = response.replace("```python", "").replace("```", "").strip()
-                    importance_labels = ast.literal_eval(response)
-
-                    for nugget, importance in zip(window_nuggets, importance_labels):
-                        scored_nuggets.append(
-                            ScoredNugget(text=nugget.text, importance=importance.lower())
-                        )
+                    scores = ast.literal_eval(response)
+                    
+                    # Create ScoredNugget objects with trace information
+                    for i, (nugget_text, score) in enumerate(zip(current_nuggets[start:end], scores)):
+                        reasoning = reasoning_content if self.store_reasoning else None
+                        trace = None
+                        
+                        if self.store_trace:
+                            trace = self._create_trace(
+                                component="scorer",
+                                model=self.scorer_llm.model,
+                                params={"temperature": temperature},
+                                messages=prompt,
+                                usage=usage_metadata,
+                                raw_output=response,
+                                window_start=start,
+                                window_end=end
+                            )
+                        
+                        scored_nuggets.append(ScoredNugget(
+                            text=nugget_text,
+                            importance=score.lower(),
+                            reasoning=reasoning,
+                            trace=trace
+                        ))
+                    
+                    if self.log_level >= 1:
+                        self.logger.info(f"Successfully scored window with {len(current_nuggets[start:end])} nuggets")
                     break
-                except Exception:
-                    trial_count -= 1
-                    temperature = 0.2
+                except Exception as e:
+                    self.logger.warning(f"Failed to parse scoring response: {str(e)}")
+                    if trial_count > 0:
+                        trial_count -= 1
+                        temperature = 0.2
                     if trial_count == 0:
-                        scored_nuggets.extend([
-                            ScoredNugget(text=nugget.text, importance="failed")
-                            for nugget in window_nuggets
-                        ])
-            
-            start += self.scorer_window_size
-        # # First sort by importance then position and then take :self.scorer_max_nuggets
-        scored_nuggets = sorted(scored_nuggets, 
-                       key=lambda x: (0 if x.importance == 'vital' else 1, 
-                                    scored_nuggets.index(x)))[:self.scorer_max_nuggets]
-        
-        if self.log_level >= 1:
-            self.logger.info(f"Completed nugget creation with {len(scored_nuggets)} nuggets")
+                        self.logger.error("Failed to parse scoring response after 500 attempts")
+                        # Add nuggets with default scoring
+                        for nugget_text in current_nuggets[start:end]:
+                            scored_nuggets.append(ScoredNugget(
+                                text=nugget_text,
+                                importance="okay",
+                                reasoning=reasoning_content if self.store_reasoning else None,
+                                trace=self._create_trace(
+                                    component="scorer",
+                                    model=self.scorer_llm.model,
+                                    params={"temperature": temperature},
+                                    messages=prompt,
+                                    usage=usage_metadata,
+                                    raw_output=response,
+                                    window_start=start,
+                                    window_end=end
+                                ) if self.store_trace else None
+                            ))
+            start = end
+
         return scored_nuggets
 
     def assign(self, query: str, context: str, nuggets: List[ScoredNugget]) -> List[AssignedScoredNugget]:
-        if context.strip() == "":
-            return [AssignedScoredNugget(text=nugget.text, importance=nugget.importance, assignment='not_support') for nugget in nuggets]
-        
-        if self.log_level >= 1:
-            self.logger.info("Starting nugget assignment process")
-            self.logger.info(f"Processing {len(nuggets)} nuggets")
-        
+        """Assign scored nuggets to the given context."""
         assigned_nuggets = []
-        start = 0
         
+        start = 0
         while start < len(nuggets):
             end = min(start + self.assigner_window_size, len(nuggets))
             window_nuggets = nuggets[start:end]
             
             if self.log_level >= 1:
-                self.logger.info(f"Processing window {start} to {end} of {len(nuggets)} nuggets")
+                self.logger.info(f"Assigning window {start} to {end} of {len(nuggets)} nuggets")
             
-            prompt = self._create_assign_prompt(query, context, window_nuggets)
+            prompt = create_assign_prompt(query, context, window_nuggets)
             if self.log_level >= 2:
-                self.logger.info(f"Generated prompt:\n{prompt}")
+                self.logger.info(f"Generated assignment prompt:\n{prompt}")
             
-            trial_count = 500
             temperature = 0.0
+            trial_count = 500
             while trial_count > 0:
                 try:
                     if self.log_level >= 1:
-                        self.logger.info(f"Attempting LLM call (trial {500-trial_count+1})")
-                    response, _ = self.assigner_llm.run(prompt, temperature=temperature)
+                        self.logger.info(f"Attempting assignment LLM call (trial {500-trial_count+1})")
+                    
+                    # Call LLM and get response with metadata
+                    response, token_count, usage_metadata, reasoning_content = self.assigner_llm.run(prompt, temperature=temperature)
+                    
                     if self.log_level >= 2:
-                        self.logger.info(f"Raw LLM response:\n{response}")
+                        self.logger.info(f"Raw assignment response:\n{response}")
                 except Exception as e:
                     self.logger.error(f"Failed to assign nuggets: {str(e)}")
                     assigned_nuggets.extend([
@@ -249,45 +292,62 @@ class Nuggetizer(BaseNuggetizer):
                 try:
                     response = response.replace("```python", "").replace("```", "").strip()
                     assignments = ast.literal_eval(response)
+                    
+                    # Create AssignedScoredNugget objects with trace information
                     for nugget, assignment in zip(window_nuggets, assignments):
+                        reasoning = reasoning_content if self.store_reasoning else None
+                        trace = None
+                        
+                        if self.store_trace:
+                            trace = self._create_trace(
+                                component="assigner",
+                                model=self.assigner_llm.model,
+                                params={"temperature": temperature},
+                                messages=prompt,
+                                usage=usage_metadata,
+                                raw_output=response,
+                                window_start=start,
+                                window_end=end
+                            )
+                        
                         assigned_nuggets.append(
                             AssignedScoredNugget(
                                 text=nugget.text,
                                 importance=nugget.importance,
-                                assignment=assignment.lower()
+                                assignment=assignment.lower(),
+                                reasoning=reasoning,
+                                trace=trace
                             )
                         )
                     if self.log_level >= 1:
                         self.logger.info(f"Successfully processed window with {len(window_nuggets)} nuggets")
                     break
                 except Exception as e:
-                    self.logger.warning(f"Failed to parse response: {str(e)}")
+                    self.logger.warning(f"Failed to parse assignment response: {str(e)}")
                     if trial_count > 0:
                         trial_count -= 1
                         temperature = 0.2
                     if trial_count == 0:
-                        self.logger.error("Failed to parse response after 500 attempts")
+                        self.logger.error("Failed to parse assignment response after 500 attempts")
                         assigned_nuggets.extend([
-                            AssignedScoredNugget(text=nugget.text, importance=nugget.importance, assignment="failed")
+                            AssignedScoredNugget(
+                                text=nugget.text,
+                                importance=nugget.importance,
+                                assignment="failed",
+                                reasoning=reasoning_content if self.store_reasoning else None,
+                                trace=self._create_trace(
+                                    component="assigner",
+                                    model=self.assigner_llm.model,
+                                    params={"temperature": temperature},
+                                    messages=prompt,
+                                    usage=usage_metadata,
+                                    raw_output=response,
+                                    window_start=start,
+                                    window_end=end
+                                ) if self.store_trace else None
+                            )
                             for nugget in window_nuggets
                         ])
-            
-            start += self.assigner_window_size
-        
-        if self.log_level >= 1:
-            self.logger.info(f"Completed assignment process with {len(assigned_nuggets)} nuggets")
+            start = end
+
         return assigned_nuggets
-
-    def create_batch(self, requests: List[Request]) -> List[List[ScoredNugget]]:
-        return [self.create(request) for request in requests]
-
-    def assign_batch(
-        self,
-        queries: List[str],
-        contexts: List[str],
-        nuggets_list: List[List[ScoredNugget]]
-    ) -> List[List[AssignedScoredNugget]]:
-        return [
-            self.assign(query, context, nuggets)
-            for query, context, nuggets in zip(queries, contexts, nuggets_list)
-        ]

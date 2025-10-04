@@ -106,7 +106,13 @@ class AsyncLLMHandler:
         self, 
         messages: List[Dict[str, str]], 
         temperature: float = 0
-    ) -> Tuple[str, int]:
+    ) -> Tuple[str, int, Optional[Dict[str, any]], Optional[str]]:
+        """
+        Run async LLM inference and return content, token count, usage metadata, and reasoning.
+        
+        Returns:
+            Tuple of (content, token_count, usage_metadata, reasoning_content)
+        """
         while True:
             if "o1" in self.model or "o3" in self.model:
                 # System message is not supported for o1 models
@@ -124,23 +130,26 @@ class AsyncLLMHandler:
                 )
                 response = completion.choices[0].message.content
                 
-                # Print reasoning if requested and available
-                if self.print_reasoning:
-                    message = completion.choices[0].message
-                    # Check for reasoning field in the message
-                    if hasattr(message, 'reasoning') and message.reasoning:
-                        print(f"REASONING: {message.reasoning}")
-                    elif hasattr(message, 'reasoning_content') and message.reasoning_content:
-                        print(f"REASONING: {message.reasoning_content}")
-                    # Also check if it's a dict with reasoning field
-                    elif isinstance(message, dict) and 'reasoning' in message and message['reasoning']:
-                        print(f"REASONING: {message['reasoning']}")
-                    elif isinstance(message, dict) and 'reasoning_content' in message and message['reasoning_content']:
-                        print(f"REASONING: {message['reasoning_content']}")
+                # Extract reasoning content if available
+                reasoning_content = None
+                message = completion.choices[0].message
+                if hasattr(message, 'reasoning') and message.reasoning:
+                    reasoning_content = message.reasoning
+                elif hasattr(message, 'reasoning_content') and message.reasoning_content:
+                    reasoning_content = message.reasoning_content
                 
                 # Handle None response
                 if response is None:
                     response = ""
+                
+                # Extract usage metadata
+                usage_metadata = None
+                if hasattr(completion, 'usage') and completion.usage:
+                    usage_metadata = {
+                        "prompt_tokens": getattr(completion.usage, 'prompt_tokens', None),
+                        "completion_tokens": getattr(completion.usage, 'completion_tokens', None),
+                        "total_tokens": getattr(completion.usage, 'total_tokens', None)
+                    }
                 
                 try:
                     # For newer models like gpt-4o that may not have specific encodings yet
@@ -153,10 +162,10 @@ class AsyncLLMHandler:
                 
                 # Ensure response is a string before encoding
                 response_str = str(response) if response is not None else ""
-                return response_str, len(encoding.encode(response_str))
+                return response_str, len(encoding.encode(response_str)), usage_metadata, reasoning_content
             except Exception as e:
                 print(f"Error: {str(e)}")
                 if self.api_keys is not None:
                     self.current_key_idx = (self.current_key_idx + 1) % len(self.api_keys)
                     self.client.api_key = self.api_keys[self.current_key_idx]
-                time.sleep(0.1) 
+                time.sleep(0.1)

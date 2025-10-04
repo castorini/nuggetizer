@@ -1,6 +1,7 @@
-from dataclasses import dataclass
+from __future__ import annotations
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional
+from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, Union
 
 class NuggetMode(Enum):
     ATOMIC = "atomic"
@@ -31,17 +32,44 @@ class Request:
     documents: List[Document]
 
 @dataclass
-class Nugget:
+class Trace:
+    """Trace information for debugging and transparency."""
+    # Which stage produced this artifact
+    component: Literal["creator", "scorer", "assigner"]
+    # LLM plumbing
+    model: Optional[str] = None
+    params: Dict[str, Any] = field(default_factory=dict)  # e.g., {"temperature": 0.0}
+    # The messages we sent to the LLM (or the prompt content)
+    messages: Optional[List[Dict[str, str]]] = None
+    # Usage and outputs
+    usage: Optional[Dict[str, Any]] = None               # e.g., tokens, cost
+    raw_output: Optional[str] = None                     # raw text as returned
+    # Helpful for debugging batched calls
+    window_start: Optional[int] = None
+    window_end: Optional[int] = None
+    # When the call happened (optional)
+    timestamp_utc: Optional[str] = None                  # ISO8601 string
+
+@dataclass
+class BaseNugget:
+    """Base class for all nuggets with common fields."""
     text: str
+    # Optional metadata
+    reasoning: Optional[str] = None
+    trace: Optional[Trace] = None
 
 @dataclass
-class ScoredNugget(Nugget):
-    importance: str  # "vital" or "okay"
+class Nugget(BaseNugget):
+    pass
 
 @dataclass
-class AssignedNugget(Nugget):
-    assignment: str  # "support", "not_support", or "partial_support"
+class ScoredNugget(BaseNugget):
+    importance: str = "okay"  # e.g., "vital" | "okay" | "failed"
+
+@dataclass
+class AssignedNugget(BaseNugget):
+    assignment: str = "not_support"  # e.g., "support", "partial_support", "not_support"
 
 @dataclass
 class AssignedScoredNugget(ScoredNugget):
-    assignment: str  # "support", "not_support", or "partial_support"
+    assignment: str = "not_support"  # e.g., "support", "partial_support", "not_support"
