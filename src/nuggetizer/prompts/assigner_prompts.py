@@ -5,21 +5,41 @@ Prompts for nugget assignment
 from typing import List, Dict
 from ..core.types import ScoredNugget, NuggetAssignMode
 
-def create_assign_prompt(query: str, context: str, nuggets: List[ScoredNugget], assigner_mode: NuggetAssignMode = NuggetAssignMode.SUPPORT_GRADE_3) -> List[Dict[str, str]]:
+def create_assign_prompt(query: str, context: str, nuggets: List[ScoredNugget], assigner_mode: NuggetAssignMode = NuggetAssignMode.SUPPORT_GRADE_3, use_yaml: bool = False) -> List[Dict[str, str]]:
     """
-    Creates a prompt for nugget assignment
+    Creates a prompt for nugget assignment. Set use_yaml=True to use YAML templates.
     """
-    messages = [
-        {
-            "role": "system",
-            "content": "You are NuggetizeAssignerLLM, an intelligent assistant that can label a list of atomic nuggets based on if they are captured by a given passage."
-        },
-        {
-            "role": "user",
-            "content": get_assign_prompt_content(query, context, nuggets, assigner_mode)
-        }
-    ]
-    return messages
+    if use_yaml:
+        from .template_loader import format_template
+        
+        # choose template based on assignment mode
+        template_name = "assigner_template" if assigner_mode == NuggetAssignMode.SUPPORT_GRADE_3 else "assigner_2grade_template"
+        
+        # format template with variables
+        template_data = format_template(
+            template_name,
+            query=query,
+            context=context,
+            nuggets=[nugget.text for nugget in nuggets],
+            num_nuggets=len(nuggets)
+        )
+        
+        return [
+            {"role": "system", "content": template_data['system']},
+            {"role": "user", "content": template_data['user']}
+        ]
+    else:
+        messages = [
+            {
+                "role": "system",
+                "content": "You are NuggetizeAssignerLLM, an intelligent assistant that can label a list of atomic nuggets based on if they are captured by a given passage."
+            },
+            {
+                "role": "user",
+                "content": get_assign_prompt_content(query, context, nuggets, assigner_mode)
+            }
+        ]
+        return messages
 
 def get_assign_prompt_content(query: str, context: str, nuggets: List[ScoredNugget], assigner_mode: NuggetAssignMode = NuggetAssignMode.SUPPORT_GRADE_3) -> str:
     """

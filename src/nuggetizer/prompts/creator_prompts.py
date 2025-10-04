@@ -5,21 +5,45 @@ Prompts for nugget creation
 from typing import List, Dict
 from ..core.types import Request
 
-def create_nugget_prompt(request: Request, start: int, end: int, nuggets: List[str]) -> List[Dict[str, str]]:
+def create_nugget_prompt(request: Request, start: int, end: int, nuggets: List[str], use_yaml: bool = False) -> List[Dict[str, str]]:
     """
-    Creates a prompt for nugget creation
+    Creates a prompt for nugget creation. Set use_yaml=True to use YAML templates.
     """
-    messages = [
-        {
-            "role": "system",
-            "content": "You are NuggetizeLLM, an intelligent assistant that can update a list of atomic nuggets to best provide all the information required for the query."
-        },
-        {
-            "role": "user",
-            "content": get_nugget_prompt_content(request, start, end, nuggets)
-        }
-    ]
-    return messages
+    if use_yaml:
+        from .template_loader import format_template
+        
+        # prepare context from docs
+        context = "\n".join([
+            f"[{i+1}] {doc.segment}" 
+            for i, doc in enumerate(request.documents[start:end])
+        ])
+        
+        # format template with variables
+        template_data = format_template(
+            "creator_template",
+            query=request.query.text,
+            context=context,
+            nuggets=nuggets,
+            nuggets_length=len(nuggets),
+            creator_max_nuggets=30
+        )
+        
+        return [
+            {"role": "system", "content": template_data['system']},
+            {"role": "user", "content": template_data['user']}
+        ]
+    else:
+        messages = [
+            {
+                "role": "system",
+                "content": "You are NuggetizeLLM, an intelligent assistant that can update a list of atomic nuggets to best provide all the information required for the query."
+            },
+            {
+                "role": "user",
+                "content": get_nugget_prompt_content(request, start, end, nuggets)
+            }
+        ]
+        return messages
 
 def get_nugget_prompt_content(request: Request, start: int, end: int, nuggets: List[str], creator_max_nuggets: int = 30) -> str:
     """
