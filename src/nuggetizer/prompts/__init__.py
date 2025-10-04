@@ -1,5 +1,5 @@
 """
-Export prompt content and templates
+Export prompt functions
 """
 
 from .creator_prompts import create_nugget_prompt, get_nugget_prompt_content
