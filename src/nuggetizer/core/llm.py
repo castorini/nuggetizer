@@ -114,10 +114,6 @@ class LLMHandler:
         Returns:
             Tuple of (content, token_count, usage_metadata, reasoning_content)
         """
-        print(f"🔍 DEBUG LLM: Starting LLM run with model: {self.model}")
-        print(f"🔍 DEBUG LLM: Temperature: {temperature}")
-        print(f"🔍 DEBUG LLM: Number of messages: {len(messages)}")
-        print(f"🔍 DEBUG LLM: API type: {getattr(self.client, 'base_url', 'unknown')}")
         
         remaining_retry = 5
         while remaining_retry > 0:
@@ -171,7 +167,6 @@ class LLMHandler:
                     reasoning_content = message['reasoning_content']
                 else:
                     print(f"No reasoning found in response from {self.model}")
-                    print(f"Response: {response[:200]}..." if response else "Response: None")
                 
                 # Handle None response
                 if response is None:
@@ -200,12 +195,8 @@ class LLMHandler:
                 
                 # Ensure response is a string before encoding
                 response_str = str(response) if response is not None else ""
-                print(f"🔍 DEBUG LLM: Returning response with length: {len(response_str)}")
                 return response_str, len(encoding.encode(response_str)), usage_metadata, reasoning_content
             except Exception as e:
-                print(f"🔍 DEBUG LLM: LLM Inference Error: {str(e)}")
-                print(f"🔍 DEBUG LLM: Error type: {type(e).__name__}")
-                print(f"🔍 DEBUG LLM: Remaining retries: {remaining_retry - 1}")
                 remaining_retry -= 1
                 if remaining_retry <= 0:
                     raise RuntimeError("Reached max of 5 retries.")

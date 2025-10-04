@@ -104,6 +104,9 @@ class Nuggetizer(BaseNuggetizer):
             self.logger.setLevel(logging.INFO)
         if log_level >= 2:
             self.logger.setLevel(logging.DEBUG)
+        
+        # Store creator reasoning for printing
+        self.creator_reasoning = None
 
     def _get_nugget_prompt_content(self, request: Request, start: int, end: int, nuggets: List[str]) -> str:
         """Get the prompt content for nugget creation."""
@@ -130,11 +133,6 @@ class Nuggetizer(BaseNuggetizer):
 
     def create(self, request: Request) -> List[ScoredNugget]:
         """Create and score nuggets from the request documents."""
-        print(f"🔍 DEBUG: Starting nugget creation for query: '{request.query.text}'")
-        print(f"🔍 DEBUG: Processing {len(request.documents)} documents")
-        print(f"🔍 DEBUG: MAX_TRIALS = {MAX_TRIALS}")
-        print(f"🔍 DEBUG: Creator window size = {self.creator_window_size}")
-        print(f"🔍 DEBUG: Creator max nuggets = {self.creator_max_nuggets}")
         
         current_nuggets = []
         
@@ -142,124 +140,92 @@ class Nuggetizer(BaseNuggetizer):
         while start < len(request.documents):
             end = min(start + self.creator_window_size, len(request.documents))
             
-            print(f"🔍 DEBUG: Processing window {start} to {end} of {len(request.documents)} documents")
             if self.log_level >= 1:
                 self.logger.info(f"Processing window {start} to {end} of {len(request.documents)} documents")
             
             prompt = create_nugget_prompt(request, start, end, current_nuggets)
-            print(f"🔍 DEBUG: Created prompt with {len(prompt)} messages")
             if self.log_level >= 2:
                 self.logger.info(f"Generated prompt:\n{prompt}")
             
             temperature = 0.0
             trial_count = MAX_TRIALS
-            print(f"🔍 DEBUG: Starting LLM trials, trial_count = {trial_count}")
             
             while trial_count > 0:
                 try:
-                    print(f"🔍 DEBUG: Attempting LLM call (trial {MAX_TRIALS-trial_count+1}/{MAX_TRIALS})")
                     if self.log_level >= 1:
                         self.logger.info(f"Attempting LLM call (trial {MAX_TRIALS-trial_count+1})")
                     
                     # Call LLM and get response with metadata
-                    print(f"🔍 DEBUG: Calling creator_llm.run() with temperature={temperature}")
                     response, token_count, usage_metadata, reasoning_content = self.creator_llm.run(prompt, temperature=temperature)
                     
-                    print(f"🔍 DEBUG: LLM call successful! Response length: {len(response) if response else 0}")
-                    print(f"🔍 DEBUG: Raw response (first 200 chars): {response[:200] if response else 'None'}...")
+                    # Store creator reasoning if available
+                    if reasoning_content and self.store_reasoning:
+                        self.creator_reasoning = reasoning_content
                     
                     if self.log_level >= 2:
                         self.logger.info(f"Raw LLM response:\n{response}")
                 except Exception as e:
-                    print(f"🔍 DEBUG: LLM call failed with error: {str(e)}")
-                    print(f"🔍 DEBUG: Error type: {type(e).__name__}")
                     self.logger.error(f"Failed to create nuggets: {str(e)}")
                     break
                     
                 try:
-                    print(f"🔍 DEBUG: Attempting to parse LLM response...")
                     cleaned_response = response.replace("```python", "").replace("```", "").strip()
-                    print(f"🔍 DEBUG: Cleaned response: {cleaned_response}")
                     
                     nugget_texts = ast.literal_eval(cleaned_response)
-                    print(f"🔍 DEBUG: Successfully parsed {len(nugget_texts)} nuggets: {nugget_texts}")
                     
                     current_nuggets = nugget_texts[:self.creator_max_nuggets]  # Ensure max nuggets
-                    print(f"🔍 DEBUG: Final current_nuggets count: {len(current_nuggets)}")
                     
                     if self.log_level >= 1:
                         self.logger.info(f"Successfully processed window, current nugget count: {len(current_nuggets)}")
                     break
                 except Exception as e:
-                    print(f"🔍 DEBUG: Failed to parse response: {str(e)}")
-                    print(f"🔍 DEBUG: Error type: {type(e).__name__}")
-                    print(f"🔍 DEBUG: Response that failed to parse: '{response}'")
                     self.logger.warning(f"Failed to parse response: {str(e)}")
                     temperature = 0.2
                     trial_count -= 1
-                    print(f"🔍 DEBUG: Reducing trial_count to {trial_count}, increasing temperature to {temperature}")
             
             if trial_count == 0:
-                print(f"🔍 DEBUG: WARNING: All {MAX_TRIALS} trials failed for this window!")
+                self.logger.error(f"All {MAX_TRIALS} trials failed for this window!")
                 
             start += self.creator_window_size
-            print(f"🔍 DEBUG: Moving to next window, new start: {start}")
         
-        print(f"🔍 DEBUG: Finished nugget creation. Total nuggets: {len(current_nuggets)}")
-        print(f"🔍 DEBUG: Nuggets: {current_nuggets}")
 
         # Score the nuggets
-        print(f"🔍 DEBUG: Starting nugget scoring for {len(current_nuggets)} nuggets")
-        print(f"🔍 DEBUG: Scorer window size = {self.scorer_window_size}")
         
         scored_nuggets = []
         start = 0
         while start < len(current_nuggets):
             end = min(start + self.scorer_window_size, len(current_nuggets))
             
-            print(f"🔍 DEBUG: Scoring window {start} to {end} of {len(current_nuggets)} nuggets")
             if self.log_level >= 1:
                 self.logger.info(f"Scoring window {start} to {end} of {len(current_nuggets)} nuggets")
             
             # Convert string nuggets to Nugget objects for scoring
             nugget_objects = [Nugget(text=nugget_text) for nugget_text in current_nuggets[start:end]]
             prompt = create_score_prompt(request, nugget_objects)
-            print(f"🔍 DEBUG: Created scoring prompt with {len(prompt)} messages")
             if self.log_level >= 2:
                 self.logger.info(f"Generated scoring prompt:\n{prompt}")
             
             temperature = 0.0
             trial_count = MAX_TRIALS
-            print(f"🔍 DEBUG: Starting scoring LLM trials, trial_count = {trial_count}")
             
             while trial_count > 0:
                 try:
-                    print(f"🔍 DEBUG: Attempting scoring LLM call (trial {MAX_TRIALS-trial_count+1}/{MAX_TRIALS})")
                     if self.log_level >= 1:
                         self.logger.info(f"Attempting scoring LLM call (trial {MAX_TRIALS-trial_count+1})")
                     
                     # Call LLM and get response with metadata
-                    print(f"🔍 DEBUG: Calling scorer_llm.run() with temperature={temperature}")
                     response, token_count, usage_metadata, reasoning_content = self.scorer_llm.run(prompt, temperature=temperature)
-                    
-                    print(f"🔍 DEBUG: Scoring LLM call successful! Response length: {len(response) if response else 0}")
-                    print(f"🔍 DEBUG: Raw scoring response (first 200 chars): {response[:200] if response else 'None'}...")
                     
                     if self.log_level >= 2:
                         self.logger.info(f"Raw scoring response:\n{response}")
                 except Exception as e:
-                    print(f"🔍 DEBUG: Scoring LLM call failed with error: {str(e)}")
-                    print(f"🔍 DEBUG: Error type: {type(e).__name__}")
                     self.logger.error(f"Failed to score nuggets: {str(e)}")
                     break
                     
                 try:
-                    print(f"🔍 DEBUG: Attempting to parse scoring response...")
                     cleaned_response = response.replace("```python", "").replace("```", "").strip()
-                    print(f"🔍 DEBUG: Cleaned scoring response: {cleaned_response}")
                     
                     scores = ast.literal_eval(cleaned_response)
-                    print(f"🔍 DEBUG: Successfully parsed {len(scores)} scores: {scores}")
                     
                     # Create ScoredNugget objects with trace information
                     for i, (nugget_text, score) in enumerate(zip(current_nuggets[start:end], scores)):
@@ -314,9 +280,6 @@ class Nuggetizer(BaseNuggetizer):
                             ))
             start = end
 
-        print(f"🔍 DEBUG: Finished nugget scoring. Total scored nuggets: {len(scored_nuggets)}")
-        print(f"🔍 DEBUG: ScoredNugget details: {[(n.text, n.importance) for n in scored_nuggets]}")
-        print(f"🔍 DEBUG: Returning from create() method")
         
         return scored_nuggets
 
@@ -417,6 +380,10 @@ class Nuggetizer(BaseNuggetizer):
             start = end
 
         return assigned_nuggets
+
+    def get_creator_reasoning(self) -> Optional[str]:
+        """Get the reasoning content from the creator component."""
+        return self.creator_reasoning
 
     def create_batch(self, requests: List[Request]) -> List[List[ScoredNugget]]:
         """Create nuggets for multiple requests."""

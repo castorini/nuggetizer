@@ -145,8 +145,7 @@ class AsyncLLMHandler:
                 elif isinstance(message, dict) and 'reasoning_content' in message and message['reasoning_content']:
                     reasoning_content = message['reasoning_content']
                 else:
-                    print(f"No reasoning found in response from {self.model}")
-                    print(f"Response: {response[:200]}..." if response else "Response: None")
+                    pass
                 
                 # Handle None response
                 if response is None:

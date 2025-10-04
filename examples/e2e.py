@@ -134,6 +134,12 @@ def process_request(request: Request, model: str, use_azure_openai: bool, use_op
     
     # Print reasoning if requested
     if print_reasoning:
+        # Print creator reasoning
+        creator_reasoning = nuggetizer.get_creator_reasoning()
+        if creator_reasoning:
+            print("\n🧠 Creator Reasoning:")
+            print(f"   {creator_reasoning}\n")
+        
         print("\n🧠 Reasoning for each nugget:")
         for i, nugget in enumerate(scored_nuggets, 1):
             if hasattr(nugget, 'reasoning') and nugget.reasoning:
