@@ -207,14 +207,14 @@ class LLMHandler:
                         encoding = tiktoken.get_encoding("cl100k_base")
                     else:
                         encoding = tiktoken.get_encoding(self.model)
-                except Exception as e:
+                except Exception:
                     encoding = tiktoken.get_encoding("cl100k_base")
 
                 # Ensure response is a string before encoding
                 response_str = str(response) if response is not None else ""
                 return response_str, len(
                     encoding.encode(response_str)), usage_metadata, reasoning_content
-            except Exception as e:
+            except Exception:
                 remaining_retry -= 1
                 if remaining_retry <= 0:
                     raise RuntimeError("Reached max of 5 retries.")

@@ -164,7 +164,8 @@ class Nuggetizer(BaseNuggetizer):
                 try:
                     if self.log_level >= 1:
                         self.logger.info(
-                            f"Attempting LLM call (trial {MAX_TRIALS - trial_count + 1})")
+                            f"Attempting LLM call (trial {
+                                MAX_TRIALS - trial_count + 1})")
 
                     # Call LLM and get response with metadata
                     response, token_count, usage_metadata, reasoning_content = self.creator_llm.run(
@@ -192,7 +193,8 @@ class Nuggetizer(BaseNuggetizer):
 
                     if self.log_level >= 1:
                         self.logger.info(
-                            f"Successfully processed window, current nugget count: {len(current_nuggets)}")
+                            f"Successfully processed window, current nugget count: {
+                                len(current_nuggets)}")
                     break
                 except Exception as e:
                     self.logger.warning(f"Failed to parse response: {str(e)}")
@@ -231,7 +233,8 @@ class Nuggetizer(BaseNuggetizer):
                 try:
                     if self.log_level >= 1:
                         self.logger.info(
-                            f"Attempting scoring LLM call (trial {MAX_TRIALS - trial_count + 1})")
+                            f"Attempting scoring LLM call (trial {
+                                MAX_TRIALS - trial_count + 1})")
 
                     # Call LLM and get response with metadata
                     response, token_count, usage_metadata, reasoning_content = self.scorer_llm.run(
@@ -281,7 +284,8 @@ class Nuggetizer(BaseNuggetizer):
                     break
                 except Exception as e:
                     self.logger.warning(
-                        f"Failed to parse scoring response: {str(e)}")
+                        f"Failed to parse scoring response: {
+                            str(e)}")
                     if trial_count > 0:
                         trial_count -= 1
                         temperature = 0.2
@@ -337,7 +341,8 @@ class Nuggetizer(BaseNuggetizer):
                 try:
                     if self.log_level >= 1:
                         self.logger.info(
-                            f"Attempting assignment LLM call (trial {MAX_TRIALS - trial_count + 1})")
+                            f"Attempting assignment LLM call (trial {
+                                MAX_TRIALS - trial_count + 1})")
 
                     # Call LLM and get response with metadata
                     response, token_count, usage_metadata, reasoning_content = self.assigner_llm.run(
@@ -397,7 +402,8 @@ class Nuggetizer(BaseNuggetizer):
                         )
                     if self.log_level >= 1:
                         self.logger.info(
-                            f"Successfully processed window with {len(window_nuggets)} nuggets")
+                            f"Successfully processed window with {
+                                len(window_nuggets)} nuggets")
                     break
                 except Exception as e:
                     self.logger.warning(
