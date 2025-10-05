@@ -27,10 +27,3 @@ def create_assign_prompt(query: str, context: str, nuggets: List[ScoredNugget], 
         {"role": "system", "content": template_data['system']},
         {"role": "user", "content": template_data['user']}
     ]
-
-def get_assign_prompt_content(query: str, context: str, nuggets: List[ScoredNugget], assigner_mode: NuggetAssignMode = NuggetAssignMode.SUPPORT_GRADE_3) -> str:
-    """
-    Gets the content for the nugget assignment prompt
-    """
-    messages = create_assign_prompt(query, context, nuggets, assigner_mode)
-    return messages[1]['content']

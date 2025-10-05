@@ -31,10 +31,3 @@ def create_nugget_prompt(request: Request, start: int, end: int, nuggets: List[s
         {"role": "system", "content": template_data['system']},
         {"role": "user", "content": template_data['user']}
     ]
-
-def get_nugget_prompt_content(request: Request, start: int, end: int, nuggets: List[str], creator_max_nuggets: int = 30) -> str:
-    """
-    Gets the content for the nugget creation prompt
-    """
-    messages = create_nugget_prompt(request, start, end, nuggets, creator_max_nuggets)
-    return messages[1]['content']
