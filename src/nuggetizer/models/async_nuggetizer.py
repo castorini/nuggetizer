@@ -187,8 +187,7 @@ class AsyncNuggetizer(BaseNuggetizer):
             start += self.creator_window_size
             if self.log_level >= 1:
                 self.logger.info(
-                    f"Moving window by stride {
-                        self.creator_window_size}, new start: {start}")
+                    f"Moving window by stride {self.creator_window_size}, new start: {start}")
 
         # Score the nuggets
         nuggets = [Nugget(text=text) for text in current_nuggets]
@@ -302,8 +301,7 @@ class AsyncNuggetizer(BaseNuggetizer):
         ) -> List[AssignedScoredNugget]:
             if self.log_level >= 1:
                 self.logger.info(
-                    f"Processing window of {
-                        len(window_nuggets)} nuggets")
+                    f"Processing window of {len(window_nuggets)} nuggets")
 
             prompt = self._create_assign_prompt(query, context, window_nuggets)
             if self.log_level >= 2:
@@ -315,8 +313,7 @@ class AsyncNuggetizer(BaseNuggetizer):
                 try:
                     if self.log_level >= 1:
                         self.logger.info(
-                            f"Attempting LLM call (trial {
-                                MAX_TRIALS - trial_count + 1})")
+                            f"Attempting LLM call (trial {MAX_TRIALS - trial_count + 1})")
                     response, _ = await self.assigner_llm.run(prompt, temperature=temperature)
                     if self.log_level >= 2:
                         self.logger.info(f"Raw LLM response:\n{response}")
@@ -352,8 +349,7 @@ class AsyncNuggetizer(BaseNuggetizer):
                         )
                     if self.log_level >= 1:
                         self.logger.info(
-                            f"Successfully processed window with {
-                                len(window_nuggets)} nuggets")
+                            f"Successfully processed window with {len(window_nuggets)} nuggets")
                     return window_assigned_nuggets
                 except Exception as e:
                     self.logger.warning(f"Failed to parse response: {str(e)}")
@@ -383,8 +379,7 @@ class AsyncNuggetizer(BaseNuggetizer):
 
         if self.log_level >= 1:
             self.logger.info(
-                f"Completed assignment process with {
-                    len(assigned_nuggets)} nuggets")
+                f"Completed assignment process with {len(assigned_nuggets)} nuggets")
         return assigned_nuggets
 
     def create_batch(self,
