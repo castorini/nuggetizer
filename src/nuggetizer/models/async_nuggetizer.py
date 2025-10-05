@@ -8,8 +8,7 @@ from ..core.types import (
     NuggetMode, NuggetScoreMode, NuggetAssignMode
 )
 from ..prompts import (
-    create_nugget_prompt, get_nugget_prompt_content,
-    create_score_prompt, create_assign_prompt, get_assign_prompt_content
+    create_nugget_prompt, create_score_prompt, create_assign_prompt
 )
 import asyncio
 
@@ -97,17 +96,11 @@ class AsyncNuggetizer(BaseNuggetizer):
     def _create_nugget_prompt(self, request: Request, start: int, end: int, nuggets: List[str]) -> List[Dict[str, str]]:
         return create_nugget_prompt(request, start, end, nuggets)
 
-    def _get_nugget_prompt_content(self, request: Request, start: int, end: int, nuggets: List[str]) -> str:
-        return get_nugget_prompt_content(request, start, end, nuggets, self.creator_max_nuggets)
-
     def _create_score_prompt(self, query: str, nuggets: List[Nugget]) -> List[Dict[str, str]]:
         return create_score_prompt(query, nuggets)
 
     def _create_assign_prompt(self, query: str, context: str, nuggets: List[ScoredNugget]) -> List[Dict[str, str]]:
         return create_assign_prompt(query, context, nuggets, self.assigner_mode)
-
-    def _get_assign_prompt_content(self, query: str, context: str, nuggets: List[ScoredNugget]) -> str:
-        return get_assign_prompt_content(query, context, nuggets, self.assigner_mode)
 
     # Implement BaseNuggetizer methods with sync wrappers
     def create(self, request: Request) -> List[ScoredNugget]:

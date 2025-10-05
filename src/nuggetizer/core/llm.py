@@ -170,3 +170,6 @@ class LLMHandler:
                     self.current_key_idx = (self.current_key_idx + 1) % len(self.api_keys)
                     self.client.api_key = self.api_keys[self.current_key_idx]
                 time.sleep(0.1)
+        
+        # This should never be reached due to the raise RuntimeError above
+        raise RuntimeError("Unexpected end of retry loop")
