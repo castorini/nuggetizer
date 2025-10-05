@@ -21,3 +21,5 @@ __pycache__/
 src/nuggetizer.egg-info/
 
 *jsonl
+
+.cursor/

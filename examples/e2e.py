@@ -1,33 +1,33 @@
 #!/usr/bin/env python3
 import argparse
 import time
-import logging
 from nuggetizer.core.types import Query, Document, Request
 from nuggetizer.models.nuggetizer import Nuggetizer
 from nuggetizer.core.metrics import calculate_nugget_scores
+
 
 def create_sample_request() -> Request:
     """Create a sample request with a query and documents."""
     query = Query(
         qid="sample-1",
-        text="What are the key benefits and features of Python programming language?"
+        text="What are the key benefits and features of Python programming language?",
     )
-    
+
     documents = [
         Document(
             docid="doc1",
             segment="""Python is renowned for its simplicity and readability, making it an excellent choice for beginners. 
-            Its extensive standard library provides built-in support for many programming tasks."""
+            Its extensive standard library provides built-in support for many programming tasks.""",
         ),
         Document(
             docid="doc2",
             segment="""Python supports multiple programming paradigms including object-oriented, imperative, and functional 
-            programming. It has a large and active community that contributes to thousands of third-party packages."""
+            programming. It has a large and active community that contributes to thousands of third-party packages.""",
         ),
         Document(
             docid="doc3",
             segment="""Python's dynamic typing and automatic memory management help developers focus on solving problems 
-            rather than managing low-level details. It's widely used in web development, data science, and AI."""
+            rather than managing low-level details. It's widely used in web development, data science, and AI.""",
         ),
         Document(
             docid="doc4",
@@ -40,7 +40,7 @@ def create_sample_request() -> Request:
             - Async/await are a way to write asynchronous code in a concise manner.
             - Type hints are a way to add type information to variables and function parameters.
             - etc.
-            """
+            """,
         ),
         Document(
             docid="doc5",
@@ -96,20 +96,20 @@ def create_sample_request() -> Request:
 
 Conclusion
 
-Python's simplicity, versatility, vast ecosystem, and strong community support make it one of the most powerful and widely used programming languages across industries."""
-        )
+Python's simplicity, versatility, vast ecosystem, and strong community support make it one of the most powerful and widely used programming languages across industries.""",
+        ),
     ]
-    
+
     return Request(query=query, documents=documents)
 
 
 def process_request(request: Request, model: str, use_azure_openai: bool, use_openrouter: bool, use_vllm: bool, vllm_port: int, log_level: int, print_reasoning: bool = False, print_trace: bool = False) -> None:
     """Process a request through the nuggetizer pipeline."""
     start_time = time.time()
-    
+
     print("🚀 Initializing components...")
     # Initialize components - API keys and Azure config are loaded automatically
-    
+
     # Option 1: Single model for all components
     nuggetizer1 = Nuggetizer(model=model, use_azure_openai=use_azure_openai, use_openrouter=use_openrouter, use_vllm=use_vllm, vllm_port=vllm_port, log_level=log_level, store_trace=print_trace, store_reasoning=print_reasoning)
     
@@ -121,10 +121,10 @@ def process_request(request: Request, model: str, use_azure_openai: bool, use_op
     #     use_azure_openai=use_azure_openai,
     #     log_level=log_level
     # )
-    
+
     # Use nuggetizer1 for this example
     nuggetizer = nuggetizer1
-    
+
     # Extract and score nuggets
     print("\n📝 Extracting and scoring nuggets...")
     create_start = time.time()
@@ -161,22 +161,26 @@ def process_request(request: Request, model: str, use_azure_openai: bool, use_op
     # Regular output
     for i, nugget in enumerate(scored_nuggets, 1):
         importance_emoji = "⭐" if nugget.importance == "vital" else "✔️"
-        print(f"{i}. {importance_emoji} {nugget.text} (Importance: {nugget.importance})")
-    
+        print(
+            f"{i}. {importance_emoji} {nugget.text} (Importance: {nugget.importance})"
+        )
+
     # Assign nuggets to documents
     print("\n🎯 Assigning nuggets to documents...")
     assign_start = time.time()
     for doc in request.documents:
         print(f"\nDocument: {doc.docid}")
         print("Segment:", doc.segment)
-        assigned_nuggets = nuggetizer.assign(request.query.text, doc.segment, scored_nuggets)
+        assigned_nuggets = nuggetizer.assign(
+            request.query.text, doc.segment, scored_nuggets
+        )
         print("\nAssignments:")
         for nugget in assigned_nuggets:
             importance_emoji = "⭐" if nugget.importance == "vital" else "✨"
             assignment_emoji = {
                 "support": "✅",
                 "partial_support": "🟡",
-                "not_support": "❌"
+                "not_support": "❌",
             }.get(nugget.assignment, "❓")
             print(f"{nugget.text}")
             print(f"  Importance: {nugget.importance} {importance_emoji}")
@@ -195,11 +199,7 @@ def process_request(request: Request, model: str, use_azure_openai: bool, use_op
         
         # Calculate metrics for this document
         nugget_list = [
-            {
-                'text': n.text,
-                'importance': n.importance,
-                'assignment': n.assignment
-            }
+            {"text": n.text, "importance": n.importance, "assignment": n.assignment}
             for n in assigned_nuggets
         ]
         metrics = calculate_nugget_scores(request.query.qid, nugget_list)
@@ -208,16 +208,16 @@ def process_request(request: Request, model: str, use_azure_openai: bool, use_op
         print(f"  Strict All Score: {metrics.strict_all_score:.2f}")
         print(f"  Vital Score: {metrics.vital_score:.2f}")
         print(f"  All Score: {metrics.all_score:.2f}")
-    
+
     assign_time = time.time() - assign_start
     total_time = time.time() - start_time
-    print(f"\n⏱️ Timing Summary:")
+    print("\n⏱️ Timing Summary:")
     print(f"  Creation time: {create_time:.2f}s")
     print(f"  Assignment time: {assign_time:.2f}s")
     print(f"  Total time: {total_time:.2f}s")
 
 
-def main():
+def main() -> None:
     """Run the e2e example."""
     parser = argparse.ArgumentParser(description='Run the e2e example')
     parser.add_argument('--use_azure_openai', action='store_true', help='Use Azure OpenAI')

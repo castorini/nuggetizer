@@ -3,22 +3,27 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, Union
 
+
 class NuggetMode(Enum):
     ATOMIC = "atomic"
     NOUN_PHRASE = "noun_phrase"
     QUESTION = "question"
 
+
 class NuggetScoreMode(Enum):
     VITAL_OKAY = "vital_okay"
+
 
 class NuggetAssignMode(Enum):
     SUPPORT_GRADE_2 = "support_grade_2"
     SUPPORT_GRADE_3 = "support_grade_3"
 
+
 @dataclass
 class Query:
     qid: str
     text: str
+
 
 @dataclass
 class Document:
@@ -26,10 +31,12 @@ class Document:
     segment: str
     title: Optional[str] = None
 
+
 @dataclass
 class Request:
     query: Query
     documents: List[Document]
+
 
 @dataclass
 class Trace:
@@ -58,9 +65,11 @@ class BaseNugget:
     reasoning: Optional[str] = None
     trace: Optional[Trace] = None
 
+
 @dataclass
 class Nugget(BaseNugget):
     pass
+
 
 @dataclass
 class ScoredNugget(BaseNugget):
@@ -69,6 +78,7 @@ class ScoredNugget(BaseNugget):
 @dataclass
 class AssignedNugget(BaseNugget):
     assignment: str = "not_support"  # e.g., "support", "partial_support", "not_support"
+
 
 @dataclass
 class AssignedScoredNugget(ScoredNugget):

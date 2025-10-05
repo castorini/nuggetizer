@@ -12,6 +12,8 @@ from ..prompts import (
     create_nugget_prompt, get_nugget_prompt_content,
     create_score_prompt, create_assign_prompt, get_assign_prompt_content
 )
+from ..prompts import create_nugget_prompt, create_score_prompt, create_assign_prompt
+
 
 # Maximum number of trials for LLM calls
 MAX_TRIALS = 500
@@ -58,7 +60,7 @@ class Nuggetizer(BaseNuggetizer):
             self.creator_window_size = creator_window_size
             self.scorer_window_size = scorer_window_size
             self.assigner_window_size = assigner_window_size
-        
+
         # Initialize LLM handlers for each component
         if model is not None:
             creator_model = model
@@ -72,21 +74,21 @@ class Nuggetizer(BaseNuggetizer):
             scorer_model = "gpt-4o"
         if assigner_model is None:
             assigner_model = "gpt-4o"
-            
+
         # Common LLM configuration shared across all handlers
         llm_config = {
-            'api_keys': api_keys,
-            'use_openrouter': use_openrouter,
-            'use_vllm': use_vllm,
-            'openrouter_api_key': openrouter_api_key,
-            'vllm_port': vllm_port,
+            "api_keys": api_keys,
+            "use_openrouter": use_openrouter,
+            "use_vllm": use_vllm,
+            "openrouter_api_key": openrouter_api_key,
+            "vllm_port": vllm_port,
             **llm_kwargs,
         }
 
         self.creator_llm = LLMHandler(creator_model, **llm_config)
         self.scorer_llm = LLMHandler(scorer_model, **llm_config)
         self.assigner_llm = LLMHandler(assigner_model, **llm_config)
-        
+
         # Initialize max nuggets
         if max_nuggets is not None:
             self.creator_max_nuggets = max_nuggets
@@ -137,14 +139,14 @@ class Nuggetizer(BaseNuggetizer):
         start = 0
         while start < len(request.documents):
             end = min(start + self.creator_window_size, len(request.documents))
-            
+
             if self.log_level >= 1:
                 self.logger.info(f"Processing window {start} to {end} of {len(request.documents)} documents")
             
             prompt = create_nugget_prompt(request, start, end, current_nuggets)
             if self.log_level >= 2:
                 self.logger.info(f"Generated prompt:\n{prompt}")
-            
+
             temperature = 0.0
             trial_count = MAX_TRIALS
             
@@ -174,7 +176,9 @@ class Nuggetizer(BaseNuggetizer):
                     current_nuggets = nugget_texts[:self.creator_max_nuggets]  # Ensure max nuggets
                     
                     if self.log_level >= 1:
-                        self.logger.info(f"Successfully processed window, current nugget count: {len(current_nuggets)}")
+                        self.logger.info(
+                            f"Successfully processed window, current nugget count: {len(current_nuggets)}"
+                        )
                     break
                 except Exception as e:
                     self.logger.warning(f"Failed to parse response: {str(e)}")
@@ -289,7 +293,7 @@ class Nuggetizer(BaseNuggetizer):
         while start < len(nuggets):
             end = min(start + self.assigner_window_size, len(nuggets))
             window_nuggets = nuggets[start:end]
-            
+
             if self.log_level >= 1:
                 self.logger.info(f"Assigning window {start} to {end} of {len(nuggets)} nuggets")
             
@@ -311,13 +315,21 @@ class Nuggetizer(BaseNuggetizer):
                         self.logger.info(f"Raw assignment response:\n{response}")
                 except Exception as e:
                     self.logger.error(f"Failed to assign nuggets: {str(e)}")
-                    assigned_nuggets.extend([
-                        AssignedScoredNugget(text=nugget.text, importance=nugget.importance, assignment="failed")
-                        for nugget in window_nuggets
-                    ])
+                    assigned_nuggets.extend(
+                        [
+                            AssignedScoredNugget(
+                                text=nugget.text,
+                                importance=nugget.importance,
+                                assignment="failed",
+                            )
+                            for nugget in window_nuggets
+                        ]
+                    )
                     break
                 try:
-                    response = response.replace("```python", "").replace("```", "").strip()
+                    response = (
+                        response.replace("```python", "").replace("```", "").strip()
+                    )
                     assignments = ast.literal_eval(response)
                     
                     # Create AssignedScoredNugget objects with trace information
@@ -347,7 +359,9 @@ class Nuggetizer(BaseNuggetizer):
                             )
                         )
                     if self.log_level >= 1:
-                        self.logger.info(f"Successfully processed window with {len(window_nuggets)} nuggets")
+                        self.logger.info(
+                            f"Successfully processed window with {len(window_nuggets)} nuggets"
+                        )
                     break
                 except Exception as e:
                     self.logger.warning(f"Failed to parse assignment response: {str(e)}")
@@ -391,7 +405,7 @@ class Nuggetizer(BaseNuggetizer):
         self,
         queries: List[str],
         contexts: List[str],
-        nuggets_list: List[List[ScoredNugget]]
+        nuggets_list: List[List[ScoredNugget]],
     ) -> List[List[AssignedScoredNugget]]:
         """Assign nuggets for multiple query-context pairs."""
         if len(queries) != len(contexts) or len(queries) != len(nuggets_list):
