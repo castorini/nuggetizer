@@ -154,8 +154,7 @@ class AsyncNuggetizer(BaseNuggetizer):
                 try:
                     if self.log_level >= 1:
                         self.logger.info(
-                            f"Attempting LLM call (trial {
-                                MAX_TRIALS - trial_count + 1})")
+                            f"Attempting LLM call (trial {MAX_TRIALS - trial_count + 1})")
                     response, _ = await self.creator_llm.run(prompt, temperature=temperature)
                     if self.log_level >= 2:
                         self.logger.info(f"Raw LLM response:\n{response}")
