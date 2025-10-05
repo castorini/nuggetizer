@@ -53,3 +53,20 @@ namespaces = false
 
 [tool.setuptools]
 provides = ["nuggetizer"]
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_untyped_defs = true
+disallow_untyped_calls = false
+disallow_incomplete_defs = true
+no_implicit_optional = true
+strict_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+ignore_missing_imports = true
+cache_dir = ".mypy_cache"
+incremental = true
+
+[tool.setuptools.package-data]
+"nuggetizer.prompts.prompt_templates" = ["*.yaml"] 

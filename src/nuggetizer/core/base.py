@@ -1,59 +1,50 @@
 from abc import ABC, abstractmethod
 from typing import List, Union, Protocol, runtime_checkable, Awaitable
-from .types import (
-    Request, Nugget, ScoredNugget, 
-    AssignedNugget, AssignedScoredNugget
-)
+from .types import Request, Nugget, ScoredNugget, AssignedNugget, AssignedScoredNugget
+
 
 # Define a protocol for synchronous Nuggetizer
 @runtime_checkable
 class NuggetizerProtocol(Protocol):
-    def create(self, request: Request) -> List[ScoredNugget]:
-        ...
+    def create(self, request: Request) -> List[ScoredNugget]: ...
 
     def assign(
         self,
         query: str,  # Add query parameter to match implementations
-        context: str, 
-        nuggets: List[ScoredNugget]
-    ) -> List[AssignedScoredNugget]:
-        ...
+        context: str,
+        nuggets: List[ScoredNugget],
+    ) -> List[AssignedScoredNugget]: ...
 
-    def create_batch(self, requests: List[Request]) -> List[List[ScoredNugget]]:
-        ...
+    def create_batch(self, requests: List[Request]) -> List[List[ScoredNugget]]: ...
 
     def assign_batch(
         self,
         queries: List[str],  # Add queries parameter to match implementations
         contexts: List[str],
-        nuggets_list: List[List[ScoredNugget]]
-    ) -> List[List[AssignedScoredNugget]]:
-        ...
+        nuggets_list: List[List[ScoredNugget]],
+    ) -> List[List[AssignedScoredNugget]]: ...
+
 
 # Define a protocol for asynchronous Nuggetizer
 @runtime_checkable
 class AsyncNuggetizerProtocol(Protocol):
-    def create(self, request: Request) -> Awaitable[List[ScoredNugget]]:
-        ...
+    def create(self, request: Request) -> Awaitable[List[ScoredNugget]]: ...
 
     def assign(
-        self,
-        query: str,
-        context: str, 
-        nuggets: List[ScoredNugget]
-    ) -> Awaitable[List[AssignedScoredNugget]]:
-        ...
+        self, query: str, context: str, nuggets: List[ScoredNugget]
+    ) -> Awaitable[List[AssignedScoredNugget]]: ...
 
-    def create_batch(self, requests: List[Request]) -> Awaitable[List[List[ScoredNugget]]]:
-        ...
+    def create_batch(
+        self, requests: List[Request]
+    ) -> Awaitable[List[List[ScoredNugget]]]: ...
 
     def assign_batch(
         self,
         queries: List[str],
         contexts: List[str],
-        nuggets_list: List[List[ScoredNugget]]
-    ) -> Awaitable[List[List[AssignedScoredNugget]]]:
-        ...
+        nuggets_list: List[List[ScoredNugget]],
+    ) -> Awaitable[List[List[AssignedScoredNugget]]]: ...
+
 
 # Keep the original ABC for backwards compatibility
 class BaseNuggetizer(ABC):
@@ -65,8 +56,8 @@ class BaseNuggetizer(ABC):
     def assign(
         self,
         query: str,  # Add query parameter to match implementations
-        context: str, 
-        nuggets: List[ScoredNugget]
+        context: str,
+        nuggets: List[ScoredNugget],
     ) -> List[AssignedScoredNugget]:
         pass
 
@@ -79,9 +70,10 @@ class BaseNuggetizer(ABC):
         self,
         queries: List[str],  # Add queries parameter to match implementations
         contexts: List[str],
-        nuggets_list: List[List[ScoredNugget]]
+        nuggets_list: List[List[ScoredNugget]],
     ) -> List[List[AssignedScoredNugget]]:
         pass
+
 
 class BaseNuggetScorer(ABC):
     @abstractmethod
@@ -92,12 +84,11 @@ class BaseNuggetScorer(ABC):
     def score_batch(self, nuggets_list: List[List[Nugget]]) -> List[List[ScoredNugget]]:
         pass
 
+
 class BaseNuggetAssigner(ABC):
     @abstractmethod
     def assign(
-        self, 
-        context: str, 
-        nuggets: Union[List[Nugget], List[ScoredNugget]]
+        self, context: str, nuggets: Union[List[Nugget], List[ScoredNugget]]
     ) -> Union[List[AssignedNugget], List[AssignedScoredNugget]]:
         pass
 
@@ -105,6 +96,6 @@ class BaseNuggetAssigner(ABC):
     def assign_batch(
         self,
         contexts: List[str],
-        nuggets_list: Union[List[List[Nugget]], List[List[ScoredNugget]]]
+        nuggets_list: Union[List[List[Nugget]], List[List[ScoredNugget]]],
     ) -> Union[List[List[AssignedNugget]], List[List[AssignedScoredNugget]]]:
         pass
