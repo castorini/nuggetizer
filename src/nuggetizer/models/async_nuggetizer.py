@@ -174,8 +174,7 @@ class AsyncNuggetizer(BaseNuggetizer):
                     ]  # Ensure max nuggets
                     if self.log_level >= 1:
                         self.logger.info(
-                            f"Successfully processed window, current nugget count: {
-                                len(current_nuggets)}")
+                            f"Successfully processed window, current nugget count: {len(current_nuggets)}")
                     break
                 except Exception as e:
                     self.logger.warning(f"Failed to parse response: {str(e)}")
