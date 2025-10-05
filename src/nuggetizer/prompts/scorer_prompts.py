@@ -10,7 +10,7 @@ def create_score_prompt(query: str, nuggets: List[Nugget]) -> List[Dict[str, str
     """
     Creates a prompt for nugget scoring using YAML template.
     """
-    
+
     # format template with variables
     template_data = format_template(
         "scorer_template",
@@ -18,7 +18,7 @@ def create_score_prompt(query: str, nuggets: List[Nugget]) -> List[Dict[str, str
         nuggets=[nugget.text for nugget in nuggets],
         num_nuggets=len(nuggets)
     )
-    
+
     return [
         {"role": "system", "content": template_data['system']},
         {"role": "user", "content": template_data['user']}

@@ -10,10 +10,10 @@ def create_assign_prompt(query: str, context: str, nuggets: List[ScoredNugget], 
     """
     Creates a prompt for nugget assignment using YAML template.
     """
-    
+
     # choose template based on assignment mode
     template_name = "assigner_template" if assigner_mode == NuggetAssignMode.SUPPORT_GRADE_3 else "assigner_2grade_template"
-    
+
     # format template with variables
     template_data = format_template(
         template_name,
@@ -22,7 +22,7 @@ def create_assign_prompt(query: str, context: str, nuggets: List[ScoredNugget], 
         nuggets=[nugget.text for nugget in nuggets],
         num_nuggets=len(nuggets)
     )
-    
+
     return [
         {"role": "system", "content": template_data['system']},
         {"role": "user", "content": template_data['user']}
