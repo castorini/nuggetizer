@@ -1,7 +1,7 @@
 import ast
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from ..core.base import BaseNuggetizer
 from ..core.llm import LLMHandler
@@ -40,8 +40,8 @@ class Nuggetizer(BaseNuggetizer):
         log_level: int = 0,
         store_trace: bool = False,
         store_reasoning: bool = False,
-        **llm_kwargs
-    ):
+        **llm_kwargs: Any
+    ) -> None:
         self.creator_mode = creator_mode
         self.scorer_mode = scorer_mode
         self.assigner_mode = assigner_mode
@@ -103,7 +103,7 @@ class Nuggetizer(BaseNuggetizer):
             self.logger.setLevel(logging.DEBUG)
 
         # Store creator reasoning for printing
-        self.creator_reasoning = None
+        self.creator_reasoning: Optional[str] = None
 
     def _get_nugget_prompt_content(
             self,
@@ -118,7 +118,7 @@ class Nuggetizer(BaseNuggetizer):
         )
 
     def _create_trace(self,
-                      component: str,
+                      component: Literal["creator", "scorer", "assigner"],
                       model: str,
                       params: Dict,
                       messages: List[Dict[str,
@@ -143,7 +143,7 @@ class Nuggetizer(BaseNuggetizer):
     def create(self, request: Request) -> List[ScoredNugget]:
         """Create and score nuggets from the request documents."""
 
-        current_nuggets = []
+        current_nuggets: List[str] = []
 
         start = 0
         while start < len(request.documents):
@@ -222,7 +222,7 @@ class Nuggetizer(BaseNuggetizer):
             # Convert string nuggets to Nugget objects for scoring
             nugget_objects = [Nugget(text=nugget_text)
                               for nugget_text in current_nuggets[start:end]]
-            prompt = create_score_prompt(request, nugget_objects)
+            prompt = create_score_prompt(request.query.text, nugget_objects)
             if self.log_level >= 2:
                 self.logger.info(f"Generated scoring prompt:\n{prompt}")
 

@@ -150,7 +150,7 @@ class AsyncNuggetizer(BaseNuggetizer):
                     if self.log_level >= 1:
                         self.logger.info(
                             f"Attempting LLM call (trial {MAX_TRIALS - trial_count + 1})")
-                    response, _ = await self.creator_llm.run(prompt, temperature=temperature)
+                    response, _, _, _ = await self.creator_llm.run(prompt, temperature=temperature)
                     if self.log_level >= 2:
                         self.logger.info(f"Raw LLM response:\n{response}")
                 except Exception as e:
@@ -199,7 +199,7 @@ class AsyncNuggetizer(BaseNuggetizer):
             temperature = 0.0
             while trial_count > 0:
                 try:
-                    response, _ = await self.scorer_llm.run(
+                    response, _, _, _ = await self.scorer_llm.run(
                         prompt, temperature=temperature
                     )
                 except Exception as e:
@@ -309,7 +309,7 @@ class AsyncNuggetizer(BaseNuggetizer):
                     if self.log_level >= 1:
                         self.logger.info(
                             f"Attempting LLM call (trial {MAX_TRIALS - trial_count + 1})")
-                    response, _ = await self.assigner_llm.run(prompt, temperature=temperature)
+                    response, _, _, _ = await self.assigner_llm.run(prompt, temperature=temperature)
                     if self.log_level >= 2:
                         self.logger.info(f"Raw LLM response:\n{response}")
                 except Exception as e:

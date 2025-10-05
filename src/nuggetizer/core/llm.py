@@ -1,5 +1,5 @@
 import time
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import tiktoken
 from openai import AzureOpenAI, OpenAI
@@ -115,7 +115,7 @@ class LLMHandler:
         self,
         messages: List[Dict[str, str]],
         temperature: float = 0
-    ) -> Tuple[str, int, Optional[Dict[str, any]], Optional[str]]:
+    ) -> Tuple[str, int, Optional[Dict[str, Any]], Optional[str]]:
         """
         Run LLM inference and return content, token count, usage metadata, and reasoning.
 
@@ -136,6 +136,7 @@ class LLMHandler:
             try:
                 completion = None
                 # Use different parameters for vLLM vs other APIs
+                completion_params: Dict[str, Any]
                 if hasattr(self.client, "base_url") and "localhost" in str(
                     self.client.base_url
                 ):
@@ -229,3 +230,6 @@ class LLMHandler:
                     )
                     self.client.api_key = self.api_keys[self.current_key_idx]
                 time.sleep(0.1)
+        
+        # This should never be reached, but mypy requires it
+        raise RuntimeError("Unexpected end of method")

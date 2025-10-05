@@ -1,5 +1,5 @@
 import time
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import tiktoken
 from openai import AsyncAzureOpenAI, AsyncOpenAI
@@ -114,7 +114,7 @@ class AsyncLLMHandler:
         self,
         messages: List[Dict[str, str]],
         temperature: float = 0
-    ) -> Tuple[str, int, Optional[Dict[str, any]], Optional[str]]:
+    ) -> Tuple[str, int, Optional[Dict[str, Any]], Optional[str]]:
         """
         Run async LLM inference and return content, token count, usage metadata, and reasoning.
 
