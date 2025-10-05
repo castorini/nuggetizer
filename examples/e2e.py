@@ -111,7 +111,7 @@ def process_request(request: Request, model: str, use_azure_openai: bool, use_op
     # Initialize components - API keys and Azure config are loaded automatically
     
     # Option 1: Single model for all components
-    nuggetizer1 = Nuggetizer(model=model, use_azure_openai=use_azure_openai, use_openrouter=use_openrouter, use_vllm=use_vllm, vllm_port=vllm_port, log_level=log_level, print_reasoning=print_reasoning, store_trace=print_trace, store_reasoning=print_reasoning)
+    nuggetizer1 = Nuggetizer(model=model, use_azure_openai=use_azure_openai, use_openrouter=use_openrouter, use_vllm=use_vllm, vllm_port=vllm_port, log_level=log_level, store_trace=print_trace, store_reasoning=print_reasoning)
     
     # Option 2: Different models for each component
     # nuggetizer2 = Nuggetizer(

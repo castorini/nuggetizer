@@ -18,7 +18,6 @@ class LLMHandler:
         use_vllm: bool = False,
         openrouter_api_key: Optional[str] = None,
         vllm_port: int = 8000,
-        print_reasoning: bool = False,
     ):
         self.model = model
         self.context_size = context_size
@@ -77,7 +76,6 @@ class LLMHandler:
         self.api_keys = [api_keys] if isinstance(api_keys, str) else api_keys
         self.current_key_idx = 0
         self.vllm_port = vllm_port
-        self.print_reasoning = print_reasoning
         self.client = self._initialize_client(api_type, api_base, api_version)
         
     def _initialize_client(self, api_type, api_base, api_version):
