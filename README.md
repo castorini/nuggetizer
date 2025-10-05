@@ -101,7 +101,7 @@ nuggetizer_mixed = Nuggetizer(
 
 # Option 3: Using OpenRouter API (supports multiple providers)
 nuggetizer_openrouter = Nuggetizer(
-    model="x-ai/grok-4-fast:free",  # Grok model via OpenRouter
+    model="x-ai/grok-4-fast",  # Grok model via OpenRouter
     use_openrouter=True  # Explicitly use OpenRouter
 )
 
@@ -148,7 +148,7 @@ You can use OpenRouter API to access multiple model providers:
 export OPENROUTER_API_KEY=your_openrouter_api_key
 
 # Use Grok model (free tier) with OpenRouter
-python3 examples/e2e.py --model "x-ai/grok-4-fast:free" --use_openrouter
+python3 examples/e2e.py --model "x-ai/grok-4-fast" --use_openrouter
 
 # Use Claude model with OpenRouter
 python3 examples/e2e.py --model "anthropic/claude-3.5-sonnet" --use_openrouter
@@ -160,7 +160,7 @@ python3 examples/e2e.py --model "openai/gpt-4o-mini" --use_openrouter
 Or create a `.env` file with your OpenRouter API key:
 ```bash
 echo "OPENROUTER_API_KEY=your_openrouter_api_key" > .env
-python3 examples/e2e.py --model "x-ai/grok-4-fast:free" --use_openrouter
+python3 examples/e2e.py --model "x-ai/grok-4-fast" --use_openrouter
 ```
 
 **Running with vLLM Local Server:**
@@ -184,8 +184,6 @@ python3 examples/async_e2e.py
 # Set OpenRouter API key in environment
 export OPENROUTER_API_KEY=your_openrouter_api_key
 
-# Use Grok model (free tier) with OpenRouter
-python3 examples/async_e2e.py --model "x-ai/grok-4-fast:free" --use_openrouter
 
 # Use Claude model with OpenRouter
 python3 examples/async_e2e.py --model "anthropic/claude-3.5-sonnet" --use_openrouter

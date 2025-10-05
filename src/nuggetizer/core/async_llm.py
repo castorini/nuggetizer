@@ -88,14 +88,13 @@ class AsyncLLMHandler:
         self.api_keys = [api_keys] if isinstance(api_keys, str) else api_keys
         self.current_key_idx = 0
         assert api_type is not None
-        assert api_base is not None
-        assert api_version is not None
         self.client = self._initialize_client(api_type, api_base, api_version)
 
     def _initialize_client(
-        self, api_type: str, api_base: str, api_version: str
+        self, api_type: str, api_base: str | None, api_version: str | None
     ) -> Union[AsyncAzureOpenAI, AsyncOpenAI]:
         if api_type == "azure" and all([api_base, api_version]):
+            assert api_base is not None
             return AsyncAzureOpenAI(
                 api_key=self.api_keys[0],
                 api_version=api_version,
