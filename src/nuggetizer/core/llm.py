@@ -143,10 +143,10 @@ class LLMHandler:
                         "timeout": 60
                     }
                 completion = self.client.chat.completions.create(**completion_params)
-                print(f"🔍 DEBUG LLM: API call completed successfully")
+                # print(f"🔍 DEBUG LLM: API call completed successfully") # not removed because it's very helpful for debugging
                 
                 response = completion.choices[0].message.content
-                # print(f"🔍 DEBUG LLM: Full response: {completion}")
+                # print(f"🔍 DEBUG LLM: Full response: {completion}") # not removed because it's very helpful for debugging
                 
                 # Extract reasoning content if available
                 reasoning_content = None
