@@ -2,9 +2,10 @@
 Template loader for YAML-based prompts
 """
 
-import yaml
-from typing import Dict, Any
 from pathlib import Path
+from typing import Any, Dict
+
+import yaml
 
 # template cache to avoid reloading files
 _template_cache: Dict[str, Dict[str, Any]] = {}

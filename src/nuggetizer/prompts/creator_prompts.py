@@ -2,7 +2,8 @@
 Prompts for nugget creation
 """
 
-from typing import List, Dict
+from typing import Dict, List
+
 from ..core.types import Request
 from .template_loader import format_template
 

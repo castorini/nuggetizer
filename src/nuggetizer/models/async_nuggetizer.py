@@ -1,19 +1,14 @@
 import ast
-import logging
-from typing import List, Dict, Optional, Any
-from ..core.base import BaseNuggetizer
-from ..core.async_llm import AsyncLLMHandler
-from ..core.types import (
-    Request,
-    Nugget,
-    ScoredNugget,
-    AssignedScoredNugget,
-    NuggetMode,
-    NuggetScoreMode,
-    NuggetAssignMode,
-)
-from ..prompts import create_nugget_prompt, create_score_prompt, create_assign_prompt
 import asyncio
+import logging
+from typing import Any, Dict, List, Optional
+
+from ..core.async_llm import AsyncLLMHandler
+from ..core.base import BaseNuggetizer
+from ..core.types import (AssignedScoredNugget, Nugget, NuggetAssignMode,
+                          NuggetMode, NuggetScoreMode, Request, ScoredNugget)
+from ..prompts import (create_assign_prompt, create_nugget_prompt,
+                       create_score_prompt)
 
 # Maximum number of trials for LLM calls
 MAX_TRIALS = 500

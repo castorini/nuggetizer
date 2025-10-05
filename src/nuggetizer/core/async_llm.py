@@ -1,14 +1,11 @@
 import time
-from typing import Dict, List, Optional, Union, Tuple
+from typing import Dict, List, Optional, Tuple, Union
+
 import tiktoken
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 
-from ..utils.api import (
-    get_azure_openai_args,
-    get_openai_api_key,
-    get_openrouter_api_key,
-    get_vllm_api_key,
-)
+from ..utils.api import (get_azure_openai_args, get_openai_api_key,
+                         get_openrouter_api_key, get_vllm_api_key)
 
 
 class AsyncLLMHandler:

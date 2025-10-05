@@ -2,8 +2,9 @@
 Prompts for nugget assignment
 """
 
-from typing import List, Dict
-from ..core.types import ScoredNugget, NuggetAssignMode
+from typing import Dict, List
+
+from ..core.types import NuggetAssignMode, ScoredNugget
 from .template_loader import format_template
 
 

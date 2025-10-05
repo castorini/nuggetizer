@@ -1,15 +1,15 @@
 import ast
 import logging
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
+
 from ..core.base import BaseNuggetizer
 from ..core.llm import LLMHandler
-from ..core.types import (
-    Request, Nugget, ScoredNugget, AssignedScoredNugget, Trace,
-    NuggetMode, NuggetScoreMode, NuggetAssignMode
-)
-from ..prompts import create_nugget_prompt, create_score_prompt, create_assign_prompt
-
+from ..core.types import (AssignedScoredNugget, Nugget, NuggetAssignMode,
+                          NuggetMode, NuggetScoreMode, Request, ScoredNugget,
+                          Trace)
+from ..prompts import (create_assign_prompt, create_nugget_prompt,
+                       create_score_prompt)
 
 # Maximum number of trials for LLM calls
 MAX_TRIALS = 500
