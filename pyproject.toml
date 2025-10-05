@@ -69,4 +69,4 @@ cache_dir = ".mypy_cache"
 incremental = true
 
 [tool.setuptools.package-data]
-"rank_llm.rerank.prompt_templates" = ["*.yaml"] 
+"nuggetizer.prompts.prompt_templates" = ["*.yaml"] 

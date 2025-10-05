@@ -7,3 +7,8 @@ repos:
         args: [--fix]
       - id: ruff-format
         types_or: [ python, pyi ]
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-requests, types-tqdm, types-PyYAML, tiktoken, openai, python-dotenv, typing-extensions]

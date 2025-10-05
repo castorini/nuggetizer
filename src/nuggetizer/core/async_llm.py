@@ -131,11 +131,11 @@ class AsyncLLMHandler:
                     timeout=30,
                 )
                 response = completion.choices[0].message.content
-                
+
                 # Handle None response
                 if response is None:
                     response = ""
-                
+
                 try:
                     # For newer models like gpt-4o that may not have specific encodings yet
                     if "gpt-4o" in self.model:
