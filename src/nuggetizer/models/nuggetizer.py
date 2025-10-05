@@ -412,9 +412,7 @@ class Nuggetizer(BaseNuggetizer):
                         )
                     if self.log_level >= 1:
                         self.logger.info(
-                            f"Successfully processed window with {
-                                len(window_nuggets)
-                            } nuggets"
+                            f"Successfully processed window with {len(window_nuggets)} nuggets"
                         )
                     break
                 except Exception as e:
