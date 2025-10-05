@@ -1,3 +1,0 @@
-2025-10-05 18:20:06,793 [PID 2465390] INFO No binary specified, looking for `pyre.bin` in PATH
-2025-10-05 18:20:06,812 [PID 2465390] INFO Pyre binary is located at `/home/lingwei/miniconda3/bin/pyre.bin`
-2025-10-05 18:20:06,812 [PID 2465390] ERROR Invalid configuration: Cannot find any source files to analyze. Either `source_directories` or `targets` must be specified.
