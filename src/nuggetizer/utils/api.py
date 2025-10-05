@@ -6,8 +6,7 @@ from dotenv import load_dotenv
 
 def get_openai_api_key() -> Optional[str]:
     load_dotenv(dotenv_path=".env")
-    openai_api_key = os.getenv(
-        "OPEN_AI_API_KEY") or os.getenv("OPENAI_API_KEY")
+    openai_api_key = os.getenv("OPEN_AI_API_KEY") or os.getenv("OPENAI_API_KEY")
     return openai_api_key
 
 

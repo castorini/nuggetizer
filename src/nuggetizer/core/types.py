@@ -42,6 +42,7 @@ class Request:
 @dataclass
 class Trace:
     """Trace information for debugging and transparency."""
+
     # Which stage produced this artifact
     component: Literal["creator", "scorer", "assigner"]
     # LLM plumbing
@@ -51,18 +52,19 @@ class Trace:
     # The messages we sent to the LLM (or the prompt content)
     messages: Optional[List[Dict[str, str]]] = None
     # Usage and outputs
-    usage: Optional[Dict[str, Any]] = None               # e.g., tokens, cost
-    raw_output: Optional[str] = None                     # raw text as returned
+    usage: Optional[Dict[str, Any]] = None  # e.g., tokens, cost
+    raw_output: Optional[str] = None  # raw text as returned
     # Helpful for debugging batched calls
     window_start: Optional[int] = None
     window_end: Optional[int] = None
     # When the call happened (optional)
-    timestamp_utc: Optional[str] = None                  # ISO8601 string
+    timestamp_utc: Optional[str] = None  # ISO8601 string
 
 
 @dataclass
 class BaseNugget:
     """Base class for all nuggets with common fields."""
+
     text: str
     # Optional metadata
     reasoning: Optional[str] = None

@@ -1,8 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Awaitable, List, Protocol, Union, runtime_checkable
 
-from .types import (AssignedNugget, AssignedScoredNugget, Nugget, Request,
-                    ScoredNugget)
+from .types import AssignedNugget, AssignedScoredNugget, Nugget, Request, ScoredNugget
 
 
 # Define a protocol for synchronous Nuggetizer
@@ -17,8 +16,7 @@ class NuggetizerProtocol(Protocol):
         nuggets: List[ScoredNugget],
     ) -> List[AssignedScoredNugget]: ...
 
-    def create_batch(
-        self, requests: List[Request]) -> List[List[ScoredNugget]]: ...
+    def create_batch(self, requests: List[Request]) -> List[List[ScoredNugget]]: ...
 
     def assign_batch(
         self,
@@ -65,8 +63,7 @@ class BaseNuggetizer(ABC):
         pass
 
     @abstractmethod
-    def create_batch(self,
-                     requests: List[Request]) -> List[List[ScoredNugget]]:
+    def create_batch(self, requests: List[Request]) -> List[List[ScoredNugget]]:
         pass
 
     @abstractmethod
@@ -85,8 +82,7 @@ class BaseNuggetScorer(ABC):
         pass
 
     @abstractmethod
-    def score_batch(
-            self, nuggets_list: List[List[Nugget]]) -> List[List[ScoredNugget]]:
+    def score_batch(self, nuggets_list: List[List[Nugget]]) -> List[List[ScoredNugget]]:
         pass
 
 

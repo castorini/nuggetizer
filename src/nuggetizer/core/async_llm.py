@@ -4,8 +4,12 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import tiktoken
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 
-from ..utils.api import (get_azure_openai_args, get_openai_api_key,
-                         get_openrouter_api_key, get_vllm_api_key)
+from ..utils.api import (
+    get_azure_openai_args,
+    get_openai_api_key,
+    get_openrouter_api_key,
+    get_vllm_api_key,
+)
 
 
 class AsyncLLMHandler:
@@ -28,15 +32,14 @@ class AsyncLLMHandler:
 
         # Auto-configure API keys and Azure settings if not provided
         if use_azure_openai and (
-            api_keys is None or (
-                api_type == "azure" or (
-                api_type is None and "gpt" in model.lower()))):
+            api_keys is None
+            or (api_type == "azure" or (api_type is None and "gpt" in model.lower()))
+        ):
             azure_args = get_azure_openai_args()
             api_type = "azure"
             api_base = azure_args.get("api_base")
             api_version = azure_args.get("api_version")
-            api_keys = azure_args.get(
-                "api_key", api_keys) or get_openai_api_key()
+            api_keys = azure_args.get("api_key", api_keys) or get_openai_api_key()
         else:
             # Check for explicit API keys first, then environment variables
             if api_keys is None:
@@ -80,7 +83,8 @@ class AsyncLLMHandler:
                 "2. OpenRouter API key (OPENROUTER_API_KEY environment variable)\n"
                 "3. Azure OpenAI credentials (AZURE_OPENAI_API_KEY, etc.)\n"
                 "4. Use vLLM local server (use_vllm=True)\n"
-                "5. Pass api_keys parameter directly to Nuggetizer constructor")
+                "5. Pass api_keys parameter directly to Nuggetizer constructor"
+            )
 
         self.api_keys = [api_keys] if isinstance(api_keys, str) else api_keys
         self.current_key_idx = 0
@@ -103,17 +107,12 @@ class AsyncLLMHandler:
             return AsyncOpenAI(api_key=self.api_keys[0], base_url=api_base)
         elif api_type == "vllm":
             full_url = api_base
-            return AsyncOpenAI(
-                api_key=self.api_keys[0],
-                base_url=full_url
-            )
+            return AsyncOpenAI(api_key=self.api_keys[0], base_url=full_url)
         else:
             raise ValueError(f"Invalid API type: {api_type}")
 
     async def run(
-        self,
-        messages: List[Dict[str, str]],
-        temperature: float = 0
+        self, messages: List[Dict[str, str]], temperature: float = 0
     ) -> Tuple[str, int, Optional[Dict[str, Any]], Optional[str]]:
         """
         Run async LLM inference and return content, token count, usage metadata, and reasoning.
@@ -144,15 +143,25 @@ class AsyncLLMHandler:
                 reasoning_content = None
                 message = completion.choices[0].message
                 # Check for reasoning field in the message
-                if hasattr(message, 'reasoning') and message.reasoning:
+                if hasattr(message, "reasoning") and message.reasoning:
                     reasoning_content = message.reasoning
-                elif hasattr(message, 'reasoning_content') and message.reasoning_content:
+                elif (
+                    hasattr(message, "reasoning_content") and message.reasoning_content
+                ):
                     reasoning_content = message.reasoning_content
                 # Also check if it's a dict with reasoning field
-                elif isinstance(message, dict) and 'reasoning' in message and message['reasoning']:
-                    reasoning_content = message['reasoning']
-                elif isinstance(message, dict) and 'reasoning_content' in message and message['reasoning_content']:
-                    reasoning_content = message['reasoning_content']
+                elif (
+                    isinstance(message, dict)
+                    and "reasoning" in message
+                    and message["reasoning"]
+                ):
+                    reasoning_content = message["reasoning"]
+                elif (
+                    isinstance(message, dict)
+                    and "reasoning_content" in message
+                    and message["reasoning_content"]
+                ):
+                    reasoning_content = message["reasoning_content"]
                 else:
                     pass
 
@@ -162,12 +171,16 @@ class AsyncLLMHandler:
 
                 # Extract usage metadata
                 usage_metadata = None
-                if hasattr(completion, 'usage') and completion.usage:
+                if hasattr(completion, "usage") and completion.usage:
                     usage_metadata = {
                         "prompt_tokens": getattr(
-                            completion.usage, 'prompt_tokens', None), "completion_tokens": getattr(
-                            completion.usage, 'completion_tokens', None), "total_tokens": getattr(
-                            completion.usage, 'total_tokens', None)}
+                            completion.usage, "prompt_tokens", None
+                        ),
+                        "completion_tokens": getattr(
+                            completion.usage, "completion_tokens", None
+                        ),
+                        "total_tokens": getattr(completion.usage, "total_tokens", None),
+                    }
 
                 try:
                     # For newer models like gpt-4o that may not have specific
@@ -181,8 +194,12 @@ class AsyncLLMHandler:
 
                 # Ensure response is a string before encoding
                 response_str = str(response) if response is not None else ""
-                return response_str, len(
-                    encoding.encode(response_str)), usage_metadata, reasoning_content
+                return (
+                    response_str,
+                    len(encoding.encode(response_str)),
+                    usage_metadata,
+                    reasoning_content,
+                )
             except Exception as e:
                 print(f"Error: {str(e)}")
                 if self.api_keys is not None:
