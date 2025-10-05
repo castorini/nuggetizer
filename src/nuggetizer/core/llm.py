@@ -1,7 +1,9 @@
 import time
-from typing import Dict, List, Optional, Union, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import tiktoken
 from openai import AzureOpenAI, OpenAI
+
 from ..utils.api import (
     get_azure_openai_args,
     get_openai_api_key,
@@ -106,14 +108,20 @@ class LLMHandler:
             return OpenAI(api_key=self.api_keys[0], base_url=api_base)
         elif api_type == "vllm":
             full_url = api_base
-            print(f"vLLM base URL: {full_url}")
             return OpenAI(api_key=self.api_keys[0], base_url=full_url)
         else:
             raise ValueError(f"Invalid API type: {api_type}")
 
     def run(
-        self, messages: List[Dict[str, str]], temperature: float = 0.0
-    ) -> Tuple[str, int]:
+        self, messages: List[Dict[str, str]], temperature: float = 0
+    ) -> Tuple[str, int, Optional[Dict[str, Any]], Optional[str]]:
+        """
+        Run LLM inference and return content, token count, usage metadata, and reasoning.
+
+        Returns:
+            Tuple of (content, token_count, usage_metadata, reasoning_content)
+        """
+
         remaining_retry = 5
         while remaining_retry > 0:
             if "o1" in self.model:
@@ -127,51 +135,105 @@ class LLMHandler:
             try:
                 completion = None
                 # Use different parameters for vLLM vs other APIs
+                completion_params: Dict[str, Any]
                 if hasattr(self.client, "base_url") and "localhost" in str(
                     self.client.base_url
                 ):
                     # vLLM specific parameters
-                    completion = self.client.chat.completions.create(
-                        model=self.model,
-                        messages=messages,  # type: ignore[arg-type]
-                        temperature=temperature,
-                        max_tokens=4096,
-                        timeout=60,
-                    )
+                    completion_params = {
+                        "model": self.model,
+                        "messages": messages,
+                        "temperature": temperature,
+                        "max_tokens": 4096,
+                        "timeout": 60,
+                    }
                 else:
                     # Standard OpenAI/other APIs
-                    completion = self.client.chat.completions.create(
-                        model=self.model,
-                        messages=messages,  # type: ignore[arg-type]
-                        temperature=temperature,
-                        max_completion_tokens=4096,
-                        timeout=60,
-                    )
-                response = completion.choices[0].message.content
+                    completion_params = {
+                        "model": self.model,
+                        "messages": messages,
+                        "temperature": temperature,
+                        "max_completion_tokens": 4096,
+                        "timeout": 60,
+                    }
+                completion = self.client.chat.completions.create(**completion_params)
+                # print(f"🔍 DEBUG LLM: API call completed successfully") # not
+                # removed because it's very helpful for debugging
 
-                # Handle thinking models that put content in reasoning_content
-                if response is None and hasattr(
-                    completion.choices[0].message, "reasoning_content"
+                response = completion.choices[0].message.content
+                # print(f"🔍 DEBUG LLM: Full response: {completion}") # not
+                # removed because it's very helpful for debugging
+
+                # Extract reasoning content if available
+                reasoning_content = None
+                message = completion.choices[0].message
+                # Check for reasoning field in the message
+                if hasattr(message, "reasoning") and message.reasoning:
+                    reasoning_content = message.reasoning
+                elif (
+                    hasattr(message, "reasoning_content") and message.reasoning_content
                 ):
-                    reasoning_content = completion.choices[0].message.reasoning_content
-                    response = reasoning_content if reasoning_content else ""
+                    reasoning_content = message.reasoning_content
+                # Also check if it's a dict with reasoning field
+                elif (
+                    isinstance(message, dict)
+                    and "reasoning" in message
+                    and message["reasoning"]
+                ):
+                    reasoning_content = message["reasoning"]
+                elif (
+                    isinstance(message, dict)
+                    and "reasoning_content" in message
+                    and message["reasoning_content"]
+                ):
+                    reasoning_content = message["reasoning_content"]
+                else:
+                    print(f"No reasoning found in response from {self.model}")
 
                 # Handle None response
                 if response is None:
                     response = ""
 
+                # Extract usage metadata
+                usage_metadata = None
+                if hasattr(completion, "usage") and completion.usage:
+                    usage_metadata = {
+                        "prompt_tokens": getattr(
+                            completion.usage, "prompt_tokens", None
+                        ),
+                        "completion_tokens": getattr(
+                            completion.usage, "completion_tokens", None
+                        ),
+                        "total_tokens": getattr(completion.usage, "total_tokens", None),
+                    }
+
                 try:
-                    # For newer models like gpt-4o that may not have specific encodings yet
+                    # For newer models like gpt-4o that may not have specific
+                    # encodings yet
                     if "gpt-4o" in self.model or "gpt-4.1" in self.model:
                         encoding = tiktoken.get_encoding("o200k_base")
+                    elif (
+                        "qwen" in self.model.lower()
+                        or "qwen2" in self.model.lower()
+                        or "qwen3" in self.model.lower()
+                    ):
+                        # Use cl100k_base for Qwen models as they typically use
+                        # similar tokenization
+                        encoding = tiktoken.get_encoding("cl100k_base")
                     else:
                         encoding = tiktoken.get_encoding(self.model)
-                except Exception as e:
-                    print(f"Error: {str(e)}")
+                except Exception:
                     encoding = tiktoken.get_encoding("cl100k_base")
-                return response, len(encoding.encode(response))
-            except Exception as e:
-                print(f"LLM Inference Error: {str(e)}")
+
+                # Ensure response is a string before encoding
+                response_str = str(response) if response is not None else ""
+                return (
+                    response_str,
+                    len(encoding.encode(response_str)),
+                    usage_metadata,
+                    reasoning_content,
+                )
+            except Exception:
                 remaining_retry -= 1
                 if remaining_retry <= 0:
                     raise RuntimeError("Reached max of 5 retries.")
@@ -189,5 +251,5 @@ class LLMHandler:
                     self.client.api_key = self.api_keys[self.current_key_idx]
                 time.sleep(0.1)
 
-        # This should never be reached due to the raise RuntimeError above
-        raise RuntimeError("Unexpected end of retry loop")
+        # This should never be reached, but mypy requires it
+        raise RuntimeError("Unexpected end of method")

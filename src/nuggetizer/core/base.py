@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
-from typing import List, Union, Protocol, runtime_checkable, Awaitable
-from .types import Request, Nugget, ScoredNugget, AssignedNugget, AssignedScoredNugget
+from typing import Awaitable, List, Protocol, Union, runtime_checkable
+
+from .types import AssignedNugget, AssignedScoredNugget, Nugget, Request, ScoredNugget
 
 
 # Define a protocol for synchronous Nuggetizer

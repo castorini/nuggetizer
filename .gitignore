@@ -23,3 +23,6 @@ src/nuggetizer.egg-info/
 *jsonl
 
 .cursor/
+
+.pyre/
+.ruff_cache/
