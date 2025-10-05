@@ -5,7 +5,7 @@ Template loader for YAML-based prompts
 from pathlib import Path
 from typing import Any, Dict
 
-import yaml  # type: ignore
+import yaml
 
 # template cache to avoid reloading files
 _template_cache: Dict[str, Dict[str, Any]] = {}
