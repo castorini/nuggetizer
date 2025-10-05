@@ -7,7 +7,8 @@ from ..core.types import Nugget
 from .template_loader import format_template
 
 
-def create_score_prompt(query: str, nuggets: List[Nugget]) -> List[Dict[str, str]]:
+def create_score_prompt(
+        query: str, nuggets: List[Nugget]) -> List[Dict[str, str]]:
     """
     Creates a prompt for nugget scoring using YAML template.
     """

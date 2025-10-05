@@ -21,7 +21,8 @@ def calculate_nugget_scores(qid: str, nuggets: List[Dict]) -> NuggetMetrics:
     strict_vital_supported = sum(
         1 for n in vital_nuggets if n["assignment"] == "support"
     )
-    strict_all_supported = sum(1 for n in all_nuggets if n["assignment"] == "support")
+    strict_all_supported = sum(
+        1 for n in all_nuggets if n["assignment"] == "support")
 
     # Scores with partial support (0.5 for partial_support)
     vital_supported = strict_vital_supported + sum(
@@ -35,8 +36,10 @@ def calculate_nugget_scores(qid: str, nuggets: List[Dict]) -> NuggetMetrics:
     strict_vital_score = (
         strict_vital_supported / len(vital_nuggets) if vital_nuggets else 0.0
     )
-    strict_all_score = strict_all_supported / len(all_nuggets) if all_nuggets else 0.0
-    vital_score = vital_supported / len(vital_nuggets) if vital_nuggets else 0.0
+    strict_all_score = strict_all_supported / \
+        len(all_nuggets) if all_nuggets else 0.0
+    vital_score = vital_supported / \
+        len(vital_nuggets) if vital_nuggets else 0.0
     all_score = all_supported / len(all_nuggets) if all_nuggets else 0.0
 
     return NuggetMetrics(
@@ -51,8 +54,9 @@ def calculate_nugget_scores(qid: str, nuggets: List[Dict]) -> NuggetMetrics:
 def calculate_global_metrics(records: List[Dict]) -> Dict[str, float | str]:
     """Calculate global mean metrics across all responses."""
     metrics_list = [
-        calculate_nugget_scores(record["qid"], record["nuggets"]) for record in records
-    ]
+        calculate_nugget_scores(
+            record["qid"],
+            record["nuggets"]) for record in records]
 
     return {
         "qid": "all",

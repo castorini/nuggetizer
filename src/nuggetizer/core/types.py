@@ -45,7 +45,8 @@ class Trace:
     component: Literal["creator", "scorer", "assigner"]
     # LLM plumbing
     model: Optional[str] = None
-    params: Dict[str, Any] = field(default_factory=dict)  # e.g., {"temperature": 0.0}
+    # e.g., {"temperature": 0.0}
+    params: Dict[str, Any] = field(default_factory=dict)
     # The messages we sent to the LLM (or the prompt content)
     messages: Optional[List[Dict[str, str]]] = None
     # Usage and outputs
@@ -56,6 +57,7 @@ class Trace:
     window_end: Optional[int] = None
     # When the call happened (optional)
     timestamp_utc: Optional[str] = None                  # ISO8601 string
+
 
 @dataclass
 class BaseNugget:
@@ -74,6 +76,7 @@ class Nugget(BaseNugget):
 @dataclass
 class ScoredNugget(BaseNugget):
     importance: str = "okay"  # e.g., "vital" | "okay" | "failed"
+
 
 @dataclass
 class AssignedNugget(BaseNugget):

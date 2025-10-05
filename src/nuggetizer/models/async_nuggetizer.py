@@ -18,6 +18,7 @@ import asyncio
 # Maximum number of trials for LLM calls
 MAX_TRIALS = 500
 
+
 class AsyncNuggetizer(BaseNuggetizer):
     def __init__(
         self,
@@ -94,12 +95,12 @@ class AsyncNuggetizer(BaseNuggetizer):
             self.scorer_max_nuggets = scorer_max_nuggets
 
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.INFO if log_level > 0 else logging.WARNING)
+        self.logger.setLevel(logging.INFO if log_level >
+                             0 else logging.WARNING)
         self.log_level = log_level
         if self.log_level >= 1:
             self.logger.info(
-                f"Initialized Nuggetizer with models: {creator_model}, {scorer_model}, {assigner_model}"
-            )
+                f"Initialized Nuggetizer with models: {creator_model}, {scorer_model}, {assigner_model}")
 
     def _create_nugget_prompt(
         self, request: Request, start: int, end: int, nuggets: List[str]
@@ -114,7 +115,8 @@ class AsyncNuggetizer(BaseNuggetizer):
     def _create_assign_prompt(
         self, query: str, context: str, nuggets: List[ScoredNugget]
     ) -> List[Dict[str, str]]:
-        return create_assign_prompt(query, context, nuggets, self.assigner_mode)
+        return create_assign_prompt(
+            query, context, nuggets, self.assigner_mode)
 
     # Implement BaseNuggetizer methods with sync wrappers
     def create(self, request: Request) -> List[ScoredNugget]:
@@ -141,7 +143,8 @@ class AsyncNuggetizer(BaseNuggetizer):
                     f"Processing window {start} to {end} of {len(request.documents)} documents"
                 )
 
-            prompt = self._create_nugget_prompt(request, start, end, current_nuggets)
+            prompt = self._create_nugget_prompt(
+                request, start, end, current_nuggets)
             if self.log_level >= 2:
                 self.logger.info(f"Generated prompt:\n{prompt}")
 
@@ -150,7 +153,9 @@ class AsyncNuggetizer(BaseNuggetizer):
             while trial_count > 0:
                 try:
                     if self.log_level >= 1:
-                        self.logger.info(f"Attempting LLM call (trial {MAX_TRIALS-trial_count+1})")
+                        self.logger.info(
+                            f"Attempting LLM call (trial {
+                                MAX_TRIALS - trial_count + 1})")
                     response, _ = await self.creator_llm.run(prompt, temperature=temperature)
                     if self.log_level >= 2:
                         self.logger.info(f"Raw LLM response:\n{response}")
@@ -159,29 +164,33 @@ class AsyncNuggetizer(BaseNuggetizer):
                     break
                 try:
                     response = (
-                        response.replace("```python", "").replace("```", "").strip()
-                    )
+                        response.replace(
+                            "```python",
+                            "").replace(
+                            "```",
+                            "").strip())
                     nugget_texts = ast.literal_eval(response)
                     current_nuggets = nugget_texts[
                         : self.creator_max_nuggets
                     ]  # Ensure max nuggets
                     if self.log_level >= 1:
                         self.logger.info(
-                            f"Successfully processed window, current nugget count: {len(current_nuggets)}"
-                        )
+                            f"Successfully processed window, current nugget count: {
+                                len(current_nuggets)}")
                     break
                 except Exception as e:
                     self.logger.warning(f"Failed to parse response: {str(e)}")
                     temperature = 0.2
                     trial_count -= 1
                     if trial_count == 0:
-                        self.logger.error("Failed to parse response after 500 attempts")
+                        self.logger.error(
+                            "Failed to parse response after 500 attempts")
 
             start += self.creator_window_size
             if self.log_level >= 1:
                 self.logger.info(
-                    f"Moving window by stride {self.creator_window_size}, new start: {start}"
-                )
+                    f"Moving window by stride {
+                        self.creator_window_size}, new start: {start}")
 
         # Score the nuggets
         nuggets = [Nugget(text=text) for text in current_nuggets]
@@ -192,7 +201,8 @@ class AsyncNuggetizer(BaseNuggetizer):
             end = min(start + self.scorer_window_size, len(nuggets))
             window_nuggets = nuggets[start:end]
 
-            prompt = self._create_score_prompt(request.query.text, window_nuggets)
+            prompt = self._create_score_prompt(
+                request.query.text, window_nuggets)
             trial_count = MAX_TRIALS
             temperature = 0.0
             while trial_count > 0:
@@ -211,11 +221,15 @@ class AsyncNuggetizer(BaseNuggetizer):
                     break
                 try:
                     response = (
-                        response.replace("```python", "").replace("```", "").strip()
-                    )
+                        response.replace(
+                            "```python",
+                            "").replace(
+                            "```",
+                            "").strip())
                     importance_labels = ast.literal_eval(response)
 
-                    for nugget, importance in zip(window_nuggets, importance_labels):
+                    for nugget, importance in zip(
+                            window_nuggets, importance_labels):
                         scored_nuggets.append(
                             ScoredNugget(
                                 text=nugget.text, importance=importance.lower()
@@ -234,7 +248,8 @@ class AsyncNuggetizer(BaseNuggetizer):
                         )
 
             start += self.scorer_window_size
-        # First sort by importance then position and then take :self.scorer_max_nuggets
+        # First sort by importance then position and then take
+        # :self.scorer_max_nuggets
         scored_nuggets = sorted(
             scored_nuggets,
             key=lambda x: (
@@ -254,7 +269,9 @@ class AsyncNuggetizer(BaseNuggetizer):
     ) -> List[AssignedScoredNugget]:
         """Synchronous wrapper for async_assign. Not meant to be used directly."""
         loop = asyncio.get_event_loop()
-        return loop.run_until_complete(self.async_assign(query, context, nuggets))
+        return loop.run_until_complete(
+            self.async_assign(
+                query, context, nuggets))
 
     async def async_assign(
         self, query: str, context: str, nuggets: List[ScoredNugget]
@@ -286,7 +303,9 @@ class AsyncNuggetizer(BaseNuggetizer):
             window_nuggets: List[ScoredNugget],
         ) -> List[AssignedScoredNugget]:
             if self.log_level >= 1:
-                self.logger.info(f"Processing window of {len(window_nuggets)} nuggets")
+                self.logger.info(
+                    f"Processing window of {
+                        len(window_nuggets)} nuggets")
 
             prompt = self._create_assign_prompt(query, context, window_nuggets)
             if self.log_level >= 2:
@@ -297,7 +316,9 @@ class AsyncNuggetizer(BaseNuggetizer):
             while trial_count > 0:
                 try:
                     if self.log_level >= 1:
-                        self.logger.info(f"Attempting LLM call (trial {MAX_TRIALS-trial_count+1})")
+                        self.logger.info(
+                            f"Attempting LLM call (trial {
+                                MAX_TRIALS - trial_count + 1})")
                     response, _ = await self.assigner_llm.run(prompt, temperature=temperature)
                     if self.log_level >= 2:
                         self.logger.info(f"Raw LLM response:\n{response}")
@@ -316,8 +337,11 @@ class AsyncNuggetizer(BaseNuggetizer):
                     break
                 try:
                     response = (
-                        response.replace("```python", "").replace("```", "").strip()
-                    )
+                        response.replace(
+                            "```python",
+                            "").replace(
+                            "```",
+                            "").strip())
                     assignments = ast.literal_eval(response)
                     window_assigned_nuggets = []
                     for nugget, assignment in zip(window_nuggets, assignments):
@@ -330,8 +354,8 @@ class AsyncNuggetizer(BaseNuggetizer):
                         )
                     if self.log_level >= 1:
                         self.logger.info(
-                            f"Successfully processed window with {len(window_nuggets)} nuggets"
-                        )
+                            f"Successfully processed window with {
+                                len(window_nuggets)} nuggets")
                     return window_assigned_nuggets
                 except Exception as e:
                     self.logger.warning(f"Failed to parse response: {str(e)}")
@@ -339,7 +363,8 @@ class AsyncNuggetizer(BaseNuggetizer):
                         trial_count -= 1
                         temperature = 0.2
                     if trial_count == 0:
-                        self.logger.error("Failed to parse response after 500 attempts")
+                        self.logger.error(
+                            "Failed to parse response after 500 attempts")
                         return [
                             AssignedScoredNugget(
                                 text=nugget.text,
@@ -360,11 +385,12 @@ class AsyncNuggetizer(BaseNuggetizer):
 
         if self.log_level >= 1:
             self.logger.info(
-                f"Completed assignment process with {len(assigned_nuggets)} nuggets"
-            )
+                f"Completed assignment process with {
+                    len(assigned_nuggets)} nuggets")
         return assigned_nuggets
 
-    def create_batch(self, requests: List[Request]) -> List[List[ScoredNugget]]:
+    def create_batch(self,
+                     requests: List[Request]) -> List[List[ScoredNugget]]:
         """Synchronous wrapper for async_create_batch. Not meant to be used directly."""
         loop = asyncio.get_event_loop()
         return loop.run_until_complete(self.async_create_batch(requests))

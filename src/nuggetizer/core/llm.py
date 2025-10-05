@@ -30,14 +30,15 @@ class LLMHandler:
 
         # Auto-configure API keys and Azure settings if not provided
         if use_azure_openai and (
-            api_keys is None
-            or (api_type == "azure" or (api_type is None and "gpt" in model.lower()))
-        ):
+            api_keys is None or (
+                api_type == "azure" or (
+                api_type is None and "gpt" in model.lower()))):
             azure_args = get_azure_openai_args()
             api_type = "azure"
             api_base = azure_args.get("api_base")
             api_version = azure_args.get("api_version")
-            api_keys = azure_args.get("api_key", api_keys) or get_openai_api_key()
+            api_keys = azure_args.get(
+                "api_key", api_keys) or get_openai_api_key()
         else:
             # Check for explicit API keys first, then environment variables
             if api_keys is None:
@@ -81,8 +82,7 @@ class LLMHandler:
                 "2. OpenRouter API key (OPENROUTER_API_KEY environment variable)\n"
                 "3. Azure OpenAI credentials (AZURE_OPENAI_API_KEY, etc.)\n"
                 "4. Use vLLM local server (use_vllm=True)\n"
-                "5. Pass api_keys parameter directly to Nuggetizer constructor"
-            )
+                "5. Pass api_keys parameter directly to Nuggetizer constructor")
 
         self.api_keys = [api_keys] if isinstance(api_keys, str) else api_keys
         self.current_key_idx = 0
@@ -114,17 +114,17 @@ class LLMHandler:
             raise ValueError(f"Invalid API type: {api_type}")
 
     def run(
-        self, 
-        messages: List[Dict[str, str]], 
+        self,
+        messages: List[Dict[str, str]],
         temperature: float = 0
     ) -> Tuple[str, int, Optional[Dict[str, any]], Optional[str]]:
         """
         Run LLM inference and return content, token count, usage metadata, and reasoning.
-        
+
         Returns:
             Tuple of (content, token_count, usage_metadata, reasoning_content)
         """
-        
+
         remaining_retry = 5
         while remaining_retry > 0:
             if "o1" in self.model:
@@ -158,12 +158,15 @@ class LLMHandler:
                         "max_completion_tokens": 4096,
                         "timeout": 60
                     }
-                completion = self.client.chat.completions.create(**completion_params)
-                # print(f"🔍 DEBUG LLM: API call completed successfully") # not removed because it's very helpful for debugging
-                
+                completion = self.client.chat.completions.create(
+                    **completion_params)
+                # print(f"🔍 DEBUG LLM: API call completed successfully") # not
+                # removed because it's very helpful for debugging
+
                 response = completion.choices[0].message.content
-                # print(f"🔍 DEBUG LLM: Full response: {completion}") # not removed because it's very helpful for debugging
-                
+                # print(f"🔍 DEBUG LLM: Full response: {completion}") # not
+                # removed because it's very helpful for debugging
+
                 # Extract reasoning content if available
                 reasoning_content = None
                 message = completion.choices[0].message
@@ -179,35 +182,38 @@ class LLMHandler:
                     reasoning_content = message['reasoning_content']
                 else:
                     print(f"No reasoning found in response from {self.model}")
-                
+
                 # Handle None response
                 if response is None:
                     response = ""
-                
+
                 # Extract usage metadata
                 usage_metadata = None
                 if hasattr(completion, 'usage') and completion.usage:
                     usage_metadata = {
-                        "prompt_tokens": getattr(completion.usage, 'prompt_tokens', None),
-                        "completion_tokens": getattr(completion.usage, 'completion_tokens', None),
-                        "total_tokens": getattr(completion.usage, 'total_tokens', None)
-                    }
-                
+                        "prompt_tokens": getattr(
+                            completion.usage, 'prompt_tokens', None), "completion_tokens": getattr(
+                            completion.usage, 'completion_tokens', None), "total_tokens": getattr(
+                            completion.usage, 'total_tokens', None)}
+
                 try:
-                    # For newer models like gpt-4o that may not have specific encodings yet
+                    # For newer models like gpt-4o that may not have specific
+                    # encodings yet
                     if "gpt-4o" in self.model or "gpt-4.1" in self.model:
                         encoding = tiktoken.get_encoding("o200k_base")
                     elif "qwen" in self.model.lower() or "qwen2" in self.model.lower() or "qwen3" in self.model.lower():
-                        # Use cl100k_base for Qwen models as they typically use similar tokenization
+                        # Use cl100k_base for Qwen models as they typically use
+                        # similar tokenization
                         encoding = tiktoken.get_encoding("cl100k_base")
                     else:
                         encoding = tiktoken.get_encoding(self.model)
                 except Exception as e:
                     encoding = tiktoken.get_encoding("cl100k_base")
-                
+
                 # Ensure response is a string before encoding
                 response_str = str(response) if response is not None else ""
-                return response_str, len(encoding.encode(response_str)), usage_metadata, reasoning_content
+                return response_str, len(
+                    encoding.encode(response_str)), usage_metadata, reasoning_content
             except Exception as e:
                 remaining_retry -= 1
                 if remaining_retry <= 0:
