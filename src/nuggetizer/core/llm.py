@@ -116,13 +116,19 @@ class LLMHandler:
     ) -> Tuple[str, int]:
         remaining_retry = 5
         while remaining_retry > 0:
-            if "o1" in self.model:
+            if "o1" in self.model or "o3" in self.model or "o4" in self.model:
                 # System message is not supported for o1 models
                 new_messages = messages[1:]
                 new_messages[0]["content"] = (
                     messages[0]["content"] + "\n" + messages[1]["content"]
                 )
                 messages = new_messages[:]
+            if (
+                "o1" in self.model
+                or "o3" in self.model
+                or "o4" in self.model
+                or "gpt-5" in self.model
+            ):
                 temperature = 1.0
             try:
                 completion = None

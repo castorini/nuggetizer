@@ -113,13 +113,19 @@ class AsyncLLMHandler:
         self, messages: List[Dict[str, str]], temperature: float = 0.0
     ) -> Tuple[str, int]:
         while True:
-            if "o1" in self.model or "o3" in self.model:
+            if "o1" in self.model or "o3" in self.model or "o4" in self.model:
                 # System message is not supported for o1 models
                 new_messages = messages[1:]
                 new_messages[0]["content"] = (
                     messages[0]["content"] + "\n" + messages[1]["content"]
                 )
                 messages = new_messages[:]
+            if (
+                "o1" in self.model
+                or "o3" in self.model
+                or "o4" in self.model
+                or "gpt-5" in self.model
+            ):
                 temperature = 1.0
             try:
                 completion = await self.client.chat.completions.create(
