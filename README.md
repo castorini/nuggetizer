@@ -1,4 +1,4 @@
-# nuggetizer
+# nuggetizer <img src="docs/nuggetizer-logo.png" width="300" />
 
 [![PyPI](https://img.shields.io/pypi/v/nuggetizer?color=brightgreen)](https://pypi.org/project/nuggetizer/)
 [![Downloads](https://static.pepy.tech/personalized-badge/nuggetizer?period=total&units=international_system&left_color=grey&right_color=brightgreen&left_text=downloads)](https://pepy.tech/project/nuggetizer)
