@@ -4,6 +4,7 @@ import time
 from nuggetizer.core.types import Query, Document, Request
 from nuggetizer.models.nuggetizer import Nuggetizer
 from nuggetizer.core.metrics import calculate_nugget_scores
+from nuggetizer.utils.display import print_nuggets, print_assigned_nuggets
 
 
 def create_sample_request() -> Request:
@@ -183,27 +184,16 @@ def process_request(
         print(
             f"{i}. {importance_emoji} {nugget.text} (Importance: {nugget.importance})"
         )
+    print_nuggets(scored_nuggets)
 
     # Assign nuggets to documents
     print("\n🎯 Assigning nuggets to documents...")
     assign_start = time.time()
     for doc in request.documents:
-        print(f"\nDocument: {doc.docid}")
-        print("Segment:", doc.segment)
         assigned_nuggets = nuggetizer.assign(
             request.query.text, doc.segment, scored_nuggets
         )
-        print("\nAssignments:")
-        for nugget in assigned_nuggets:
-            importance_emoji = "⭐" if nugget.importance == "vital" else "✨"
-            assignment_emoji = {
-                "support": "✅",
-                "partial_support": "🟡",
-                "not_support": "❌",
-            }.get(nugget.assignment, "❓")
-            print(f"{nugget.text}")
-            print(f"  Importance: {nugget.importance} {importance_emoji}")
-            print(f"  Assignment: {nugget.assignment} {assignment_emoji}")
+        print_assigned_nuggets(doc, assigned_nuggets)
 
             # Print reasoning if requested
             if print_reasoning and hasattr(nugget, "reasoning") and nugget.reasoning:

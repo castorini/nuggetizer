@@ -26,3 +26,4 @@ src/nuggetizer.egg-info/
 
 .pyre/
 .ruff_cache/
+notebooks/

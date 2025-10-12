@@ -6,6 +6,7 @@ import time
 from nuggetizer.core.types import Query, Document, Request
 from nuggetizer.models.async_nuggetizer import AsyncNuggetizer
 from nuggetizer.core.metrics import calculate_nugget_scores
+from nuggetizer.utils.display import print_nuggets, print_assigned_nuggets
 
 
 def create_sample_request() -> Request:
@@ -148,11 +149,7 @@ async def process_request(
     scored_nuggets = await nuggetizer.async_create(request)
     create_time = time.time() - create_start
     print(f"Found {len(scored_nuggets)} nuggets (took {create_time:.2f}s):")
-    for i, nugget in enumerate(scored_nuggets, 1):
-        importance_emoji = "⭐" if nugget.importance == "vital" else "✨"
-        print(
-            f"{i}. {importance_emoji} {nugget.text} (Importance: {nugget.importance})"
-        )
+    print_nuggets(scored_nuggets)
 
     # Assign nuggets to documents in parallel
     print("\n🎯 Assigning nuggets to documents...")
@@ -173,17 +170,7 @@ async def process_request(
 
     # Process results
     for doc, assigned_nuggets in zip(request.documents, assigned_nuggets_list):
-        print(f"\nAssignments for document: {doc.docid}")
-        for nugget in assigned_nuggets:
-            importance_emoji = "⭐" if nugget.importance == "vital" else "✨"
-            assignment_emoji = {
-                "support": "✅",
-                "partial_support": "🟡",
-                "not_support": "❌",
-            }.get(nugget.assignment, "❓")
-            print(f"{nugget.text}")
-            print(f"  Importance: {nugget.importance} {importance_emoji}")
-            print(f"  Assignment: {nugget.assignment} {assignment_emoji}")
+        print_assigned_nuggets(doc, assigned_nuggets)
 
         # Calculate metrics for this document
         nugget_list = [
