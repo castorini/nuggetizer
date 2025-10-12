@@ -239,7 +239,8 @@ class LLMHandler:
                     usage_metadata,
                     reasoning_content,
                 )
-            except Exception:
+            except Exception as e:
+                print(f"LLM Inference Error: {str(e)}")
                 remaining_retry -= 1
                 if remaining_retry <= 0:
                     raise RuntimeError("Reached max of 5 retries.")
