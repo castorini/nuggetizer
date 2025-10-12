@@ -172,9 +172,9 @@ class LLMHandler:
                         encoding = tiktoken.get_encoding("o200k_base")
                     else:
                         encoding = tiktoken.get_encoding(self.model)
-                except Exception as e:
-                    print(f"Error: {str(e)}")
+                except Exception:
                     encoding = tiktoken.get_encoding("cl100k_base")
+
                 return response, len(encoding.encode(response))
             except Exception as e:
                 print(f"LLM Inference Error: {str(e)}")
