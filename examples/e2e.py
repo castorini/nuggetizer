@@ -112,6 +112,8 @@ def process_request(
     use_vllm: bool,
     vllm_port: int,
     log_level: int,
+    print_reasoning: bool = False,
+    print_trace: bool = False,
 ) -> None:
     """Process a request through the nuggetizer pipeline."""
     start_time = time.time()
@@ -127,6 +129,8 @@ def process_request(
         use_vllm=use_vllm,
         vllm_port=vllm_port,
         log_level=log_level,
+        store_trace=print_trace,
+        store_reasoning=print_reasoning,
     )
 
     # Option 2: Different models for each component
@@ -147,6 +151,39 @@ def process_request(
     scored_nuggets = nuggetizer.create(request)
     create_time = time.time() - create_start
     print(f"Found {len(scored_nuggets)} nuggets (took {create_time:.2f}s):")
+
+    # Print reasoning if requested
+    if print_reasoning:
+        # Print creator reasoning
+        creator_reasoning = nuggetizer.get_creator_reasoning()
+        if creator_reasoning:
+            print("\n🧠 Creator Reasoning:")
+            print(f"   {creator_reasoning}\n")
+
+        print("\n🧠 Reasoning for each nugget:")
+        for i, nugget in enumerate(scored_nuggets, 1):
+            if hasattr(nugget, "reasoning") and nugget.reasoning:
+                print(f"{i}. {nugget.text}")
+                print(f"   Reasoning: {nugget.reasoning}\n")
+
+    # Print trace if requested
+    if print_trace:
+        print("\n🔍 Trace information for each nugget:")
+        for i, nugget in enumerate(scored_nuggets, 1):
+            if hasattr(nugget, "trace") and nugget.trace:
+                t = nugget.trace
+                print(f"{i}. {nugget.text}")
+                print(f"   component={t.component} model={t.model} params={t.params}")
+                if t.usage:
+                    print(f"   usage={t.usage}")
+                print()
+
+    # Regular output
+    for i, nugget in enumerate(scored_nuggets, 1):
+        importance_emoji = "⭐" if nugget.importance == "vital" else "✔️"
+        print(
+            f"{i}. {importance_emoji} {nugget.text} (Importance: {nugget.importance})"
+        )
     print_nuggets(scored_nuggets)
 
     # Assign nuggets to documents
@@ -157,6 +194,17 @@ def process_request(
             request.query.text, doc.segment, scored_nuggets
         )
         print_assigned_nuggets(doc, assigned_nuggets)
+
+        # Print reasoning if requested
+        if print_reasoning and hasattr(nugget, "reasoning") and nugget.reasoning:
+            print(f"  Reasoning: {nugget.reasoning}")
+
+        # Print trace if requested
+        if print_trace and hasattr(nugget, "trace") and nugget.trace:
+            t = nugget.trace
+            print(f"  component={t.component} model={t.model} params={t.params}")
+            if t.usage:
+                print(f"  usage={t.usage}")
 
         # Calculate metrics for this document
         nugget_list = [
@@ -193,6 +241,12 @@ def main() -> None:
     )
     parser.add_argument("--model", type=str, default="gpt-4o", help="Model to use")
     parser.add_argument("--log_level", type=int, default=0, help="Log level")
+    parser.add_argument(
+        "--print_reasoning", action="store_true", help="Print reasoning content"
+    )
+    parser.add_argument(
+        "--print_trace", action="store_true", help="Print trace information"
+    )
     args = parser.parse_args()
 
     print("🔧 Starting E2E Nuggetizer Example...")
@@ -206,6 +260,8 @@ def main() -> None:
         args.use_vllm,
         args.vllm_port,
         args.log_level,
+        args.print_reasoning,
+        args.print_trace,
     )
     print("\n✨ Example completed!")
 

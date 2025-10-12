@@ -1,5 +1,6 @@
 import time
-from typing import Dict, List, Optional, Union, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import tiktoken
 from openai import AsyncAzureOpenAI, AsyncOpenAI
 
@@ -105,13 +106,20 @@ class AsyncLLMHandler:
         elif api_type == "openrouter":
             return AsyncOpenAI(api_key=self.api_keys[0], base_url=api_base)
         elif api_type == "vllm":
-            return AsyncOpenAI(api_key=self.api_keys[0], base_url=api_base)
+            full_url = api_base
+            return AsyncOpenAI(api_key=self.api_keys[0], base_url=full_url)
         else:
             raise ValueError(f"Invalid API type: {api_type}")
 
     async def run(
-        self, messages: List[Dict[str, str]], temperature: float = 0.0
-    ) -> Tuple[str, int]:
+        self, messages: List[Dict[str, str]], temperature: float = 0
+    ) -> Tuple[str, int, Optional[Dict[str, Any]], Optional[str]]:
+        """
+        Run async LLM inference and return content, token count, usage metadata, and reasoning.
+
+        Returns:
+            Tuple of (content, token_count, usage_metadata, reasoning_content)
+        """
         while True:
             if "o1" in self.model or "o3" in self.model or "o4" in self.model:
                 # System message is not supported for o1 models
@@ -137,19 +145,67 @@ class AsyncLLMHandler:
                 )
                 response = completion.choices[0].message.content
 
+                # Extract reasoning content if available
+                reasoning_content = None
+                message = completion.choices[0].message
+                # Check for reasoning field in the message
+                if hasattr(message, "reasoning") and message.reasoning:
+                    reasoning_content = message.reasoning
+                elif (
+                    hasattr(message, "reasoning_content") and message.reasoning_content
+                ):
+                    reasoning_content = message.reasoning_content
+                # Also check if it's a dict with reasoning field
+                elif (
+                    isinstance(message, dict)
+                    and "reasoning" in message
+                    and message["reasoning"]
+                ):
+                    reasoning_content = message["reasoning"]
+                elif (
+                    isinstance(message, dict)
+                    and "reasoning_content" in message
+                    and message["reasoning_content"]
+                ):
+                    reasoning_content = message["reasoning_content"]
+                else:
+                    pass
+
                 # Handle None response
                 if response is None:
                     response = ""
 
+                # Extract usage metadata
+                usage_metadata = None
+                if hasattr(completion, "usage") and completion.usage:
+                    usage_metadata = {
+                        "prompt_tokens": getattr(
+                            completion.usage, "prompt_tokens", None
+                        ),
+                        "completion_tokens": getattr(
+                            completion.usage, "completion_tokens", None
+                        ),
+                        "total_tokens": getattr(completion.usage, "total_tokens", None),
+                    }
+
                 try:
-                    # For newer models like gpt-4o that may not have specific encodings yet
+                    # For newer models like gpt-4o that may not have specific
+                    # encodings yet
                     if "gpt-4o" in self.model:
                         encoding = tiktoken.get_encoding("o200k_base")
                     else:
                         encoding = tiktoken.get_encoding(self.model)
                 except Exception:
                     encoding = tiktoken.get_encoding("cl100k_base")
-                return response, len(encoding.encode(response))
+
+                # Ensure response is a string before encoding
+                response_str = str(response) if response is not None else ""
+                return (
+                    response_str,
+                    len(encoding.encode(response_str)),
+                    usage_metadata,
+                    reasoning_content,
+                )
             except Exception as e:
                 print(f"Error: {str(e)}")
                 if self.api_keys is not None:
