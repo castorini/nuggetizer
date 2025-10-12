@@ -173,7 +173,6 @@ class LLMHandler:
                     else:
                         encoding = tiktoken.get_encoding(self.model)
                 except Exception as e:
-                    print(f"Error: {str(e)}")
                     encoding = tiktoken.get_encoding("cl100k_base")
                 return response, len(encoding.encode(response))
             except Exception as e:
