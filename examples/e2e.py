@@ -195,16 +195,16 @@ def process_request(
         )
         print_assigned_nuggets(doc, assigned_nuggets)
 
-            # Print reasoning if requested
-            if print_reasoning and hasattr(nugget, "reasoning") and nugget.reasoning:
-                print(f"  Reasoning: {nugget.reasoning}")
+        # Print reasoning if requested
+        if print_reasoning and hasattr(nugget, "reasoning") and nugget.reasoning:
+            print(f"  Reasoning: {nugget.reasoning}")
 
-            # Print trace if requested
-            if print_trace and hasattr(nugget, "trace") and nugget.trace:
-                t = nugget.trace
-                print(f"  component={t.component} model={t.model} params={t.params}")
-                if t.usage:
-                    print(f"  usage={t.usage}")
+        # Print trace if requested
+        if print_trace and hasattr(nugget, "trace") and nugget.trace:
+            t = nugget.trace
+            print(f"  component={t.component} model={t.model} params={t.params}")
+            if t.usage:
+                print(f"  usage={t.usage}")
 
         # Calculate metrics for this document
         nugget_list = [
