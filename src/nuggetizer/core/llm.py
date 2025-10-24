@@ -163,12 +163,8 @@ class LLMHandler:
                         "timeout": 60,
                     }
                 completion = self.client.chat.completions.create(**completion_params)
-                # print(f"🔍 DEBUG LLM: API call completed successfully") # not
-                # removed because it's very helpful for debugging
 
                 response = completion.choices[0].message.content
-                # print(f"🔍 DEBUG LLM: Full response: {completion}") # not
-                # removed because it's very helpful for debugging
 
                 # Extract reasoning content if available
                 reasoning_content = None
@@ -193,8 +189,6 @@ class LLMHandler:
                     and message["reasoning_content"]
                 ):
                     reasoning_content = message["reasoning_content"]
-                else:
-                    print(f"No reasoning found in response from {self.model}")
 
                 # Handle None response
                 if response is None:
@@ -218,14 +212,6 @@ class LLMHandler:
                     # encodings yet
                     if "gpt-4o" in self.model or "gpt-4.1" in self.model:
                         encoding = tiktoken.get_encoding("o200k_base")
-                    elif (
-                        "qwen" in self.model.lower()
-                        or "qwen2" in self.model.lower()
-                        or "qwen3" in self.model.lower()
-                    ):
-                        # Use cl100k_base for Qwen models as they typically use
-                        # similar tokenization
-                        encoding = tiktoken.get_encoding("cl100k_base")
                     else:
                         encoding = tiktoken.get_encoding(self.model)
                 except Exception:
