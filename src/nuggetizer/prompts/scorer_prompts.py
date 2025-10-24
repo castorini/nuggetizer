@@ -2,7 +2,8 @@
 Prompts for nugget scoring
 """
 
-from typing import List, Dict
+from typing import Dict, List
+
 from ..core.types import Nugget
 from .template_loader import format_template
 

@@ -1,6 +1,6 @@
-from typing import List, Dict
 from dataclasses import dataclass
 from statistics import mean
+from typing import Dict, List
 
 
 @dataclass
