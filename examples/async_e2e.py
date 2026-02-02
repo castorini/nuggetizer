@@ -4,7 +4,7 @@ import asyncio
 import time
 
 from nuggetizer.core.types import Query, Document, Request
-from nuggetizer.models.async_nuggetizer import AsyncNuggetizer
+from nuggetizer.models.nuggetizer import Nuggetizer
 from nuggetizer.core.metrics import calculate_nugget_scores
 from nuggetizer.utils.display import print_nuggets, print_assigned_nuggets
 
@@ -122,7 +122,7 @@ async def process_request(
     # Initialize components - API keys and Azure config are loaded automatically
 
     # Option 1: Single model for all components
-    nuggetizer1 = AsyncNuggetizer(
+    nuggetizer1 = Nuggetizer(
         model=model,
         use_azure_openai=use_azure_openai,
         use_openrouter=use_openrouter,
@@ -132,7 +132,7 @@ async def process_request(
     )
 
     # Option 2: Different models for each component
-    # nuggetizer2 = AsyncNuggetizer(
+    # nuggetizer2 = Nuggetizer(
     #     creator_model="gpt-4o",
     #     scorer_model="gpt-3.5-turbo",
     #     assigner_model="gpt-4o",

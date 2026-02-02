@@ -173,7 +173,7 @@ python3 examples/e2e.py --model "Qwen/Qwen3-30B-A3B-Instruct-2507" --use_vllm
 python3 examples/e2e.py --model "Qwen/Qwen3-30B-A3B-Instruct-2507" --use_vllm --vllm_port 8001
 ```
 
-We also provide an async version of the Nuggetizer class, `AsyncNuggetizer`, in `src/nuggetizer/models/async_nuggetizer.py`. To run this example, use:
+Nuggetizer also supports async methods (`async_create`, `async_assign`, etc.). To run the async example, use:
 
 ```bash
 python3 examples/async_e2e.py
