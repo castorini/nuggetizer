@@ -20,9 +20,9 @@ def get_azure_openai_args() -> Dict[str, Optional[str]]:
     }
 
     # Sanity check
-    assert all(
-        list(azure_args.values())
-    ), "Ensure that `AZURE_OPENAI_API_BASE`, `AZURE_OPENAI_API_VERSION` are set"
+    assert all(list(azure_args.values())), (
+        "Ensure that `AZURE_OPENAI_API_BASE`, `AZURE_OPENAI_API_VERSION` are set"
+    )
     for key, value in azure_args.items():
         if value is None:
             raise ValueError(f"{key} not found in environment variables")
