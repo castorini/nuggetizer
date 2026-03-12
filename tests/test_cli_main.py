@@ -262,3 +262,132 @@ def test_validate_create_batch_returns_json_envelope(
     assert output["command"] == "validate"
     assert output["validation"]["valid"] is True
     assert output["validation"]["record_count"] == 1
+
+
+def test_direct_create_validate_only_does_not_call_llm(
+    monkeypatch: Any, capsys: Any
+) -> None:
+    def fail_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        raise AssertionError("LLM should not be called during validate-only")
+
+    monkeypatch.setattr(Nuggetizer, "create", fail_create)
+
+    exit_code = main(
+        [
+            "create",
+            "--input-json",
+            json.dumps(
+                {
+                    "query": "What is Python used for?",
+                    "candidates": ["Python is used for web development."],
+                }
+            ),
+            "--validate-only",
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["mode"] == "validate"
+    assert output["validation"]["valid"] is True
+
+
+def test_batch_create_dry_run_reports_write_policy_conflict(
+    tmp_path: Path, capsys: Any
+) -> None:
+    input_path = tmp_path / "pool.jsonl"
+    output_path = tmp_path / "nuggets.jsonl"
+    write_jsonl(
+        input_path,
+        [
+            {
+                "query": {"qid": "q1", "text": "What is Python used for?"},
+                "candidates": [
+                    {
+                        "docid": "d1",
+                        "doc": {"segment": "Python is used for web development."},
+                    }
+                ],
+            }
+        ],
+    )
+    output_path.write_text("existing\n", encoding="utf-8")
+
+    exit_code = main(
+        [
+            "create",
+            "--input-file",
+            str(input_path),
+            "--output-file",
+            str(output_path),
+            "--dry-run",
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 5
+    output = json.loads(capsys.readouterr().out)
+    assert output["errors"][0]["code"] == "write_policy_conflict"
+
+
+def test_batch_assign_dry_run_returns_counts_without_writing(
+    tmp_path: Path, capsys: Any
+) -> None:
+    nugget_path = tmp_path / "nuggets.jsonl"
+    answer_path = tmp_path / "answers.jsonl"
+    output_path = tmp_path / "assignments.jsonl"
+    write_jsonl(
+        nugget_path,
+        [
+            {
+                "query": "What is Python used for?",
+                "qid": "q1",
+                "nuggets": [
+                    {
+                        "text": "Python is used for web development.",
+                        "importance": "vital",
+                    }
+                ],
+            }
+        ],
+    )
+    write_jsonl(
+        answer_path,
+        [
+            {
+                "run_id": "demo-run",
+                "topic_id": "q1",
+                "topic": "What is Python used for?",
+                "response_length": 10,
+                "answer": [
+                    {"text": "Python is used for web development.", "citations": [0]}
+                ],
+            }
+        ],
+    )
+
+    exit_code = main(
+        [
+            "assign",
+            "--input-kind",
+            "answers",
+            "--nuggets",
+            str(nugget_path),
+            "--contexts",
+            str(answer_path),
+            "--output-file",
+            str(output_path),
+            "--dry-run",
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["mode"] == "dry-run"
+    assert output["validation"]["nugget_record_count"] == 1
+    assert not output_path.exists()

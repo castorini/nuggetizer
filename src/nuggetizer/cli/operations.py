@@ -50,11 +50,14 @@ def run_create_batch(args: Any, logger: logging.Logger) -> CommandResponse:
     logger.info("Processing %d records", len(input_data))
 
     generated_count = 0
+    skipped_count = 0
+    failed_count = 0
     with open(args.output_file, "a", encoding="utf-8") as file_obj:
         for i, record in enumerate(input_data, 1):
             qid = record["query"]["qid"]
             if qid in processed_qids:
                 logger.info("Skipping already processed record %s", qid)
+                skipped_count += 1
                 continue
 
             logger.info("Processing record %d/%d", i, len(input_data))
@@ -70,9 +73,16 @@ def run_create_batch(args: Any, logger: logging.Logger) -> CommandResponse:
                 )
             except Exception as exc:
                 logger.error("Error processing record %s: %s", qid, str(exc))
+                failed_count += 1
 
     return CommandResponse(
-        command="create", metrics={"generated_records": generated_count}
+        command="create",
+        metrics={
+            "attempted_records": len(input_data),
+            "generated_records": generated_count,
+            "skipped_records": skipped_count,
+            "failed_records": failed_count,
+        },
     )
 
 
@@ -94,11 +104,14 @@ def run_assign_answers_batch(args: Any, logger: logging.Logger) -> CommandRespon
     qid_to_answer_data = {answer["topic_id"]: answer for answer in answer_data}
 
     assigned_count = 0
+    skipped_count = 0
+    failed_count = 0
     with open(args.output_file, "a", encoding="utf-8") as file_obj:
         for i, nugget_record in enumerate(nugget_data, 1):
             qid = nugget_record["qid"]
             if qid in processed_qids:
                 logger.info("Skipping already processed record %s", qid)
+                skipped_count += 1
                 continue
 
             logger.info("Processing record pair %d/%d", i, len(nugget_data))
@@ -127,9 +140,16 @@ def run_assign_answers_batch(args: Any, logger: logging.Logger) -> CommandRespon
                 assigned_count += 1
             except Exception as exc:
                 logger.error("Error processing record %s: %s", qid, str(exc))
+                failed_count += 1
 
     return CommandResponse(
-        command="assign", metrics={"assigned_records": assigned_count}
+        command="assign",
+        metrics={
+            "attempted_records": len(nugget_data),
+            "assigned_records": assigned_count,
+            "skipped_records": skipped_count,
+            "failed_records": failed_count,
+        },
     )
 
 
@@ -149,6 +169,8 @@ def run_assign_retrieval_batch(args: Any, logger: logging.Logger) -> CommandResp
     qid_to_nuggets = {record["qid"]: record for record in nugget_data}
 
     assigned_count = 0
+    skipped_count = 0
+    failed_count = 0
     with open(args.output_file, "a", encoding="utf-8") as file_obj:
         for retrieve_record in retrieve_data:
             qid = retrieve_record["query"]["qid"]
@@ -165,6 +187,7 @@ def run_assign_retrieval_batch(args: Any, logger: logging.Logger) -> CommandResp
                         qid,
                         candidate["docid"],
                     )
+                    skipped_count += 1
                     continue
 
                 logger.info("Processing candidate %d for query %s", index, qid)
@@ -195,9 +218,15 @@ def run_assign_retrieval_batch(args: Any, logger: logging.Logger) -> CommandResp
                         candidate["docid"],
                         str(exc),
                     )
+                    failed_count += 1
 
     return CommandResponse(
-        command="assign-retrieval", metrics={"assigned_records": assigned_count}
+        command="assign-retrieval",
+        metrics={
+            "assigned_records": assigned_count,
+            "skipped_records": skipped_count,
+            "failed_records": failed_count,
+        },
     )
 
 

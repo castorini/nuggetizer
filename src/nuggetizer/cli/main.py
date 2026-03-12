@@ -18,6 +18,7 @@ from .introspection import (
     validate_create_batch_file,
     validate_create_input,
 )
+from .io import read_jsonl
 from .logging_utils import setup_logging
 from .normalize import direct_assign_inputs, direct_create_record
 from .operations import (
@@ -31,6 +32,7 @@ from .responses import CommandResponse
 
 INVALID_ARGS_EXIT_CODE = 2
 MISSING_RESOURCE_EXIT_CODE = 4
+VALIDATION_EXIT_CODE = 5
 RUNTIME_EXIT_CODE = 6
 
 
@@ -125,6 +127,57 @@ def _ensure_file_exists(path: str, *, command: str, field_name: str) -> None:
         )
 
 
+def _write_manifest(manifest_path: str | None, response: CommandResponse) -> None:
+    if manifest_path is None:
+        return
+    Path(manifest_path).write_text(
+        json.dumps(response.to_envelope(), indent=2) + "\n", encoding="utf-8"
+    )
+
+
+def _resolve_write_policy(args: argparse.Namespace) -> str:
+    if getattr(args, "resume", False):
+        return "resume"
+    if getattr(args, "overwrite", False):
+        return "overwrite"
+    if getattr(args, "fail_if_exists", False):
+        return "fail_if_exists"
+    return "default_fail_if_exists"
+
+
+def _prepare_output_path(args: argparse.Namespace, *, command: str) -> str:
+    output_path = getattr(args, "output_file", None)
+    if output_path is None:
+        raise CLIError(
+            f"{command} requires --output-file",
+            exit_code=INVALID_ARGS_EXIT_CODE,
+            status="validation_error",
+            error_code="missing_output_file",
+            command=command,
+        )
+
+    output_path_str = cast(str, output_path)
+    output_file = Path(output_path_str)
+    write_policy = _resolve_write_policy(args)
+    if output_file.exists():
+        if write_policy == "resume":
+            return output_path_str
+        if write_policy == "overwrite":
+            output_file.write_text("", encoding="utf-8")
+            return output_path_str
+        raise CLIError(
+            f"Output file already exists: {output_path}",
+            exit_code=VALIDATION_EXIT_CODE,
+            status="validation_error",
+            error_code="write_policy_conflict",
+            command=command,
+            details={"path": output_path, "write_policy": write_policy},
+        )
+
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    return output_path_str
+
+
 def _read_direct_payload(args: argparse.Namespace) -> dict[str, Any]:
     try:
         if args.stdin:
@@ -174,6 +227,8 @@ def build_parser() -> CLIArgumentParser:
     create_parser.add_argument("--resume", action="store_true")
     create_parser.add_argument("--overwrite", action="store_true")
     create_parser.add_argument("--fail-if-exists", action="store_true")
+    create_parser.add_argument("--dry-run", action="store_true")
+    create_parser.add_argument("--validate-only", action="store_true")
     create_parser.add_argument("--manifest-path", type=str)
 
     assign_parser = subparsers.add_parser("assign")
@@ -193,6 +248,8 @@ def build_parser() -> CLIArgumentParser:
     assign_parser.add_argument("--resume", action="store_true")
     assign_parser.add_argument("--overwrite", action="store_true")
     assign_parser.add_argument("--fail-if-exists", action="store_true")
+    assign_parser.add_argument("--dry-run", action="store_true")
+    assign_parser.add_argument("--validate-only", action="store_true")
     assign_parser.add_argument("--manifest-path", type=str)
 
     assign_retrieval_parser = subparsers.add_parser("assign-retrieval")
@@ -207,6 +264,12 @@ def build_parser() -> CLIArgumentParser:
         "--log-level", type=int, default=0, choices=[0, 1, 2]
     )
     assign_retrieval_parser.add_argument("--use-azure-openai", action="store_true")
+    assign_retrieval_parser.add_argument("--resume", action="store_true")
+    assign_retrieval_parser.add_argument("--overwrite", action="store_true")
+    assign_retrieval_parser.add_argument("--fail-if-exists", action="store_true")
+    assign_retrieval_parser.add_argument("--dry-run", action="store_true")
+    assign_retrieval_parser.add_argument("--validate-only", action="store_true")
+    assign_retrieval_parser.add_argument("--manifest-path", type=str)
 
     metrics_parser = subparsers.add_parser("metrics")
     metrics_parser.add_argument("--input-file", required=True, type=str)
@@ -214,6 +277,12 @@ def build_parser() -> CLIArgumentParser:
     metrics_parser.add_argument(
         "--output", choices=["text", "json", "jsonl"], default="text"
     )
+    metrics_parser.add_argument("--resume", action="store_true")
+    metrics_parser.add_argument("--overwrite", action="store_true")
+    metrics_parser.add_argument("--fail-if-exists", action="store_true")
+    metrics_parser.add_argument("--dry-run", action="store_true")
+    metrics_parser.add_argument("--validate-only", action="store_true")
+    metrics_parser.add_argument("--manifest-path", type=str)
 
     describe_parser = subparsers.add_parser("describe")
     describe_parser.add_argument("target", choices=sorted(COMMAND_DESCRIPTIONS))
@@ -243,6 +312,16 @@ def build_parser() -> CLIArgumentParser:
 
 def _run_direct_create(args: argparse.Namespace) -> CommandResponse:
     payload = _read_direct_payload(args)
+    validation = validate_create_input(payload)
+    if args.validate_only or args.dry_run:
+        return CommandResponse(
+            command="create",
+            mode="validate" if args.validate_only else "dry-run",
+            inputs={"source": "direct"},
+            resolved={"input_mode": "direct", "execution_mode": "sync"},
+            validation=validation,
+            metrics={"candidate_count": len(payload["candidates"])},
+        )
     nuggetizer = Nuggetizer(**build_create_nuggetizer_kwargs(args))
     request_obj = request_from_create_record(direct_create_record(payload))
     scored_nuggets = nuggetizer.create(request_obj)
@@ -267,6 +346,20 @@ def _run_direct_create(args: argparse.Namespace) -> CommandResponse:
 
 def _run_direct_assign(args: argparse.Namespace) -> CommandResponse:
     payload = _read_direct_payload(args)
+    validation = validate_assign_input(payload)
+    if args.validate_only or args.dry_run:
+        return CommandResponse(
+            command="assign",
+            mode="validate" if args.validate_only else "dry-run",
+            inputs={"source": "direct"},
+            resolved={
+                "input_mode": "direct",
+                "assign_mode": "context",
+                "execution_mode": "sync",
+            },
+            validation=validation,
+            metrics={"nugget_count": len(payload["nuggets"])},
+        )
     nuggetizer = Nuggetizer(
         assigner_model=args.model,
         log_level=args.log_level,
@@ -306,18 +399,28 @@ def _run_direct_assign(args: argparse.Namespace) -> CommandResponse:
 
 
 def _run_create_batch_command(args: argparse.Namespace) -> CommandResponse:
-    if not args.output_file:
-        raise CLIError(
-            "create --input-file requires --output-file",
-            exit_code=INVALID_ARGS_EXIT_CODE,
-            status="validation_error",
-            error_code="missing_output_file",
-            command="create",
-        )
     _ensure_file_exists(args.input_file, command="create", field_name="input_file")
+    output_path = _prepare_output_path(args, command="create")
+    write_policy = _resolve_write_policy(args)
+    validation = validate_create_batch_file(args.input_file)
+    if args.validate_only or args.dry_run:
+        response = CommandResponse(
+            command="create",
+            mode="validate" if args.validate_only else "dry-run",
+            inputs={"input_file": args.input_file},
+            resolved={
+                "input_mode": "batch",
+                "execution_mode": "sync",
+                "write_policy": write_policy,
+            },
+            artifacts=[{"path": output_path, "type": "jsonl"}],
+            validation=validation,
+            metrics={"record_count": validation["record_count"]},
+        )
+        return response
     compat_args = argparse.Namespace(
         input_file=args.input_file,
-        output_file=args.output_file,
+        output_file=output_path,
         model=args.model,
         creator_model=args.creator_model,
         scorer_model=args.scorer_model,
@@ -328,8 +431,13 @@ def _run_create_batch_command(args: argparse.Namespace) -> CommandResponse:
     )
     response = run_create_batch(compat_args, setup_logging(args.log_level))
     response.inputs = {"input_file": args.input_file}
-    response.resolved = {"input_mode": "batch", "execution_mode": "sync"}
-    response.artifacts = [{"path": args.output_file, "type": "jsonl"}]
+    response.resolved = {
+        "input_mode": "batch",
+        "execution_mode": "sync",
+        "write_policy": write_policy,
+    }
+    response.artifacts = [{"path": output_path, "type": "jsonl"}]
+    _write_manifest(args.manifest_path, response)
     return response
 
 
@@ -344,12 +452,35 @@ def _run_assign_batch_command(args: argparse.Namespace) -> CommandResponse:
         )
     _ensure_file_exists(args.nuggets, command="assign", field_name="nuggets")
     _ensure_file_exists(args.contexts, command="assign", field_name="contexts")
+    output_path = _prepare_output_path(args, command="assign")
+    write_policy = _resolve_write_policy(args)
+    validation = validate_assign_batch_files(args.nuggets, args.contexts)
+    if args.validate_only or args.dry_run:
+        response = CommandResponse(
+            command="assign",
+            mode="validate" if args.validate_only else "dry-run",
+            inputs={
+                "nuggets": args.nuggets,
+                "contexts": args.contexts,
+                "input_kind": args.input_kind,
+            },
+            resolved={
+                "input_mode": "batch",
+                "assign_mode": args.input_kind,
+                "execution_mode": "sync",
+                "write_policy": write_policy,
+            },
+            artifacts=[{"path": output_path, "type": "jsonl"}],
+            validation=validation,
+            metrics=validation,
+        )
+        return response
 
     if args.input_kind == "answers":
         compat_args = argparse.Namespace(
             nugget_file=args.nuggets,
             answer_file=args.contexts,
-            output_file=args.output_file,
+            output_file=output_path,
             model=args.model,
             use_azure_openai=args.use_azure_openai,
             log_level=args.log_level,
@@ -359,7 +490,7 @@ def _run_assign_batch_command(args: argparse.Namespace) -> CommandResponse:
         compat_args = argparse.Namespace(
             nugget_file=args.nuggets,
             retrieve_results_file=args.contexts,
-            output_file=args.output_file,
+            output_file=output_path,
             model=args.model,
             log_level=args.log_level,
             use_azure_openai=args.use_azure_openai,
@@ -378,8 +509,10 @@ def _run_assign_batch_command(args: argparse.Namespace) -> CommandResponse:
         "input_mode": "batch",
         "assign_mode": args.input_kind,
         "execution_mode": "sync",
+        "write_policy": write_policy,
     }
-    response.artifacts = [{"path": args.output_file, "type": "jsonl"}]
+    response.artifacts = [{"path": output_path, "type": "jsonl"}]
+    _write_manifest(args.manifest_path, response)
     return response
 
 
@@ -388,10 +521,29 @@ def _run_assign_retrieval_alias(args: argparse.Namespace) -> CommandResponse:
     _ensure_file_exists(
         args.contexts, command="assign-retrieval", field_name="contexts"
     )
+    output_path = _prepare_output_path(args, command="assign-retrieval")
+    write_policy = _resolve_write_policy(args)
+    validation = validate_assign_batch_files(args.nuggets, args.contexts)
+    if args.validate_only or args.dry_run:
+        return CommandResponse(
+            command="assign-retrieval",
+            mode="validate" if args.validate_only else "dry-run",
+            inputs={"nuggets": args.nuggets, "contexts": args.contexts},
+            resolved={
+                "input_mode": "batch",
+                "assign_mode": "retrieval",
+                "alias_for": "assign",
+                "execution_mode": "sync",
+                "write_policy": write_policy,
+            },
+            artifacts=[{"path": output_path, "type": "jsonl"}],
+            validation=validation,
+            metrics=validation,
+        )
     compat_args = argparse.Namespace(
         nugget_file=args.nuggets,
         retrieve_results_file=args.contexts,
-        output_file=args.output_file,
+        output_file=output_path,
         model=args.model,
         log_level=args.log_level,
         use_azure_openai=args.use_azure_openai,
@@ -404,31 +556,53 @@ def _run_assign_retrieval_alias(args: argparse.Namespace) -> CommandResponse:
         "assign_mode": "retrieval",
         "alias_for": "assign",
         "execution_mode": "sync",
+        "write_policy": write_policy,
     }
-    response.artifacts = [{"path": args.output_file, "type": "jsonl"}]
+    response.artifacts = [{"path": output_path, "type": "jsonl"}]
+    _write_manifest(args.manifest_path, response)
     return response
 
 
 def _run_metrics_command(args: argparse.Namespace) -> CommandResponse:
     _ensure_file_exists(args.input_file, command="metrics", field_name="input_file")
+    output_path = _prepare_output_path(args, command="metrics")
     compat_args = argparse.Namespace(
-        input_file=args.input_file, output_file=args.output_file
+        input_file=args.input_file, output_file=output_path
     )
+    input_records = read_jsonl(args.input_file)
+    if args.validate_only or args.dry_run:
+        return CommandResponse(
+            command="metrics",
+            mode="validate" if args.validate_only else "dry-run",
+            inputs={"input_file": args.input_file},
+            resolved={
+                "input_mode": "batch",
+                "write_policy": _resolve_write_policy(args),
+            },
+            artifacts=[{"path": output_path, "type": "jsonl"}],
+            validation={"valid": True, "record_count": len(input_records)},
+            metrics={"record_count": len(input_records)},
+        )
     processed_records, global_metrics = run_metrics(compat_args)
-    with open(args.output_file, "w", encoding="utf-8") as file_obj:
+    with open(output_path, "w", encoding="utf-8") as file_obj:
         for record in processed_records:
             file_obj.write(json.dumps(record) + "\n")
         file_obj.write(json.dumps(global_metrics) + "\n")
-    return CommandResponse(
+    response = CommandResponse(
         command="metrics",
         inputs={"input_file": args.input_file},
-        resolved={"input_mode": "batch"},
-        artifacts=[{"path": args.output_file, "type": "jsonl"}],
+        resolved={
+            "input_mode": "batch",
+            "write_policy": _resolve_write_policy(args),
+        },
+        artifacts=[{"path": output_path, "type": "jsonl"}],
         metrics={
             "record_count": len(processed_records),
             "global_metrics": global_metrics,
         },
     )
+    _write_manifest(args.manifest_path, response)
+    return response
 
 
 def _run_describe_command(args: argparse.Namespace) -> CommandResponse:
