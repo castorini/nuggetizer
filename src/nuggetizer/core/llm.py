@@ -79,7 +79,7 @@ class LLMHandler:
         if api_type is None or api_keys is None:
             raise ValueError(
                 "No valid API key found. Please provide either:\n"
-                "1. OpenAI API key (OPEN_AI_API_KEY environment variable)\n"
+                "1. OpenAI API key (OPENAI_API_KEY environment variable)\n"
                 "2. OpenRouter API key (OPENROUTER_API_KEY environment variable)\n"
                 "3. Azure OpenAI credentials (AZURE_OPENAI_API_KEY, etc.)\n"
                 "4. Use vLLM local server (use_vllm=True)\n"

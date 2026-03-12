@@ -68,7 +68,7 @@ AZURE_OPENAI_API_KEY=your_api_key
 
 **OpenAI API:**
 ```bash
-OPEN_AI_API_KEY=your_openai_api_key
+OPENAI_API_KEY=your_openai_api_key
 ```
 
 **OpenRouter API:**

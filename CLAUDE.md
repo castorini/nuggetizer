@@ -23,7 +23,7 @@
 ## LLM Provider Conventions
 - API keys are loaded from `.env` by `src/nuggetizer/utils/api.py`.
 - Supported env vars:
-  - OpenAI: `OPEN_AI_API_KEY` or `OPENAI_API_KEY`
+  - OpenAI: `OPENAI_API_KEY` (legacy `OPEN_AI_API_KEY` is also accepted)
   - OpenRouter: `OPENROUTER_API_KEY`
   - Azure OpenAI: `AZURE_OPENAI_API_BASE`, `AZURE_OPENAI_API_VERSION`, `AZURE_OPENAI_API_KEY`
 - Keep provider fallback behavior intact in `LLMHandler`/`AsyncLLMHandler`:
