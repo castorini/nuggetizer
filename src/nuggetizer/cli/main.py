@@ -3,7 +3,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from typing import Any, Sequence
+from pathlib import Path
+from typing import Any, NoReturn, Sequence, cast
 
 from nuggetizer.models.nuggetizer import Nuggetizer
 
@@ -17,11 +18,124 @@ from .operations import (
     run_create_batch,
     run_metrics,
 )
+from .responses import CommandResponse
+
+INVALID_ARGS_EXIT_CODE = 2
+MISSING_RESOURCE_EXIT_CODE = 4
+RUNTIME_EXIT_CODE = 6
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="nuggetizer")
-    subparsers = parser.add_subparsers(dest="command", required=True)
+class CLIError(Exception):
+    """Structured CLI error carrying shell exit and envelope metadata."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        exit_code: int,
+        status: str,
+        error_code: str,
+        command: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.message = message
+        self.exit_code = exit_code
+        self.status = status
+        self.error_code = error_code
+        self.command = command or "unknown"
+        self.details = details or {}
+
+
+class CLIArgumentParser(argparse.ArgumentParser):
+    """ArgumentParser that raises structured CLI errors instead of exiting."""
+
+    def error(self, message: str) -> NoReturn:
+        raise CLIError(
+            message,
+            exit_code=INVALID_ARGS_EXIT_CODE,
+            status="validation_error",
+            error_code="invalid_arguments",
+            command=_detect_command(sys.argv[1:]),
+        )
+
+
+def _detect_command(argv: Sequence[str]) -> str:
+    known_commands = {"create", "assign", "assign-retrieval", "metrics"}
+    for token in argv:
+        if token in known_commands:
+            return token
+    return "unknown"
+
+
+def _wants_json(argv: Sequence[str]) -> bool:
+    for index, token in enumerate(argv):
+        if token == "--output" and index + 1 < len(argv):
+            return argv[index + 1] == "json"
+    return False
+
+
+def _emit_json(data: dict[str, Any]) -> None:
+    sys.stdout.write(json.dumps(data) + "\n")
+
+
+def _build_error_response(error: CLIError) -> CommandResponse:
+    return CommandResponse(
+        command=error.command,
+        status=error.status,
+        exit_code=error.exit_code,
+        errors=[
+            {
+                "code": error.error_code,
+                "message": error.message,
+                "details": error.details,
+                "retryable": False,
+            }
+        ],
+    )
+
+
+def _ensure_file_exists(path: str, *, command: str, field_name: str) -> None:
+    if not Path(path).exists():
+        raise CLIError(
+            f"{field_name} does not exist: {path}",
+            exit_code=MISSING_RESOURCE_EXIT_CODE,
+            status="validation_error",
+            error_code="missing_input",
+            command=command,
+            details={"field": field_name, "path": path},
+        )
+
+
+def _read_direct_payload(args: argparse.Namespace) -> dict[str, Any]:
+    try:
+        if args.stdin:
+            return cast(dict[str, Any], json.loads(sys.stdin.read()))
+        if args.input_json is not None:
+            return cast(dict[str, Any], json.loads(args.input_json))
+    except json.JSONDecodeError as exc:
+        raise CLIError(
+            "Input payload is not valid JSON",
+            exit_code=INVALID_ARGS_EXIT_CODE,
+            status="validation_error",
+            error_code="invalid_json",
+            command=args.command,
+            details={"error": str(exc)},
+        ) from exc
+    raise CLIError(
+        "Direct input requires --stdin or --input-json",
+        exit_code=INVALID_ARGS_EXIT_CODE,
+        status="validation_error",
+        error_code="missing_direct_input",
+        command=args.command,
+    )
+
+
+def build_parser() -> CLIArgumentParser:
+    parser = CLIArgumentParser(prog="nuggetizer")
+    subparsers = parser.add_subparsers(
+        dest="command", required=True, parser_class=CLIArgumentParser
+    )
 
     create_parser = subparsers.add_parser("create")
     create_inputs = create_parser.add_mutually_exclusive_group(required=True)
@@ -67,6 +181,9 @@ def build_parser() -> argparse.ArgumentParser:
     assign_retrieval_parser.add_argument("--nuggets", required=True, type=str)
     assign_retrieval_parser.add_argument("--contexts", required=True, type=str)
     assign_retrieval_parser.add_argument("--output-file", required=True, type=str)
+    assign_retrieval_parser.add_argument(
+        "--output", choices=["text", "json", "jsonl"], default="text"
+    )
     assign_retrieval_parser.add_argument("--model", type=str, default="gpt-4")
     assign_retrieval_parser.add_argument(
         "--log-level", type=int, default=0, choices=[0, 1, 2]
@@ -76,23 +193,14 @@ def build_parser() -> argparse.ArgumentParser:
     metrics_parser = subparsers.add_parser("metrics")
     metrics_parser.add_argument("--input-file", required=True, type=str)
     metrics_parser.add_argument("--output-file", required=True, type=str)
+    metrics_parser.add_argument(
+        "--output", choices=["text", "json", "jsonl"], default="text"
+    )
 
     return parser
 
 
-def _read_direct_payload(args: argparse.Namespace) -> dict[str, Any]:
-    if args.stdin:
-        return json.loads(sys.stdin.read())
-    if args.input_json is not None:
-        return json.loads(args.input_json)
-    raise ValueError("Direct input requires --stdin or --input-json")
-
-
-def _emit_json(data: dict[str, Any]) -> None:
-    sys.stdout.write(json.dumps(data) + "\n")
-
-
-def _run_direct_create(args: argparse.Namespace) -> int:
+def _run_direct_create(args: argparse.Namespace) -> CommandResponse:
     payload = _read_direct_payload(args)
     nuggetizer = Nuggetizer(**build_create_nuggetizer_kwargs(args))
     request_obj = request_from_create_record(direct_create_record(payload))
@@ -103,14 +211,20 @@ def _run_direct_create(args: argparse.Namespace) -> int:
         "nuggets": output_record["nuggets"],
     }
     if args.output == "json":
-        _emit_json(direct_output)
-    else:
-        for nugget in direct_output["nuggets"]:
-            sys.stdout.write(f"{nugget['importance']}: {nugget['text']}\n")
-    return 0
+        return CommandResponse(
+            command="create",
+            inputs={"source": "direct"},
+            resolved={"input_mode": "direct", "execution_mode": "sync"},
+            artifacts=[{"type": "inline_result", "data": direct_output}],
+            metrics={"nugget_count": len(direct_output["nuggets"])},
+        )
+
+    for nugget in direct_output["nuggets"]:
+        sys.stdout.write(f"{nugget['importance']}: {nugget['text']}\n")
+    return CommandResponse(command="create")
 
 
-def _run_direct_assign(args: argparse.Namespace) -> int:
+def _run_direct_assign(args: argparse.Namespace) -> CommandResponse:
     payload = _read_direct_payload(args)
     nuggetizer = Nuggetizer(
         assigner_model=args.model,
@@ -131,72 +245,76 @@ def _run_direct_assign(args: argparse.Namespace) -> int:
         ],
     }
     if args.output == "json":
-        _emit_json(direct_output)
+        return CommandResponse(
+            command="assign",
+            inputs={"source": "direct"},
+            resolved={
+                "input_mode": "direct",
+                "assign_mode": "context",
+                "execution_mode": "sync",
+            },
+            artifacts=[{"type": "inline_result", "data": direct_output}],
+            metrics={"nugget_count": len(direct_output["nuggets"])},
+        )
+
+    for nugget in cast(list[dict[str, str]], direct_output["nuggets"]):
+        sys.stdout.write(
+            f"{nugget['assignment']}: {nugget['importance']} {nugget['text']}\n"
+        )
+    return CommandResponse(command="assign")
+
+
+def _run_create_batch_command(args: argparse.Namespace) -> CommandResponse:
+    if not args.output_file:
+        raise CLIError(
+            "create --input-file requires --output-file",
+            exit_code=INVALID_ARGS_EXIT_CODE,
+            status="validation_error",
+            error_code="missing_output_file",
+            command="create",
+        )
+    _ensure_file_exists(args.input_file, command="create", field_name="input_file")
+    compat_args = argparse.Namespace(
+        input_file=args.input_file,
+        output_file=args.output_file,
+        model=args.model,
+        creator_model=args.creator_model,
+        scorer_model=args.scorer_model,
+        window_size=args.window_size,
+        max_nuggets=args.max_nuggets,
+        log_level=args.log_level,
+        use_azure_openai=args.use_azure_openai,
+    )
+    response = run_create_batch(compat_args, setup_logging(args.log_level))
+    response.inputs = {"input_file": args.input_file}
+    response.resolved = {"input_mode": "batch", "execution_mode": "sync"}
+    response.artifacts = [{"path": args.output_file, "type": "jsonl"}]
+    return response
+
+
+def _run_assign_batch_command(args: argparse.Namespace) -> CommandResponse:
+    if not args.nuggets or not args.output_file or not args.input_kind:
+        raise CLIError(
+            "batch assign requires --nuggets, --contexts, --input-kind, and --output-file",
+            exit_code=INVALID_ARGS_EXIT_CODE,
+            status="validation_error",
+            error_code="missing_batch_assign_args",
+            command="assign",
+        )
+    _ensure_file_exists(args.nuggets, command="assign", field_name="nuggets")
+    _ensure_file_exists(args.contexts, command="assign", field_name="contexts")
+
+    if args.input_kind == "answers":
+        compat_args = argparse.Namespace(
+            nugget_file=args.nuggets,
+            answer_file=args.contexts,
+            output_file=args.output_file,
+            model=args.model,
+            use_azure_openai=args.use_azure_openai,
+            log_level=args.log_level,
+        )
+        response = run_assign_answers_batch(compat_args, setup_logging(args.log_level))
     else:
-        for nugget in direct_output["nuggets"]:
-            sys.stdout.write(
-                f"{nugget['assignment']}: {nugget['importance']} {nugget['text']}\n"
-            )
-    return 0
-
-
-def main(argv: Sequence[str] | None = None) -> int:
-    parser = build_parser()
-    args = parser.parse_args(list(argv) if argv is not None else None)
-
-    if getattr(args, "log_level", None) is not None:
-        setup_logging(args.log_level)
-
-    if args.command == "create":
-        if args.input_file:
-            if not args.output_file:
-                parser.error("create --input-file requires --output-file")
-            compat_args = argparse.Namespace(
-                input_file=args.input_file,
-                output_file=args.output_file,
-                model=args.model,
-                creator_model=args.creator_model,
-                scorer_model=args.scorer_model,
-                window_size=args.window_size,
-                max_nuggets=args.max_nuggets,
-                log_level=args.log_level,
-                use_azure_openai=args.use_azure_openai,
-            )
-            run_create_batch(compat_args, setup_logging(args.log_level))
-            return 0
-        return _run_direct_create(args)
-
-    if args.command == "assign":
-        if args.contexts is not None:
-            if not args.nuggets or not args.output_file or not args.input_kind:
-                parser.error(
-                    "batch assign requires --nuggets, --contexts, --input-kind, and --output-file"
-                )
-            if args.input_kind == "answers":
-                compat_args = argparse.Namespace(
-                    nugget_file=args.nuggets,
-                    answer_file=args.contexts,
-                    output_file=args.output_file,
-                    model=args.model,
-                    use_azure_openai=args.use_azure_openai,
-                    log_level=args.log_level,
-                )
-                run_assign_answers_batch(compat_args, setup_logging(args.log_level))
-                return 0
-
-            compat_args = argparse.Namespace(
-                nugget_file=args.nuggets,
-                retrieve_results_file=args.contexts,
-                output_file=args.output_file,
-                model=args.model,
-                log_level=args.log_level,
-                use_azure_openai=args.use_azure_openai,
-            )
-            run_assign_retrieval_batch(compat_args, setup_logging(args.log_level))
-            return 0
-        return _run_direct_assign(args)
-
-    if args.command == "assign-retrieval":
         compat_args = argparse.Namespace(
             nugget_file=args.nuggets,
             retrieve_results_file=args.contexts,
@@ -205,19 +323,131 @@ def main(argv: Sequence[str] | None = None) -> int:
             log_level=args.log_level,
             use_azure_openai=args.use_azure_openai,
         )
-        run_assign_retrieval_batch(compat_args, setup_logging(args.log_level))
-        return 0
-
-    if args.command == "metrics":
-        compat_args = argparse.Namespace(
-            input_file=args.input_file, output_file=args.output_file
+        response = run_assign_retrieval_batch(
+            compat_args, setup_logging(args.log_level)
         )
-        processed_records, global_metrics = run_metrics(compat_args)
-        with open(args.output_file, "w", encoding="utf-8") as file_obj:
-            for record in processed_records:
-                file_obj.write(json.dumps(record) + "\n")
-            file_obj.write(json.dumps(global_metrics) + "\n")
-        return 0
 
-    parser.error(f"Unknown command: {args.command}")
-    return 2
+    response.command = "assign"
+    response.inputs = {
+        "nuggets": args.nuggets,
+        "contexts": args.contexts,
+        "input_kind": args.input_kind,
+    }
+    response.resolved = {
+        "input_mode": "batch",
+        "assign_mode": args.input_kind,
+        "execution_mode": "sync",
+    }
+    response.artifacts = [{"path": args.output_file, "type": "jsonl"}]
+    return response
+
+
+def _run_assign_retrieval_alias(args: argparse.Namespace) -> CommandResponse:
+    _ensure_file_exists(args.nuggets, command="assign-retrieval", field_name="nuggets")
+    _ensure_file_exists(
+        args.contexts, command="assign-retrieval", field_name="contexts"
+    )
+    compat_args = argparse.Namespace(
+        nugget_file=args.nuggets,
+        retrieve_results_file=args.contexts,
+        output_file=args.output_file,
+        model=args.model,
+        log_level=args.log_level,
+        use_azure_openai=args.use_azure_openai,
+    )
+    response = run_assign_retrieval_batch(compat_args, setup_logging(args.log_level))
+    response.command = "assign-retrieval"
+    response.inputs = {"nuggets": args.nuggets, "contexts": args.contexts}
+    response.resolved = {
+        "input_mode": "batch",
+        "assign_mode": "retrieval",
+        "alias_for": "assign",
+        "execution_mode": "sync",
+    }
+    response.artifacts = [{"path": args.output_file, "type": "jsonl"}]
+    return response
+
+
+def _run_metrics_command(args: argparse.Namespace) -> CommandResponse:
+    _ensure_file_exists(args.input_file, command="metrics", field_name="input_file")
+    compat_args = argparse.Namespace(
+        input_file=args.input_file, output_file=args.output_file
+    )
+    processed_records, global_metrics = run_metrics(compat_args)
+    with open(args.output_file, "w", encoding="utf-8") as file_obj:
+        for record in processed_records:
+            file_obj.write(json.dumps(record) + "\n")
+        file_obj.write(json.dumps(global_metrics) + "\n")
+    return CommandResponse(
+        command="metrics",
+        inputs={"input_file": args.input_file},
+        resolved={"input_mode": "batch"},
+        artifacts=[{"path": args.output_file, "type": "jsonl"}],
+        metrics={
+            "record_count": len(processed_records),
+            "global_metrics": global_metrics,
+        },
+    )
+
+
+def _run_command(args: argparse.Namespace) -> CommandResponse:
+    if getattr(args, "log_level", None) is not None:
+        setup_logging(args.log_level)
+
+    if args.command == "create":
+        if args.input_file:
+            return _run_create_batch_command(args)
+        return _run_direct_create(args)
+    if args.command == "assign":
+        if args.contexts is not None:
+            return _run_assign_batch_command(args)
+        return _run_direct_assign(args)
+    if args.command == "assign-retrieval":
+        return _run_assign_retrieval_alias(args)
+    if args.command == "metrics":
+        return _run_metrics_command(args)
+    raise CLIError(
+        f"Unknown command: {args.command}",
+        exit_code=INVALID_ARGS_EXIT_CODE,
+        status="validation_error",
+        error_code="unknown_command",
+        command=args.command,
+    )
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    argv_list = list(argv) if argv is not None else sys.argv[1:]
+    parser = build_parser()
+    wants_json = _wants_json(argv_list)
+
+    try:
+        args = parser.parse_args(argv_list)
+        response = _run_command(args)
+        if getattr(args, "output", "text") == "json":
+            _emit_json(response.to_envelope())
+        return response.exit_code
+    except CLIError as error:
+        if wants_json:
+            _emit_json(_build_error_response(error).to_envelope())
+        else:
+            sys.stderr.write(f"error: {error.message}\n")
+        return error.exit_code
+    except Exception as error:  # pragma: no cover - defensive runtime envelope
+        response = CommandResponse(
+            command=_detect_command(argv_list),
+            status="runtime_error",
+            exit_code=RUNTIME_EXIT_CODE,
+            errors=[
+                {
+                    "code": "runtime_error",
+                    "message": str(error),
+                    "details": {},
+                    "retryable": False,
+                }
+            ],
+        )
+        if wants_json:
+            _emit_json(response.to_envelope())
+        else:
+            sys.stderr.write(f"error: {error}\n")
+        return response.exit_code

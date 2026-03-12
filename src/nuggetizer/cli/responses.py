@@ -6,9 +6,34 @@ from typing import Any
 
 @dataclass
 class CommandResponse:
-    """Internal response scaffold for the future structured CLI envelope."""
+    """Internal response scaffold for the public CLI envelope."""
 
     command: str
+    mode: str = "execute"
     status: str = "success"
+    exit_code: int = 0
+    inputs: dict[str, Any] = field(default_factory=dict)
+    resolved: dict[str, Any] = field(default_factory=dict)
+    artifacts: list[dict[str, Any]] = field(default_factory=list)
+    validation: dict[str, Any] = field(default_factory=dict)
     metrics: dict[str, Any] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
+    errors: list[dict[str, Any]] = field(default_factory=list)
+
+    def to_envelope(self) -> dict[str, Any]:
+        """Serialize the response to the shared CLI envelope shape."""
+        return {
+            "schema_version": "castorini.cli.v1",
+            "repo": "nuggetizer",
+            "command": self.command,
+            "mode": self.mode,
+            "status": self.status,
+            "exit_code": self.exit_code,
+            "inputs": self.inputs,
+            "resolved": self.resolved,
+            "artifacts": self.artifacts,
+            "validation": self.validation,
+            "metrics": self.metrics,
+            "warnings": self.warnings,
+            "errors": self.errors,
+        }

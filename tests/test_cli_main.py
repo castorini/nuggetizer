@@ -24,13 +24,13 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
     ]
 
 
-def test_direct_create_via_input_json(
-    monkeypatch: Any, capsys: Any
-) -> None:
+def test_direct_create_via_input_json(monkeypatch: Any, capsys: Any) -> None:
     def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
         assert request.query.qid == "q0"
         assert request.documents[0].docid == "d0"
-        return [ScoredNugget(text="Python is used for web development.", importance="vital")]
+        return [
+            ScoredNugget(text="Python is used for web development.", importance="vital")
+        ]
 
     monkeypatch.setattr(Nuggetizer, "create", fake_create)
 
@@ -51,7 +51,10 @@ def test_direct_create_via_input_json(
 
     assert exit_code == 0
     output = json.loads(capsys.readouterr().out)
-    assert output == {
+    assert output["schema_version"] == "castorini.cli.v1"
+    assert output["command"] == "create"
+    assert output["status"] == "success"
+    assert output["artifacts"][0]["data"] == {
         "query": "What is Python used for?",
         "nuggets": [
             {"text": "Python is used for web development.", "importance": "vital"}
@@ -59,9 +62,7 @@ def test_direct_create_via_input_json(
     }
 
 
-def test_direct_assign_via_input_json(
-    monkeypatch: Any, capsys: Any
-) -> None:
+def test_direct_assign_via_input_json(monkeypatch: Any, capsys: Any) -> None:
     def fake_assign(
         self: Nuggetizer, query: str, context: str, nuggets: list[ScoredNugget]
     ) -> list[AssignedScoredNugget]:
@@ -101,7 +102,10 @@ def test_direct_assign_via_input_json(
 
     assert exit_code == 0
     output = json.loads(capsys.readouterr().out)
-    assert output == {
+    assert output["schema_version"] == "castorini.cli.v1"
+    assert output["command"] == "assign"
+    assert output["status"] == "success"
+    assert output["artifacts"][0]["data"] == {
         "query": "What is Python used for?",
         "nuggets": [
             {
@@ -178,3 +182,23 @@ def test_batch_assign_retrieval_alias_uses_same_flow(
     records = read_jsonl(output_path)
     assert records[0]["docid"] == "d1"
     assert records[0]["nuggets"][0]["assignment"] == "support"
+
+
+def test_batch_create_missing_input_returns_json_error(capsys: Any) -> None:
+    exit_code = main(
+        [
+            "create",
+            "--input-file",
+            "/tmp/does-not-exist.jsonl",
+            "--output-file",
+            "/tmp/out.jsonl",
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 4
+    output = json.loads(capsys.readouterr().out)
+    assert output["status"] == "validation_error"
+    assert output["exit_code"] == 4
+    assert output["errors"][0]["code"] == "missing_input"
