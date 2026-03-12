@@ -4,7 +4,7 @@ import json
 import runpy
 import sys
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from nuggetizer.core.types import AssignedScoredNugget, ScoredNugget
 from nuggetizer.models.nuggetizer import Nuggetizer
@@ -76,7 +76,12 @@ def test_create_nuggets_script_skips_processed_qids(
             {
                 "query": "What is Python used for?",
                 "qid": "q1",
-                "nuggets": [{"text": "Python is used for web development.", "importance": "vital"}],
+                "nuggets": [
+                    {
+                        "text": "Python is used for web development.",
+                        "importance": "vital",
+                    }
+                ],
             }
         ],
     )
@@ -84,7 +89,9 @@ def test_create_nuggets_script_skips_processed_qids(
     def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
         assert request.query.qid == "q2"
         assert request.documents[0].docid == "d2"
-        return [ScoredNugget(text="Guido van Rossum created Python.", importance="vital")]
+        return [
+            ScoredNugget(text="Guido van Rossum created Python.", importance="vital")
+        ]
 
     monkeypatch.setattr(Nuggetizer, "create", fake_create)
 
@@ -112,12 +119,22 @@ def test_assign_nuggets_script_uses_missing_answer_fallback(
             {
                 "query": "What is Python used for?",
                 "qid": "q1",
-                "nuggets": [{"text": "Python is used for web development.", "importance": "vital"}],
+                "nuggets": [
+                    {
+                        "text": "Python is used for web development.",
+                        "importance": "vital",
+                    }
+                ],
             },
             {
                 "query": "Who created Python?",
                 "qid": "q2",
-                "nuggets": [{"text": "Python was created by Guido van Rossum.", "importance": "vital"}],
+                "nuggets": [
+                    {
+                        "text": "Python was created by Guido van Rossum.",
+                        "importance": "vital",
+                    }
+                ],
             },
         ],
     )
@@ -129,7 +146,9 @@ def test_assign_nuggets_script_uses_missing_answer_fallback(
                 "topic_id": "q1",
                 "topic": "What is Python used for?",
                 "response_length": 10,
-                "answer": [{"text": "Python is used for web development.", "citations": [0]}],
+                "answer": [
+                    {"text": "Python is used for web development.", "citations": [0]}
+                ],
             }
         ],
     )
@@ -201,7 +220,12 @@ def test_assign_retrieval_script_skips_processed_entries(
             {
                 "query": "What is Python used for?",
                 "qid": "q1",
-                "nuggets": [{"text": "Python is used for web development.", "importance": "vital"}],
+                "nuggets": [
+                    {
+                        "text": "Python is used for web development.",
+                        "importance": "vital",
+                    }
+                ],
             }
         ],
     )
@@ -270,7 +294,10 @@ def test_assign_retrieval_script_skips_processed_entries(
     )
 
     records = read_jsonl(output_path)
-    assert [(record["qid"], record["docid"]) for record in records] == [("q1", "d1"), ("q1", "d2")]
+    assert [(record["qid"], record["docid"]) for record in records] == [
+        ("q1", "d1"),
+        ("q1", "d2"),
+    ]
     assert records[1]["candidate_text"] == "Python was created by Guido van Rossum."
     assert records[1]["nuggets"][0]["assignment"] == "not_support"
 
@@ -287,7 +314,11 @@ def test_calculate_metrics_script_writes_per_query_and_global_metrics(
                 "qid": "q1",
                 "nuggets": [
                     {"text": "a", "importance": "vital", "assignment": "support"},
-                    {"text": "b", "importance": "okay", "assignment": "partial_support"},
+                    {
+                        "text": "b",
+                        "importance": "okay",
+                        "assignment": "partial_support",
+                    },
                 ],
             }
         ],

@@ -19,6 +19,9 @@ keywords = ["Nuggetizer", "Fact Recall", "LLM", "Nuggets", "Fact Extraction", "R
 dynamic = ["dependencies"]
 requires-python = ">= 3.11"
 
+[project.scripts]
+nuggetizer = "nuggetizer.cli.main:main"
+
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
 

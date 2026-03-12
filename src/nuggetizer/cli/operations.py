@@ -71,7 +71,9 @@ def run_create_batch(args: Any, logger: logging.Logger) -> CommandResponse:
             except Exception as exc:
                 logger.error("Error processing record %s: %s", qid, str(exc))
 
-    return CommandResponse(command="create", metrics={"generated_records": generated_count})
+    return CommandResponse(
+        command="create", metrics={"generated_records": generated_count}
+    )
 
 
 def run_assign_answers_batch(args: Any, logger: logging.Logger) -> CommandResponse:
@@ -126,7 +128,9 @@ def run_assign_answers_batch(args: Any, logger: logging.Logger) -> CommandRespon
             except Exception as exc:
                 logger.error("Error processing record %s: %s", qid, str(exc))
 
-    return CommandResponse(command="assign", metrics={"assigned_records": assigned_count})
+    return CommandResponse(
+        command="assign", metrics={"assigned_records": assigned_count}
+    )
 
 
 def run_assign_retrieval_batch(args: Any, logger: logging.Logger) -> CommandResponse:
