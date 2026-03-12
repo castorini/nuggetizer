@@ -294,6 +294,62 @@ def test_direct_create_validate_only_does_not_call_llm(
     assert output["validation"]["valid"] is True
 
 
+def test_direct_create_defaults_to_sync_execution(
+    monkeypatch: Any, capsys: Any
+) -> None:
+    def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        return [ScoredNugget(text="sync", importance="vital")]
+
+    async def fail_async_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        raise AssertionError("async_create should not run by default")
+
+    monkeypatch.setattr(Nuggetizer, "create", fake_create)
+    monkeypatch.setattr(Nuggetizer, "async_create", fail_async_create)
+
+    exit_code = main(
+        [
+            "create",
+            "--input-json",
+            json.dumps({"query": "q", "candidates": ["c"]}),
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["resolved"]["execution_mode"] == "sync"
+    assert output["artifacts"][0]["data"]["nuggets"][0]["text"] == "sync"
+
+
+def test_direct_create_async_execution_is_opt_in(monkeypatch: Any, capsys: Any) -> None:
+    def fail_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        raise AssertionError("create should not run in async mode")
+
+    async def fake_async_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        return [ScoredNugget(text="async", importance="vital")]
+
+    monkeypatch.setattr(Nuggetizer, "create", fail_create)
+    monkeypatch.setattr(Nuggetizer, "async_create", fake_async_create)
+
+    exit_code = main(
+        [
+            "create",
+            "--input-json",
+            json.dumps({"query": "q", "candidates": ["c"]}),
+            "--execution-mode",
+            "async",
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["resolved"]["execution_mode"] == "async"
+    assert output["artifacts"][0]["data"]["nuggets"][0]["text"] == "async"
+
+
 def test_batch_create_dry_run_reports_write_policy_conflict(
     tmp_path: Path, capsys: Any
 ) -> None:

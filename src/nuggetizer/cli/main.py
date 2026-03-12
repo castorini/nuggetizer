@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import argparse
 import json
 import sys
@@ -22,6 +23,9 @@ from .io import read_jsonl
 from .logging_utils import setup_logging
 from .normalize import direct_assign_inputs, direct_create_record
 from .operations import (
+    async_run_assign_answers_batch,
+    async_run_assign_retrieval_batch,
+    async_run_create_batch,
     build_create_nuggetizer_kwargs,
     run_assign_answers_batch,
     run_assign_retrieval_batch,
@@ -218,6 +222,9 @@ def build_parser() -> CLIArgumentParser:
         "--output", choices=["text", "json", "jsonl"], default="text"
     )
     create_parser.add_argument("--model", type=str, default="gpt-4o")
+    create_parser.add_argument(
+        "--execution-mode", choices=["sync", "async"], default="sync"
+    )
     create_parser.add_argument("--creator-model", type=str)
     create_parser.add_argument("--scorer-model", type=str)
     create_parser.add_argument("--window-size", type=int)
@@ -243,6 +250,9 @@ def build_parser() -> CLIArgumentParser:
         "--output", choices=["text", "json", "jsonl"], default="text"
     )
     assign_parser.add_argument("--model", type=str, default="gpt-4o")
+    assign_parser.add_argument(
+        "--execution-mode", choices=["sync", "async"], default="sync"
+    )
     assign_parser.add_argument("--log-level", type=int, default=0, choices=[0, 1, 2])
     assign_parser.add_argument("--use-azure-openai", action="store_true")
     assign_parser.add_argument("--resume", action="store_true")
@@ -260,6 +270,9 @@ def build_parser() -> CLIArgumentParser:
         "--output", choices=["text", "json", "jsonl"], default="text"
     )
     assign_retrieval_parser.add_argument("--model", type=str, default="gpt-4")
+    assign_retrieval_parser.add_argument(
+        "--execution-mode", choices=["sync", "async"], default="sync"
+    )
     assign_retrieval_parser.add_argument(
         "--log-level", type=int, default=0, choices=[0, 1, 2]
     )
@@ -318,13 +331,19 @@ def _run_direct_create(args: argparse.Namespace) -> CommandResponse:
             command="create",
             mode="validate" if args.validate_only else "dry-run",
             inputs={"source": "direct"},
-            resolved={"input_mode": "direct", "execution_mode": "sync"},
+            resolved={
+                "input_mode": "direct",
+                "execution_mode": args.execution_mode,
+            },
             validation=validation,
             metrics={"candidate_count": len(payload["candidates"])},
         )
     nuggetizer = Nuggetizer(**build_create_nuggetizer_kwargs(args))
     request_obj = request_from_create_record(direct_create_record(payload))
-    scored_nuggets = nuggetizer.create(request_obj)
+    if args.execution_mode == "async":
+        scored_nuggets = asyncio.run(nuggetizer.async_create(request_obj))
+    else:
+        scored_nuggets = nuggetizer.create(request_obj)
     output_record = create_output_record(request_obj, scored_nuggets)
     direct_output = {
         "query": output_record["query"],
@@ -334,7 +353,10 @@ def _run_direct_create(args: argparse.Namespace) -> CommandResponse:
         return CommandResponse(
             command="create",
             inputs={"source": "direct"},
-            resolved={"input_mode": "direct", "execution_mode": "sync"},
+            resolved={
+                "input_mode": "direct",
+                "execution_mode": args.execution_mode,
+            },
             artifacts=[{"type": "inline_result", "data": direct_output}],
             metrics={"nugget_count": len(direct_output["nuggets"])},
         )
@@ -355,7 +377,7 @@ def _run_direct_assign(args: argparse.Namespace) -> CommandResponse:
             resolved={
                 "input_mode": "direct",
                 "assign_mode": "context",
-                "execution_mode": "sync",
+                "execution_mode": args.execution_mode,
             },
             validation=validation,
             metrics={"nugget_count": len(payload["nuggets"])},
@@ -366,7 +388,12 @@ def _run_direct_assign(args: argparse.Namespace) -> CommandResponse:
         use_azure_openai=args.use_azure_openai,
     )
     query, context, nuggets = direct_assign_inputs(payload)
-    assigned_nuggets = nuggetizer.assign(query, context, nuggets=nuggets)
+    if args.execution_mode == "async":
+        assigned_nuggets = asyncio.run(
+            nuggetizer.async_assign(query, context, nuggets=nuggets)
+        )
+    else:
+        assigned_nuggets = nuggetizer.assign(query, context, nuggets=nuggets)
     direct_output = {
         "query": query,
         "nuggets": [
@@ -385,7 +412,7 @@ def _run_direct_assign(args: argparse.Namespace) -> CommandResponse:
             resolved={
                 "input_mode": "direct",
                 "assign_mode": "context",
-                "execution_mode": "sync",
+                "execution_mode": args.execution_mode,
             },
             artifacts=[{"type": "inline_result", "data": direct_output}],
             metrics={"nugget_count": len(direct_output["nuggets"])},
@@ -410,7 +437,7 @@ def _run_create_batch_command(args: argparse.Namespace) -> CommandResponse:
             inputs={"input_file": args.input_file},
             resolved={
                 "input_mode": "batch",
-                "execution_mode": "sync",
+                "execution_mode": args.execution_mode,
                 "write_policy": write_policy,
             },
             artifacts=[{"path": output_path, "type": "jsonl"}],
@@ -429,11 +456,16 @@ def _run_create_batch_command(args: argparse.Namespace) -> CommandResponse:
         log_level=args.log_level,
         use_azure_openai=args.use_azure_openai,
     )
-    response = run_create_batch(compat_args, setup_logging(args.log_level))
+    if args.execution_mode == "async":
+        response = asyncio.run(
+            async_run_create_batch(compat_args, setup_logging(args.log_level))
+        )
+    else:
+        response = run_create_batch(compat_args, setup_logging(args.log_level))
     response.inputs = {"input_file": args.input_file}
     response.resolved = {
         "input_mode": "batch",
-        "execution_mode": "sync",
+        "execution_mode": args.execution_mode,
         "write_policy": write_policy,
     }
     response.artifacts = [{"path": output_path, "type": "jsonl"}]
@@ -467,7 +499,7 @@ def _run_assign_batch_command(args: argparse.Namespace) -> CommandResponse:
             resolved={
                 "input_mode": "batch",
                 "assign_mode": args.input_kind,
-                "execution_mode": "sync",
+                "execution_mode": args.execution_mode,
                 "write_policy": write_policy,
             },
             artifacts=[{"path": output_path, "type": "jsonl"}],
@@ -485,7 +517,16 @@ def _run_assign_batch_command(args: argparse.Namespace) -> CommandResponse:
             use_azure_openai=args.use_azure_openai,
             log_level=args.log_level,
         )
-        response = run_assign_answers_batch(compat_args, setup_logging(args.log_level))
+        if args.execution_mode == "async":
+            response = asyncio.run(
+                async_run_assign_answers_batch(
+                    compat_args, setup_logging(args.log_level)
+                )
+            )
+        else:
+            response = run_assign_answers_batch(
+                compat_args, setup_logging(args.log_level)
+            )
     else:
         compat_args = argparse.Namespace(
             nugget_file=args.nuggets,
@@ -495,9 +536,16 @@ def _run_assign_batch_command(args: argparse.Namespace) -> CommandResponse:
             log_level=args.log_level,
             use_azure_openai=args.use_azure_openai,
         )
-        response = run_assign_retrieval_batch(
-            compat_args, setup_logging(args.log_level)
-        )
+        if args.execution_mode == "async":
+            response = asyncio.run(
+                async_run_assign_retrieval_batch(
+                    compat_args, setup_logging(args.log_level)
+                )
+            )
+        else:
+            response = run_assign_retrieval_batch(
+                compat_args, setup_logging(args.log_level)
+            )
 
     response.command = "assign"
     response.inputs = {
@@ -508,7 +556,7 @@ def _run_assign_batch_command(args: argparse.Namespace) -> CommandResponse:
     response.resolved = {
         "input_mode": "batch",
         "assign_mode": args.input_kind,
-        "execution_mode": "sync",
+        "execution_mode": args.execution_mode,
         "write_policy": write_policy,
     }
     response.artifacts = [{"path": output_path, "type": "jsonl"}]
@@ -533,7 +581,7 @@ def _run_assign_retrieval_alias(args: argparse.Namespace) -> CommandResponse:
                 "input_mode": "batch",
                 "assign_mode": "retrieval",
                 "alias_for": "assign",
-                "execution_mode": "sync",
+                "execution_mode": args.execution_mode,
                 "write_policy": write_policy,
             },
             artifacts=[{"path": output_path, "type": "jsonl"}],
@@ -548,14 +596,21 @@ def _run_assign_retrieval_alias(args: argparse.Namespace) -> CommandResponse:
         log_level=args.log_level,
         use_azure_openai=args.use_azure_openai,
     )
-    response = run_assign_retrieval_batch(compat_args, setup_logging(args.log_level))
+    if args.execution_mode == "async":
+        response = asyncio.run(
+            async_run_assign_retrieval_batch(compat_args, setup_logging(args.log_level))
+        )
+    else:
+        response = run_assign_retrieval_batch(
+            compat_args, setup_logging(args.log_level)
+        )
     response.command = "assign-retrieval"
     response.inputs = {"nuggets": args.nuggets, "contexts": args.contexts}
     response.resolved = {
         "input_mode": "batch",
         "assign_mode": "retrieval",
         "alias_for": "assign",
-        "execution_mode": "sync",
+        "execution_mode": args.execution_mode,
         "write_policy": write_policy,
     }
     response.artifacts = [{"path": output_path, "type": "jsonl"}]
