@@ -157,9 +157,14 @@ for nugget in assigned_nuggets:
     print(f"Assignment: {nugget.assignment}\n")
 ```
 
-You can also run a little more elaborate example with:
+You can also run the default end-to-end example with:
 ```bash
 python3 examples/e2e.py
+```
+
+The default `examples/e2e.py` uses the async Nuggetizer pipeline. If you want the synchronous version instead, run:
+```bash
+python3 examples/sync_e2e.py
 ```
 
 **Running with OpenRouter API:**
@@ -194,10 +199,10 @@ python3 examples/e2e.py --model "Qwen/Qwen3-30B-A3B-Instruct-2507" --use_vllm
 python3 examples/e2e.py --model "Qwen/Qwen3-30B-A3B-Instruct-2507" --use_vllm --vllm_port 8001
 ```
 
-Nuggetizer also supports async methods (`async_create`, `async_assign`, etc.). To run the async example, use:
+The default `examples/e2e.py` uses async methods such as `async_create` and `async_assign`. To run it, use:
 
 ```bash
-python3 examples/async_e2e.py
+python3 examples/e2e.py
 ```
 
 **Running async example with OpenRouter API:**
@@ -207,16 +212,16 @@ export OPENROUTER_API_KEY=your_openrouter_api_key
 
 
 # Use Claude model with OpenRouter
-python3 examples/async_e2e.py --model "anthropic/claude-3.5-sonnet" --use_openrouter
+python3 examples/e2e.py --model "anthropic/claude-3.5-sonnet" --use_openrouter
 ```
 
 **Running async example with vLLM:**
 ```bash
 # Use vLLM with default port (8000)
-python3 examples/async_e2e.py --model "Qwen/Qwen3-30B-A3B-Instruct-2507" --use_vllm
+python3 examples/e2e.py --model "Qwen/Qwen3-30B-A3B-Instruct-2507" --use_vllm
 
 # Use vLLM with custom port (8001)
-python3 examples/async_e2e.py --model "Qwen/Qwen3-30B-A3B-Instruct-2507" --use_vllm --vllm_port 8001
+python3 examples/e2e.py --model "Qwen/Qwen3-30B-A3B-Instruct-2507" --use_vllm --vllm_port 8001
 ```
 
 ## 🛠️ Components

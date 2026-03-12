@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 import argparse
-import asyncio
 import time
 
-from nuggetizer.core.types import Query, Document, Request
-from nuggetizer.models.nuggetizer import Nuggetizer
 from nuggetizer.core.metrics import calculate_nugget_scores
-from nuggetizer.utils.display import print_nuggets, print_assigned_nuggets
+from nuggetizer.core.types import Document, Query, Request
+from nuggetizer.models.nuggetizer import Nuggetizer
+from nuggetizer.utils.display import print_assigned_nuggets, print_nuggets
 
 
 def create_sample_request() -> Request:
@@ -106,7 +105,7 @@ Python's simplicity, versatility, vast ecosystem, and strong community support m
     return Request(query=query, documents=documents)
 
 
-async def process_request(
+def process_request(
     request: Request,
     model: str,
     use_azure_openai: bool,
@@ -114,14 +113,14 @@ async def process_request(
     use_vllm: bool,
     vllm_port: int,
     log_level: int,
+    print_reasoning: bool = False,
+    print_trace: bool = False,
 ) -> None:
     """Process a request through the nuggetizer pipeline."""
     start_time = time.time()
 
     print("🚀 Initializing components...")
-    # Initialize components - API keys and Azure config are loaded automatically
 
-    # Option 1: Single model for all components
     nuggetizer1 = Nuggetizer(
         model=model,
         use_azure_openai=use_azure_openai,
@@ -129,50 +128,65 @@ async def process_request(
         use_vllm=use_vllm,
         vllm_port=vllm_port,
         log_level=log_level,
+        store_trace=print_trace,
+        store_reasoning=print_reasoning,
     )
 
-    # Option 2: Different models for each component
-    # nuggetizer2 = Nuggetizer(
-    #     creator_model="gpt-4o",
-    #     scorer_model="gpt-3.5-turbo",
-    #     assigner_model="gpt-4o",
-    #     use_azure_openai=use_azure_openai,
-    #     log_level=log_level
-    # )
-
-    # Use nuggetizer1 for this example
     nuggetizer = nuggetizer1
 
-    # Extract and score nuggets
     print("\n📝 Extracting and scoring nuggets...")
     create_start = time.time()
-    scored_nuggets = await nuggetizer.async_create(request)
+    scored_nuggets = nuggetizer.create(request)
     create_time = time.time() - create_start
     print(f"Found {len(scored_nuggets)} nuggets (took {create_time:.2f}s):")
+
+    if print_reasoning:
+        creator_reasoning = nuggetizer.get_creator_reasoning()
+        if creator_reasoning:
+            print("\n🧠 Creator Reasoning:")
+            print(f"   {creator_reasoning}\n")
+
+        print("\n🧠 Reasoning for each nugget:")
+        for i, nugget in enumerate(scored_nuggets, 1):
+            if hasattr(nugget, "reasoning") and nugget.reasoning:
+                print(f"{i}. {nugget.text}")
+                print(f"   Reasoning: {nugget.reasoning}\n")
+
+    if print_trace:
+        print("\n🔍 Trace information for each nugget:")
+        for i, nugget in enumerate(scored_nuggets, 1):
+            if hasattr(nugget, "trace") and nugget.trace:
+                t = nugget.trace
+                print(f"{i}. {nugget.text}")
+                print(f"   component={t.component} model={t.model} params={t.params}")
+                if t.usage:
+                    print(f"   usage={t.usage}")
+                print()
+
+    for i, nugget in enumerate(scored_nuggets, 1):
+        importance_emoji = "⭐" if nugget.importance == "vital" else "✔️"
+        print(
+            f"{i}. {importance_emoji} {nugget.text} (Importance: {nugget.importance})"
+        )
     print_nuggets(scored_nuggets)
 
-    # Assign nuggets to documents in parallel
     print("\n🎯 Assigning nuggets to documents...")
     assign_start = time.time()
-    # Create tasks for parallel assignment
-    assignment_tasks = []
     for doc in request.documents:
-        print(f"\nDocument: {doc.docid}")
-        print("Segment:", doc.segment)
-        assignment_tasks.append(
-            nuggetizer.async_assign(request.query.text, doc.segment, scored_nuggets)
+        assigned_nuggets = nuggetizer.assign(
+            request.query.text, doc.segment, scored_nuggets
         )
-
-    # Run all assignments in parallel
-    assigned_nuggets_list = await asyncio.gather(*assignment_tasks)
-    assign_time = time.time() - assign_start
-    print(f"\nAssignment completed in {assign_time:.2f}s")
-
-    # Process results
-    for doc, assigned_nuggets in zip(request.documents, assigned_nuggets_list):
         print_assigned_nuggets(doc, assigned_nuggets)
 
-        # Calculate metrics for this document
+        if print_reasoning and hasattr(nugget, "reasoning") and nugget.reasoning:
+            print(f"  Reasoning: {nugget.reasoning}")
+
+        if print_trace and hasattr(nugget, "trace") and nugget.trace:
+            t = nugget.trace
+            print(f"  component={t.component} model={t.model} params={t.params}")
+            if t.usage:
+                print(f"  usage={t.usage}")
+
         nugget_list = [
             {"text": n.text, "importance": n.importance, "assignment": n.assignment}
             for n in assigned_nuggets
@@ -184,6 +198,7 @@ async def process_request(
         print(f"  Vital Score: {metrics.vital_score:.2f}")
         print(f"  All Score: {metrics.all_score:.2f}")
 
+    assign_time = time.time() - assign_start
     total_time = time.time() - start_time
     print("\n⏱️ Timing Summary:")
     print(f"  Creation time: {create_time:.2f}s")
@@ -191,9 +206,11 @@ async def process_request(
     print(f"  Total time: {total_time:.2f}s")
 
 
-async def main() -> None:
-    """Run the async e2e example."""
-    parser = argparse.ArgumentParser(description="Run the async e2e example")
+def main() -> None:
+    """Run the synchronous end-to-end example."""
+    parser = argparse.ArgumentParser(
+        description="Run the synchronous end-to-end example"
+    )
     parser.add_argument(
         "--use_azure_openai", action="store_true", help="Use Azure OpenAI"
     )
@@ -206,13 +223,18 @@ async def main() -> None:
     )
     parser.add_argument("--model", type=str, default="gpt-4o", help="Model to use")
     parser.add_argument("--log_level", type=int, default=0, help="Log level")
+    parser.add_argument(
+        "--print_reasoning", action="store_true", help="Print reasoning content"
+    )
+    parser.add_argument(
+        "--print_trace", action="store_true", help="Print trace information"
+    )
     args = parser.parse_args()
 
-    print("🔧 Starting Async E2E Nuggetizer Example...")
+    print("🔧 Starting Synchronous Nuggetizer E2E Example...")
     print(f"Using model: {args.model}")
-
     request = create_sample_request()
-    await process_request(
+    process_request(
         request,
         args.model,
         args.use_azure_openai,
@@ -220,9 +242,11 @@ async def main() -> None:
         args.use_vllm,
         args.vllm_port,
         args.log_level,
+        args.print_reasoning,
+        args.print_trace,
     )
     print("\n✨ Example completed!")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
