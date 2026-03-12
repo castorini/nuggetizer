@@ -9,7 +9,7 @@ from typing import Any, NoReturn, Sequence, cast
 
 from nuggetizer.models.nuggetizer import Nuggetizer
 
-from .adapters import create_output_record, request_from_create_record
+from .adapters import request_from_create_record, serialize_nugget
 from .introspection import (
     COMMAND_DESCRIPTIONS,
     SCHEMAS,
@@ -236,6 +236,9 @@ def build_parser() -> CLIArgumentParser:
     create_parser.add_argument("--fail-if-exists", action="store_true")
     create_parser.add_argument("--dry-run", action="store_true")
     create_parser.add_argument("--validate-only", action="store_true")
+    create_parser.add_argument("--include-trace", action="store_true")
+    create_parser.add_argument("--include-reasoning", action="store_true")
+    create_parser.add_argument("--redact-prompts", action="store_true")
     create_parser.add_argument("--manifest-path", type=str)
 
     assign_parser = subparsers.add_parser("assign")
@@ -260,6 +263,9 @@ def build_parser() -> CLIArgumentParser:
     assign_parser.add_argument("--fail-if-exists", action="store_true")
     assign_parser.add_argument("--dry-run", action="store_true")
     assign_parser.add_argument("--validate-only", action="store_true")
+    assign_parser.add_argument("--include-trace", action="store_true")
+    assign_parser.add_argument("--include-reasoning", action="store_true")
+    assign_parser.add_argument("--redact-prompts", action="store_true")
     assign_parser.add_argument("--manifest-path", type=str)
 
     assign_retrieval_parser = subparsers.add_parser("assign-retrieval")
@@ -282,6 +288,9 @@ def build_parser() -> CLIArgumentParser:
     assign_retrieval_parser.add_argument("--fail-if-exists", action="store_true")
     assign_retrieval_parser.add_argument("--dry-run", action="store_true")
     assign_retrieval_parser.add_argument("--validate-only", action="store_true")
+    assign_retrieval_parser.add_argument("--include-trace", action="store_true")
+    assign_retrieval_parser.add_argument("--include-reasoning", action="store_true")
+    assign_retrieval_parser.add_argument("--redact-prompts", action="store_true")
     assign_retrieval_parser.add_argument("--manifest-path", type=str)
 
     metrics_parser = subparsers.add_parser("metrics")
@@ -344,10 +353,17 @@ def _run_direct_create(args: argparse.Namespace) -> CommandResponse:
         scored_nuggets = asyncio.run(nuggetizer.async_create(request_obj))
     else:
         scored_nuggets = nuggetizer.create(request_obj)
-    output_record = create_output_record(request_obj, scored_nuggets)
     direct_output = {
-        "query": output_record["query"],
-        "nuggets": output_record["nuggets"],
+        "query": request_obj.query.text,
+        "nuggets": [
+            serialize_nugget(
+                nugget,
+                include_reasoning=args.include_reasoning,
+                include_trace=args.include_trace,
+                redact_prompts=args.redact_prompts,
+            )
+            for nugget in scored_nuggets
+        ],
     }
     if args.output == "json":
         return CommandResponse(
@@ -361,7 +377,7 @@ def _run_direct_create(args: argparse.Namespace) -> CommandResponse:
             metrics={"nugget_count": len(direct_output["nuggets"])},
         )
 
-    for nugget in direct_output["nuggets"]:
+    for nugget in cast(list[dict[str, str]], direct_output["nuggets"]):
         sys.stdout.write(f"{nugget['importance']}: {nugget['text']}\n")
     return CommandResponse(command="create")
 
@@ -386,6 +402,8 @@ def _run_direct_assign(args: argparse.Namespace) -> CommandResponse:
         assigner_model=args.model,
         log_level=args.log_level,
         use_azure_openai=args.use_azure_openai,
+        store_trace=args.include_trace,
+        store_reasoning=args.include_reasoning,
     )
     query, context, nuggets = direct_assign_inputs(payload)
     if args.execution_mode == "async":
@@ -397,11 +415,12 @@ def _run_direct_assign(args: argparse.Namespace) -> CommandResponse:
     direct_output = {
         "query": query,
         "nuggets": [
-            {
-                "text": nugget.text,
-                "importance": nugget.importance,
-                "assignment": nugget.assignment,
-            }
+            serialize_nugget(
+                nugget,
+                include_reasoning=args.include_reasoning,
+                include_trace=args.include_trace,
+                redact_prompts=args.redact_prompts,
+            )
             for nugget in assigned_nuggets
         ],
     }
@@ -455,6 +474,9 @@ def _run_create_batch_command(args: argparse.Namespace) -> CommandResponse:
         max_nuggets=args.max_nuggets,
         log_level=args.log_level,
         use_azure_openai=args.use_azure_openai,
+        include_trace=args.include_trace,
+        include_reasoning=args.include_reasoning,
+        redact_prompts=args.redact_prompts,
     )
     if args.execution_mode == "async":
         response = asyncio.run(
@@ -516,6 +538,9 @@ def _run_assign_batch_command(args: argparse.Namespace) -> CommandResponse:
             model=args.model,
             use_azure_openai=args.use_azure_openai,
             log_level=args.log_level,
+            include_trace=args.include_trace,
+            include_reasoning=args.include_reasoning,
+            redact_prompts=args.redact_prompts,
         )
         if args.execution_mode == "async":
             response = asyncio.run(
@@ -535,6 +560,9 @@ def _run_assign_batch_command(args: argparse.Namespace) -> CommandResponse:
             model=args.model,
             log_level=args.log_level,
             use_azure_openai=args.use_azure_openai,
+            include_trace=args.include_trace,
+            include_reasoning=args.include_reasoning,
+            redact_prompts=args.redact_prompts,
         )
         if args.execution_mode == "async":
             response = asyncio.run(
@@ -595,6 +623,9 @@ def _run_assign_retrieval_alias(args: argparse.Namespace) -> CommandResponse:
         model=args.model,
         log_level=args.log_level,
         use_azure_openai=args.use_azure_openai,
+        include_trace=args.include_trace,
+        include_reasoning=args.include_reasoning,
+        redact_prompts=args.redact_prompts,
     )
     if args.execution_mode == "async":
         response = asyncio.run(

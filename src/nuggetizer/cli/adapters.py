@@ -39,14 +39,24 @@ def scored_nuggets_from_record(record: dict[str, Any]) -> list[ScoredNugget]:
 
 
 def create_output_record(
-    request: Request, scored_nuggets: list[ScoredNugget]
+    request: Request,
+    scored_nuggets: list[ScoredNugget],
+    *,
+    include_reasoning: bool = False,
+    include_trace: bool = False,
+    redact_prompts: bool = False,
 ) -> dict[str, Any]:
     """Serialize create output in the legacy JSONL schema."""
     return {
         "query": request.query.text,
         "qid": request.query.qid,
         "nuggets": [
-            {"text": nugget.text, "importance": nugget.importance}
+            serialize_nugget(
+                nugget,
+                include_reasoning=include_reasoning,
+                include_trace=include_trace,
+                redact_prompts=redact_prompts,
+            )
             for nugget in scored_nuggets
         ],
     }
@@ -57,6 +67,10 @@ def assign_answer_output_record(
     nugget_record: dict[str, Any],
     run_id: str,
     assigned_nuggets: Sequence[AssignedScoredNugget],
+    *,
+    include_reasoning: bool = False,
+    include_trace: bool = False,
+    redact_prompts: bool = False,
 ) -> dict[str, Any]:
     """Serialize answer assignment output in the legacy JSONL schema."""
     answer_text = " ".join(answer["text"] for answer in answer_record["answer"])
@@ -67,11 +81,12 @@ def assign_answer_output_record(
         "response_length": answer_record["response_length"],
         "run_id": run_id,
         "nuggets": [
-            {
-                "text": nugget.text,
-                "importance": nugget.importance,
-                "assignment": nugget.assignment,
-            }
+            serialize_nugget(
+                nugget,
+                include_reasoning=include_reasoning,
+                include_trace=include_trace,
+                redact_prompts=redact_prompts,
+            )
             for nugget in assigned_nuggets
         ],
     }
@@ -81,6 +96,10 @@ def assign_retrieval_output_record(
     nugget_record: dict[str, Any],
     candidate: dict[str, Any],
     assigned_nuggets: Sequence[AssignedScoredNugget],
+    *,
+    include_reasoning: bool = False,
+    include_trace: bool = False,
+    redact_prompts: bool = False,
 ) -> dict[str, Any]:
     """Serialize retrieval assignment output in the legacy JSONL schema."""
     return {
@@ -89,14 +108,47 @@ def assign_retrieval_output_record(
         "candidate_text": candidate["doc"]["segment"],
         "docid": candidate["docid"],
         "nuggets": [
-            {
-                "text": nugget.text,
-                "importance": nugget.importance,
-                "assignment": nugget.assignment,
-            }
+            serialize_nugget(
+                nugget,
+                include_reasoning=include_reasoning,
+                include_trace=include_trace,
+                redact_prompts=redact_prompts,
+            )
             for nugget in assigned_nuggets
         ],
     }
+
+
+def serialize_nugget(
+    nugget: ScoredNugget | AssignedScoredNugget,
+    *,
+    include_reasoning: bool,
+    include_trace: bool,
+    redact_prompts: bool,
+) -> dict[str, Any]:
+    """Serialize a nugget with optional reasoning and trace fields."""
+    serialized: dict[str, Any] = {
+        "text": nugget.text,
+        "importance": nugget.importance,
+    }
+    if isinstance(nugget, AssignedScoredNugget):
+        serialized["assignment"] = nugget.assignment
+    if include_reasoning and nugget.reasoning is not None:
+        serialized["reasoning"] = nugget.reasoning
+    if include_trace and nugget.trace is not None:
+        trace_dict = {
+            "component": nugget.trace.component,
+            "model": nugget.trace.model,
+            "params": nugget.trace.params,
+            "messages": None if redact_prompts else nugget.trace.messages,
+            "usage": nugget.trace.usage,
+            "raw_output": nugget.trace.raw_output,
+            "window_start": nugget.trace.window_start,
+            "window_end": nugget.trace.window_end,
+            "timestamp_utc": nugget.trace.timestamp_utc,
+        }
+        serialized["trace"] = trace_dict
+    return serialized
 
 
 def metrics_output_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:

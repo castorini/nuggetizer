@@ -23,6 +23,8 @@ def build_create_nuggetizer_kwargs(args: Any) -> dict[str, Any]:
     nuggetizer_kwargs: dict[str, Any] = {
         "log_level": args.log_level,
         "use_azure_openai": args.use_azure_openai,
+        "store_trace": getattr(args, "include_trace", False),
+        "store_reasoning": getattr(args, "include_reasoning", False),
     }
     if args.creator_model or args.scorer_model:
         nuggetizer_kwargs.update(
@@ -65,7 +67,14 @@ def run_create_batch(args: Any, logger: logging.Logger) -> CommandResponse:
                 request = request_from_create_record(record)
                 scored_nuggets = nuggetizer.create(request)
                 append_jsonl_record(
-                    file_obj, create_output_record(request, scored_nuggets)
+                    file_obj,
+                    create_output_record(
+                        request,
+                        scored_nuggets,
+                        include_reasoning=getattr(args, "include_reasoning", False),
+                        include_trace=getattr(args, "include_trace", False),
+                        redact_prompts=getattr(args, "redact_prompts", False),
+                    ),
                 )
                 generated_count += 1
                 logger.info(
@@ -97,6 +106,8 @@ def run_assign_answers_batch(args: Any, logger: logging.Logger) -> CommandRespon
         assigner_model=args.model,
         log_level=args.log_level,
         use_azure_openai=args.use_azure_openai,
+        store_trace=getattr(args, "include_trace", False),
+        store_reasoning=getattr(args, "include_reasoning", False),
     )
 
     nugget_data = read_jsonl(args.nugget_file)
@@ -134,7 +145,13 @@ def run_assign_answers_batch(args: Any, logger: logging.Logger) -> CommandRespon
                 append_jsonl_record(
                     file_obj,
                     assign_answer_output_record(
-                        answer_record, nugget_record, run_id, assigned_nuggets
+                        answer_record,
+                        nugget_record,
+                        run_id,
+                        assigned_nuggets,
+                        include_reasoning=getattr(args, "include_reasoning", False),
+                        include_trace=getattr(args, "include_trace", False),
+                        redact_prompts=getattr(args, "redact_prompts", False),
                     ),
                 )
                 assigned_count += 1
@@ -162,6 +179,8 @@ def run_assign_retrieval_batch(args: Any, logger: logging.Logger) -> CommandResp
         assigner_model=args.model,
         log_level=args.log_level,
         use_azure_openai=args.use_azure_openai,
+        store_trace=getattr(args, "include_trace", False),
+        store_reasoning=getattr(args, "include_reasoning", False),
     )
 
     nugget_data = read_jsonl(args.nugget_file)
@@ -207,7 +226,12 @@ def run_assign_retrieval_batch(args: Any, logger: logging.Logger) -> CommandResp
                     append_jsonl_record(
                         file_obj,
                         assign_retrieval_output_record(
-                            nugget_record, candidate, assigned_nuggets
+                            nugget_record,
+                            candidate,
+                            assigned_nuggets,
+                            include_reasoning=getattr(args, "include_reasoning", False),
+                            include_trace=getattr(args, "include_trace", False),
+                            redact_prompts=getattr(args, "redact_prompts", False),
                         ),
                     )
                     assigned_count += 1
@@ -260,7 +284,14 @@ async def async_run_create_batch(args: Any, logger: logging.Logger) -> CommandRe
                 request = request_from_create_record(record)
                 scored_nuggets = await nuggetizer.async_create(request)
                 append_jsonl_record(
-                    file_obj, create_output_record(request, scored_nuggets)
+                    file_obj,
+                    create_output_record(
+                        request,
+                        scored_nuggets,
+                        include_reasoning=getattr(args, "include_reasoning", False),
+                        include_trace=getattr(args, "include_trace", False),
+                        redact_prompts=getattr(args, "redact_prompts", False),
+                    ),
                 )
                 generated_count += 1
             except Exception as exc:
@@ -290,6 +321,8 @@ async def async_run_assign_answers_batch(
         assigner_model=args.model,
         log_level=args.log_level,
         use_azure_openai=args.use_azure_openai,
+        store_trace=getattr(args, "include_trace", False),
+        store_reasoning=getattr(args, "include_reasoning", False),
     )
     nugget_data = read_jsonl(args.nugget_file)
     answer_data = read_jsonl(args.answer_file)
@@ -318,7 +351,13 @@ async def async_run_assign_answers_batch(
                 append_jsonl_record(
                     file_obj,
                     assign_answer_output_record(
-                        answer_record, nugget_record, run_id, assigned_nuggets
+                        answer_record,
+                        nugget_record,
+                        run_id,
+                        assigned_nuggets,
+                        include_reasoning=getattr(args, "include_reasoning", False),
+                        include_trace=getattr(args, "include_trace", False),
+                        redact_prompts=getattr(args, "redact_prompts", False),
                     ),
                 )
                 assigned_count += 1
@@ -346,6 +385,8 @@ async def async_run_assign_retrieval_batch(
         assigner_model=args.model,
         log_level=args.log_level,
         use_azure_openai=args.use_azure_openai,
+        store_trace=getattr(args, "include_trace", False),
+        store_reasoning=getattr(args, "include_reasoning", False),
     )
     nugget_data = read_jsonl(args.nugget_file)
     retrieve_data = read_jsonl(args.retrieve_results_file)
@@ -375,7 +416,12 @@ async def async_run_assign_retrieval_batch(
                     append_jsonl_record(
                         file_obj,
                         assign_retrieval_output_record(
-                            nugget_record, candidate, assigned_nuggets
+                            nugget_record,
+                            candidate,
+                            assigned_nuggets,
+                            include_reasoning=getattr(args, "include_reasoning", False),
+                            include_trace=getattr(args, "include_trace", False),
+                            redact_prompts=getattr(args, "redact_prompts", False),
                         ),
                     )
                     assigned_count += 1

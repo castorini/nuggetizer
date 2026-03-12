@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from nuggetizer.cli.main import main
-from nuggetizer.core.types import AssignedScoredNugget, ScoredNugget
+from nuggetizer.core.types import AssignedScoredNugget, ScoredNugget, Trace
 from nuggetizer.models.nuggetizer import Nuggetizer
 
 
@@ -348,6 +348,48 @@ def test_direct_create_async_execution_is_opt_in(monkeypatch: Any, capsys: Any) 
     output = json.loads(capsys.readouterr().out)
     assert output["resolved"]["execution_mode"] == "async"
     assert output["artifacts"][0]["data"]["nuggets"][0]["text"] == "async"
+
+
+def test_direct_create_trace_and_reasoning_are_opt_in(
+    monkeypatch: Any, capsys: Any
+) -> None:
+    def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        return [
+            ScoredNugget(
+                text="Python is used for web development.",
+                importance="vital",
+                reasoning="Model explanation",
+                trace=Trace(
+                    component="creator",
+                    model="gpt-4o",
+                    params={"temperature": 0.0},
+                    messages=[{"role": "user", "content": "prompt"}],
+                    usage={"total_tokens": 10},
+                    raw_output="raw",
+                ),
+            )
+        ]
+
+    monkeypatch.setattr(Nuggetizer, "create", fake_create)
+
+    exit_code = main(
+        [
+            "create",
+            "--input-json",
+            json.dumps({"query": "q", "candidates": ["c"]}),
+            "--include-trace",
+            "--include-reasoning",
+            "--redact-prompts",
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    nugget = output["artifacts"][0]["data"]["nuggets"][0]
+    assert nugget["reasoning"] == "Model explanation"
+    assert nugget["trace"]["messages"] is None
 
 
 def test_batch_create_dry_run_reports_write_policy_conflict(
