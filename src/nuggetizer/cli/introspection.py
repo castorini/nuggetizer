@@ -22,7 +22,10 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
         ],
         "direct_input": {
             "ids_optional": True,
-            "shape": {"query": "string", "candidates": ["string | {text: string, docid?: string}"]},
+            "shape": {
+                "query": "string",
+                "candidates": ["string | {text: string, docid?: string}"],
+            },
         },
         "batch_input": "JSONL records with query.qid/query.text and candidates[].doc.segment",
     },
@@ -138,7 +141,14 @@ SCHEMAS: dict[str, dict[str, Any]] = {
     },
     "assign-output-answers": {
         "type": "object",
-        "required": ["query", "qid", "answer_text", "response_length", "run_id", "nuggets"],
+        "required": [
+            "query",
+            "qid",
+            "answer_text",
+            "response_length",
+            "run_id",
+            "nuggets",
+        ],
     },
     "assign-output-retrieval": {
         "type": "object",
@@ -146,7 +156,13 @@ SCHEMAS: dict[str, dict[str, Any]] = {
     },
     "metrics-output": {
         "type": "object",
-        "required": ["qid", "strict_vital_score", "strict_all_score", "vital_score", "all_score"],
+        "required": [
+            "qid",
+            "strict_vital_score",
+            "strict_all_score",
+            "vital_score",
+            "all_score",
+        ],
     },
     "cli-envelope": {
         "type": "object",
@@ -213,7 +229,9 @@ def validate_create_batch_file(path: str) -> dict[str, Any]:
     return {"valid": valid, "record_count": len(records)}
 
 
-def validate_assign_batch_files(nuggets_path: str, contexts_path: str) -> dict[str, Any]:
+def validate_assign_batch_files(
+    nuggets_path: str, contexts_path: str
+) -> dict[str, Any]:
     """Validate a batch assign input pair."""
     nugget_records = read_jsonl(nuggets_path)
     context_records = read_jsonl(contexts_path)
