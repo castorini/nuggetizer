@@ -317,6 +317,24 @@ This project is built with the support of Azure's OpenAI credits.
 
 If you use Nuggetizer, please cite the following relevant papers:
 
+[[SIGIR 2025] The Great Nugget Recall: Automating Fact Extraction and {RAG} Evaluation with Large Language Models](https://dl.acm.org/doi/10.1145/3726302.3730090)
+
+```
+@inproceedings{greatnuggetrecall,
+      title = "{The Great Nugget Recall}: Automating Fact Extraction and {RAG} Evaluation with Large Language Models",
+      author = {Ronak Pradeep and Nandan Thakur and Shivani Upadhyay and Daniel Campos and Nick Craswell and Jimmy Lin},
+      booktitle = {Proceedings of the 48th International ACM SIGIR Conference on Research and Development in Information Retrieval},
+      year = {2025},
+      address_ = {New York, NY, USA},
+      publisher = {Association for Computing Machinery},
+      pages = {180--190},
+      numpages = {11},
+      keywords_ = {atomic facts, automatic evaluation, nugget evaluation},
+      location_ = {Padua, Italy},
+      series = {SIGIR '25}
+}
+```
+
 [[2411.09607] Initial Nugget Evaluation Results for the {TREC 2024 RAG Track} with the {AutoNuggetizer Framework}](https://arxiv.org/abs/2411.09607)
 
 ```
