@@ -19,6 +19,7 @@
 - Development tooling is defined in the `dev` dependency group in `pyproject.toml`.
 - Install for development with `uv sync --group dev`.
 - Recommended local environment from README: `uv`-managed Python 3.11 virtual environment.
+- Do not rely on `source "$HOME/.local/bin/env"` for `uv`; only add `~/.local/bin` to `PATH` when `uv` is not already available in the shell.
 
 ## LLM Provider Conventions
 - API keys are loaded from `.env` by `src/nuggetizer/utils/api.py`.

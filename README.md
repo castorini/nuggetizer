@@ -19,10 +19,10 @@ Install `uv` with Astral's official installer:
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Restart your shell, or load `uv` into the current shell session:
+If `uv` already works in your shell, you can skip this step. Otherwise, restart your shell or add `uv` to the current shell session:
 
 ```bash
-source "$HOME/.local/bin/env"
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
 ### Install from PyPI
