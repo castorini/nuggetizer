@@ -2,7 +2,7 @@
 
 ## Scope
 - Repository: `castorini/nuggetizer`
-- Primary language: Python 3.10+
+- Primary language: Python 3.11+
 - Purpose: create/score/assign factual nuggets for RAG evaluation using LLM backends (OpenAI, Azure OpenAI, OpenRouter, vLLM).
 
 ## Project Layout
@@ -16,8 +16,9 @@
 ## Packaging And Environment
 - Build backend: `setuptools.build_meta` via `pyproject.toml`.
 - Dependencies are dynamic and sourced from `requirements.txt`.
-- Install for development with `pip install -e .`.
-- Recommended local environment from README: conda env with Python 3.10.
+- Development tooling is defined in the `dev` dependency group in `pyproject.toml`.
+- Install for development with `uv sync --group dev`.
+- Recommended local environment from README: `uv`-managed Python 3.11 virtual environment.
 
 ## LLM Provider Conventions
 - API keys are loaded from `.env` by `src/nuggetizer/utils/api.py`.
@@ -45,13 +46,13 @@
 
 ## Validation Commands
 - Lint/type:
-  - `pre-commit run --all-files`
+  - `uv run pre-commit run --all-files`
 - Quick smoke checks:
-  - `python3 examples/e2e.py --help`
-  - `python3 examples/async_e2e.py --help`
-  - `python3 scripts/create_nuggets.py --help`
-  - `python3 scripts/assign_nuggets.py --help`
-  - `python3 scripts/calculate_metrics.py --help`
+  - `uv run python examples/e2e.py --help`
+  - `uv run python examples/async_e2e.py --help`
+  - `uv run python scripts/create_nuggets.py --help`
+  - `uv run python scripts/assign_nuggets.py --help`
+  - `uv run python scripts/calculate_metrics.py --help`
 
 ## Data And Pipeline Expectations
 - `scripts/create_nuggets.py` expects JSONL records with `query` and `candidates`.

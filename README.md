@@ -11,27 +11,48 @@ Enables the evaluation of fact recall of RAG answers.
 
 ## 📟 Installation
 
-### Create Conda Environment
+### Install `uv`
+
+Install `uv` with Astral's official installer:
 
 ```bash
-conda create -n nuggetizer python=3.10
-conda activate nuggetizer
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### Pip Installation
+Restart your shell, or load `uv` into the current shell session:
 
 ```bash
-pip install nuggetizer
+source "$HOME/.local/bin/env"
+```
+
+### Install from PyPI
+
+Create an isolated virtual environment and install the published package:
+
+```bash
+uv venv --python 3.11
+source .venv/bin/activate
+uv pip install nuggetizer
 ```
 
 ### Development Installation
 
-For development or the latest features, install from source:
+For development or the latest features, install from source with the development toolchain:
 
 ```bash
 git clone https://github.com/castorini/nuggetizer.git
 cd nuggetizer
-pip install -e .
+uv python install 3.11
+uv venv --python 3.11
+source .venv/bin/activate
+uv sync --group dev
+```
+
+If you prefer not to activate the virtual environment, run commands through `uv run`, for example:
+
+```bash
+uv run python examples/e2e.py --help
+uv run pre-commit run --all-files
 ```
 
 ### Environment Setup
