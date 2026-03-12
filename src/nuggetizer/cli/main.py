@@ -9,6 +9,15 @@ from typing import Any, NoReturn, Sequence, cast
 from nuggetizer.models.nuggetizer import Nuggetizer
 
 from .adapters import create_output_record, request_from_create_record
+from .introspection import (
+    COMMAND_DESCRIPTIONS,
+    SCHEMAS,
+    doctor_report,
+    validate_assign_batch_files,
+    validate_assign_input,
+    validate_create_batch_file,
+    validate_create_input,
+)
 from .logging_utils import setup_logging
 from .normalize import direct_assign_inputs, direct_create_record
 from .operations import (
@@ -61,7 +70,16 @@ class CLIArgumentParser(argparse.ArgumentParser):
 
 
 def _detect_command(argv: Sequence[str]) -> str:
-    known_commands = {"create", "assign", "assign-retrieval", "metrics"}
+    known_commands = {
+        "create",
+        "assign",
+        "assign-retrieval",
+        "metrics",
+        "describe",
+        "schema",
+        "doctor",
+        "validate",
+    }
     for token in argv:
         if token in known_commands:
             return token
@@ -196,6 +214,29 @@ def build_parser() -> CLIArgumentParser:
     metrics_parser.add_argument(
         "--output", choices=["text", "json", "jsonl"], default="text"
     )
+
+    describe_parser = subparsers.add_parser("describe")
+    describe_parser.add_argument("target", choices=sorted(COMMAND_DESCRIPTIONS))
+    describe_parser.add_argument("--output", choices=["text", "json"], default="text")
+
+    schema_parser = subparsers.add_parser("schema")
+    schema_parser.add_argument("artifact", choices=sorted(SCHEMAS))
+    schema_parser.add_argument("--output", choices=["text", "json"], default="text")
+
+    doctor_parser = subparsers.add_parser("doctor")
+    doctor_parser.add_argument("--output", choices=["text", "json"], default="text")
+
+    validate_parser = subparsers.add_parser("validate")
+    validate_parser.add_argument("target", choices=["create", "assign"])
+    validate_inputs = validate_parser.add_mutually_exclusive_group(required=True)
+    validate_inputs.add_argument("--input-file", type=str)
+    validate_inputs.add_argument("--stdin", action="store_true")
+    validate_inputs.add_argument("--input-json", type=str)
+    validate_inputs.add_argument("--contexts", type=str)
+    validate_parser.add_argument("--nuggets", type=str)
+    validate_parser.add_argument("--input-kind", choices=["answers", "retrieval"])
+    validate_parser.add_argument("--output-file", type=str)
+    validate_parser.add_argument("--output", choices=["text", "json"], default="text")
 
     return parser
 
@@ -390,6 +431,102 @@ def _run_metrics_command(args: argparse.Namespace) -> CommandResponse:
     )
 
 
+def _run_describe_command(args: argparse.Namespace) -> CommandResponse:
+    description = COMMAND_DESCRIPTIONS[args.target]
+    response = CommandResponse(
+        command="describe",
+        inputs={"target": args.target},
+        resolved={"target_command": args.target},
+        artifacts=[{"type": "inline_result", "data": description}],
+    )
+    if args.output == "text":
+        sys.stdout.write(json.dumps(description, indent=2) + "\n")
+    return response
+
+
+def _run_schema_command(args: argparse.Namespace) -> CommandResponse:
+    schema = SCHEMAS[args.artifact]
+    response = CommandResponse(
+        command="schema",
+        inputs={"artifact": args.artifact},
+        resolved={"artifact": args.artifact},
+        artifacts=[{"type": "inline_result", "data": schema}],
+    )
+    if args.output == "text":
+        sys.stdout.write(json.dumps(schema, indent=2) + "\n")
+    return response
+
+
+def _run_doctor_command(args: argparse.Namespace) -> CommandResponse:
+    report = doctor_report()
+    response = CommandResponse(
+        command="doctor",
+        metrics=report,
+        validation={"python_ok": report["python_ok"]},
+        warnings=[] if report["env_file_present"] else [".env file not found"],
+    )
+    if args.output == "text":
+        sys.stdout.write(json.dumps(report, indent=2) + "\n")
+    return response
+
+
+def _run_validate_command(args: argparse.Namespace) -> CommandResponse:
+    if args.target == "create":
+        if args.input_file is not None:
+            _ensure_file_exists(
+                args.input_file, command="validate", field_name="input_file"
+            )
+            validation = validate_create_batch_file(args.input_file)
+            resolved = {"target_command": "create", "input_mode": "batch"}
+        else:
+            payload = _read_direct_payload(args)
+            validation = validate_create_input(payload)
+            resolved = {"target_command": "create", "input_mode": "direct"}
+    else:
+        if args.contexts is not None:
+            if not args.nuggets:
+                raise CLIError(
+                    "validate assign batch mode requires --nuggets",
+                    exit_code=INVALID_ARGS_EXIT_CODE,
+                    status="validation_error",
+                    error_code="missing_nuggets",
+                    command="validate",
+                )
+            _ensure_file_exists(args.nuggets, command="validate", field_name="nuggets")
+            _ensure_file_exists(
+                args.contexts, command="validate", field_name="contexts"
+            )
+            validation = validate_assign_batch_files(args.nuggets, args.contexts)
+            resolved = {"target_command": "assign", "input_mode": "batch"}
+        else:
+            payload = _read_direct_payload(args)
+            validation = validate_assign_input(payload)
+            resolved = {"target_command": "assign", "input_mode": "direct"}
+
+    status = "success" if validation.get("valid", False) else "validation_error"
+    exit_code = 0 if validation.get("valid", False) else INVALID_ARGS_EXIT_CODE
+    response = CommandResponse(
+        command="validate",
+        status=status,
+        exit_code=exit_code,
+        inputs={"target": args.target},
+        resolved=resolved,
+        validation=validation,
+    )
+    if status != "success":
+        response.errors.append(
+            {
+                "code": "validation_failed",
+                "message": f"{args.target} input failed validation",
+                "details": validation,
+                "retryable": False,
+            }
+        )
+    if args.output == "text":
+        sys.stdout.write(json.dumps(validation, indent=2) + "\n")
+    return response
+
+
 def _run_command(args: argparse.Namespace) -> CommandResponse:
     if getattr(args, "log_level", None) is not None:
         setup_logging(args.log_level)
@@ -406,6 +543,14 @@ def _run_command(args: argparse.Namespace) -> CommandResponse:
         return _run_assign_retrieval_alias(args)
     if args.command == "metrics":
         return _run_metrics_command(args)
+    if args.command == "describe":
+        return _run_describe_command(args)
+    if args.command == "schema":
+        return _run_schema_command(args)
+    if args.command == "doctor":
+        return _run_doctor_command(args)
+    if args.command == "validate":
+        return _run_validate_command(args)
     raise CLIError(
         f"Unknown command: {args.command}",
         exit_code=INVALID_ARGS_EXIT_CODE,

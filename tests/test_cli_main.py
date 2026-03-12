@@ -202,3 +202,63 @@ def test_batch_create_missing_input_returns_json_error(capsys: Any) -> None:
     assert output["status"] == "validation_error"
     assert output["exit_code"] == 4
     assert output["errors"][0]["code"] == "missing_input"
+
+
+def test_describe_assign_returns_json_envelope(capsys: Any) -> None:
+    exit_code = main(["describe", "assign", "--output", "json"])
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["command"] == "describe"
+    assert output["artifacts"][0]["data"]["batch_input_kinds"] == [
+        "answers",
+        "retrieval",
+    ]
+
+
+def test_schema_assign_output_answers_returns_json_envelope(capsys: Any) -> None:
+    exit_code = main(["schema", "assign-output-answers", "--output", "json"])
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["command"] == "schema"
+    assert "run_id" in output["artifacts"][0]["data"]["required"]
+
+
+def test_doctor_returns_json_envelope(capsys: Any) -> None:
+    exit_code = main(["doctor", "--output", "json"])
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["command"] == "doctor"
+    assert "python_version" in output["metrics"]
+
+
+def test_validate_create_batch_returns_json_envelope(
+    tmp_path: Path, capsys: Any
+) -> None:
+    input_path = tmp_path / "pool.jsonl"
+    write_jsonl(
+        input_path,
+        [
+            {
+                "query": {"qid": "q1", "text": "What is Python used for?"},
+                "candidates": [
+                    {
+                        "docid": "d1",
+                        "doc": {"segment": "Python is used for web development."},
+                    }
+                ],
+            }
+        ],
+    )
+
+    exit_code = main(
+        ["validate", "create", "--input-file", str(input_path), "--output", "json"]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["command"] == "validate"
+    assert output["validation"]["valid"] is True
+    assert output["validation"]["record_count"] == 1
