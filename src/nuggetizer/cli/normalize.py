@@ -32,6 +32,8 @@ def direct_assign_inputs(
     nugget_record = {
         "nuggets": payload["nuggets"],
     }
-    return payload["query"], payload["context"], scored_nuggets_from_record(
-        nugget_record
+    return (
+        payload["query"],
+        payload["context"],
+        scored_nuggets_from_record(nugget_record),
     )
