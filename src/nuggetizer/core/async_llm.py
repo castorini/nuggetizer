@@ -139,9 +139,11 @@ class AsyncLLMHandler:
             self.client.base_url
         ):
             return {
-                "reasoning": {
-                    "effort": self.reasoning_effort,
-                    "exclude": False,
+                "extra_body": {
+                    "reasoning": {
+                        "effort": self.reasoning_effort,
+                        "exclude": False,
+                    }
                 }
             }
         return {"reasoning_effort": self.reasoning_effort}

@@ -107,5 +107,45 @@ def test_sync_llm_handler_uses_openrouter_reasoning_payload() -> None:
 
     assert response == "response"
     assert reasoning == "openrouter-chain"
-    assert recorded_kwargs["reasoning"] == {"effort": "high", "exclude": False}
+    assert recorded_kwargs["extra_body"] == {
+        "reasoning": {"effort": "high", "exclude": False}
+    }
+    assert "reasoning_effort" not in recorded_kwargs
+
+
+def test_async_llm_handler_uses_openrouter_reasoning_payload() -> None:
+    recorded_kwargs: dict[str, Any] = {}
+    handler = AsyncLLMHandler(
+        model="openrouter/hunter-alpha",
+        api_keys="test-key",
+        api_type="openrouter",
+        api_base="https://openrouter.ai/api/v1",
+        reasoning_effort="high",
+    )
+
+    async def fake_create(**kwargs: Any) -> Any:
+        recorded_kwargs.update(kwargs)
+        return _fake_completion(
+            SimpleNamespace(
+                content="response", model_extra={"reasoning": "openrouter-chain"}
+            )
+        )
+
+    handler.client = cast(
+        AsyncOpenAI,
+        SimpleNamespace(
+            base_url="https://openrouter.ai/api/v1",
+            chat=SimpleNamespace(completions=SimpleNamespace(create=fake_create)),
+        ),
+    )
+
+    response, _, _, reasoning = asyncio.run(
+        handler.run([{"role": "user", "content": "prompt"}])
+    )
+
+    assert response == "response"
+    assert reasoning == "openrouter-chain"
+    assert recorded_kwargs["extra_body"] == {
+        "reasoning": {"effort": "high", "exclude": False}
+    }
     assert "reasoning_effort" not in recorded_kwargs
