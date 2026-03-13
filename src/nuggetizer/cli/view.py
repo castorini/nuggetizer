@@ -12,6 +12,7 @@ ANSI_CODES = {
     "cyan": "\033[36m",
     "green": "\033[32m",
     "yellow": "\033[33m",
+    "red": "\033[31m",
 }
 
 CREATE_KEYS = {"query", "qid", "nuggets"}
@@ -49,6 +50,29 @@ def _style(text: str, color: str, enabled: bool) -> str:
     if not enabled:
         return text
     return f"{ANSI_CODES[color]}{text}{ANSI_CODES['reset']}"
+
+
+def _importance_label(label: Any, enabled: bool) -> str:
+    text = str(label)
+    color = {
+        "vital": "green",
+        "okay": "yellow",
+    }.get(text)
+    if color is None:
+        return text
+    return _style(text, color, enabled)
+
+
+def _assignment_label(label: Any, enabled: bool) -> str:
+    text = str(label)
+    color = {
+        "support": "green",
+        "partial_support": "yellow",
+        "not_support": "red",
+    }.get(text)
+    if color is None:
+        return text
+    return _style(text, color, enabled)
 
 
 def _truncate(text: str, limit: int = 140) -> str:
@@ -279,16 +303,16 @@ def render_view_summary(view: dict[str, Any], *, color: str) -> str:
             counts = record["assignment_counts"]
             lines.append(
                 "assignments: "
-                f"support={counts['support']}, "
-                f"partial_support={counts['partial_support']}, "
-                f"not_support={counts['not_support']}"
+                f"{_assignment_label('support', enabled)}={counts['support']}, "
+                f"{_assignment_label('partial_support', enabled)}={counts['partial_support']}, "
+                f"{_assignment_label('not_support', enabled)}={counts['not_support']}"
             )
         else:
             lines.append(f"nuggets: {record['nugget_count']}")
 
         for nugget_index, nugget in enumerate(record["nuggets"], start=1):
-            prefix = f"{nugget_index}. {nugget['importance']}"
+            prefix = f"{nugget_index}. {_importance_label(nugget['importance'], enabled)}"
             if "assignment" in nugget:
-                prefix += f"/{nugget['assignment']}"
+                prefix += f"/{_assignment_label(nugget['assignment'], enabled)}"
             lines.append(f"{prefix}: {nugget['text']}")
     return "\n".join(lines)

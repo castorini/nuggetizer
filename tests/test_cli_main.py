@@ -599,6 +599,49 @@ def test_view_assign_answers_text_renders_assignments(
     assert "assignments: support=1, partial_support=1, not_support=0" in stdout
 
 
+def test_view_assign_answers_text_color_codes_importance_and_assignment(
+    tmp_path: Path, capsys: Any
+) -> None:
+    path = tmp_path / "assignments-color.jsonl"
+    write_jsonl(
+        path,
+        [
+            {
+                "query": "What is Python used for?",
+                "qid": "q1",
+                "answer_text": "Python is used for web development, data analysis, and automation.",
+                "response_length": 12,
+                "run_id": "demo-run",
+                "nuggets": [
+                    {
+                        "text": "Python is used for web development.",
+                        "importance": "vital",
+                        "assignment": "support",
+                    },
+                    {
+                        "text": "Python is used for data analysis.",
+                        "importance": "okay",
+                        "assignment": "partial_support",
+                    },
+                    {
+                        "text": "Python is only used in browsers.",
+                        "importance": "okay",
+                        "assignment": "not_support",
+                    },
+                ],
+            }
+        ],
+    )
+
+    exit_code = main(["view", str(path), "--color", "always"])
+
+    assert exit_code == 0
+    stdout = capsys.readouterr().out
+    assert "\033[32mvital\033[0m/\033[32msupport\033[0m" in stdout
+    assert "\033[33mokay\033[0m/\033[33mpartial_support\033[0m" in stdout
+    assert "\033[31mnot_support\033[0m=1" in stdout
+
+
 def test_view_metrics_output_reports_global_metrics(
     tmp_path: Path, capsys: Any
 ) -> None:
