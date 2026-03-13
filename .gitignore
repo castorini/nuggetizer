@@ -4,10 +4,7 @@ dist/
 
 .DS_Store
 # Remove all __pycache__ folders
-__pycache__/
-*/__pycache__/
-*/*/__pycache__/
-*/*/*/__pycache__/
+**/__pycache__/
 
 # Remove all .pyc files
 *.pyc
