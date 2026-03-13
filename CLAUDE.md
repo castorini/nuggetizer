@@ -10,7 +10,7 @@
 - `src/nuggetizer/core/`: core types, metrics, sync/async LLM handlers, base protocols.
 - `src/nuggetizer/prompts/`: prompt builders and YAML prompt templates.
 - `scripts/`: CLI pipelines for dataset-scale JSONL processing.
-- `examples/`: end-to-end usage examples. `e2e.py` is the default async example and `sync_e2e.py` is the synchronous variant.
+- `examples/`: end-to-end usage examples. `pipeline_demo.py` is the default async example and `sync_pipeline_demo.py` is the synchronous variant.
 - `docs/`: assets only (logo currently).
 
 ## Packaging And Environment
@@ -49,8 +49,8 @@
 - Lint/type:
   - `uv run pre-commit run --all-files`
 - Quick smoke checks:
-  - `uv run python examples/e2e.py --help`
-  - `uv run python examples/sync_e2e.py --help`
+  - `uv run python examples/pipeline_demo.py --help`
+  - `uv run python examples/sync_pipeline_demo.py --help`
   - `uv run python scripts/create_nuggets.py --help`
   - `uv run python scripts/assign_nuggets.py --help`
   - `uv run python scripts/calculate_metrics.py --help`

@@ -223,12 +223,12 @@ for nugget in assigned_nuggets:
 
 You can also run the default end-to-end example with:
 ```bash
-python3 examples/e2e.py
+python3 examples/pipeline_demo.py
 ```
 
-The default `examples/e2e.py` uses the async Nuggetizer pipeline. If you want the synchronous version instead, run:
+The default `examples/pipeline_demo.py` uses the async Nuggetizer pipeline. If you want the synchronous version instead, run:
 ```bash
-python3 examples/sync_e2e.py
+python3 examples/sync_pipeline_demo.py
 ```
 
 **Running with OpenRouter API:**
@@ -238,35 +238,35 @@ You can use OpenRouter API to access multiple model providers:
 export OPENROUTER_API_KEY=your_openrouter_api_key
 
 # Use Grok model (free tier) with OpenRouter
-python3 examples/e2e.py --model "x-ai/grok-4-fast" --use_openrouter
+python3 examples/pipeline_demo.py --model "x-ai/grok-4-fast" --use_openrouter
 
 # Use Claude model with OpenRouter
-python3 examples/e2e.py --model "anthropic/claude-3.5-sonnet" --use_openrouter
+python3 examples/pipeline_demo.py --model "anthropic/claude-3.5-sonnet" --use_openrouter
 
 # Use OpenAI models via OpenRouter
-python3 examples/e2e.py --model "openai/gpt-4o-mini" --use_openrouter
+python3 examples/pipeline_demo.py --model "openai/gpt-4o-mini" --use_openrouter
 ```
 
 Or create a `.env` file with your OpenRouter API key:
 ```bash
 echo "OPENROUTER_API_KEY=your_openrouter_api_key" > .env
-python3 examples/e2e.py --model "x-ai/grok-4-fast" --use_openrouter
+python3 examples/pipeline_demo.py --model "x-ai/grok-4-fast" --use_openrouter
 ```
 
 **Running with vLLM Local Server:**
 You can use vLLM to run models locally:
 ```bash
 # Use vLLM with default port (8000)
-python3 examples/e2e.py --model "Qwen/Qwen3-30B-A3B-Instruct-2507" --use_vllm
+python3 examples/pipeline_demo.py --model "Qwen/Qwen3-30B-A3B-Instruct-2507" --use_vllm
 
 # Use vLLM with custom port (8001)
-python3 examples/e2e.py --model "Qwen/Qwen3-30B-A3B-Instruct-2507" --use_vllm --vllm_port 8001
+python3 examples/pipeline_demo.py --model "Qwen/Qwen3-30B-A3B-Instruct-2507" --use_vllm --vllm_port 8001
 ```
 
-The default `examples/e2e.py` uses async methods such as `async_create` and `async_assign`. To run it, use:
+The default `examples/pipeline_demo.py` uses async methods such as `async_create` and `async_assign`. To run it, use:
 
 ```bash
-python3 examples/e2e.py
+python3 examples/pipeline_demo.py
 ```
 
 **Running async example with OpenRouter API:**
@@ -276,16 +276,16 @@ export OPENROUTER_API_KEY=your_openrouter_api_key
 
 
 # Use Claude model with OpenRouter
-python3 examples/e2e.py --model "anthropic/claude-3.5-sonnet" --use_openrouter
+python3 examples/pipeline_demo.py --model "anthropic/claude-3.5-sonnet" --use_openrouter
 ```
 
 **Running async example with vLLM:**
 ```bash
 # Use vLLM with default port (8000)
-python3 examples/e2e.py --model "Qwen/Qwen3-30B-A3B-Instruct-2507" --use_vllm
+python3 examples/pipeline_demo.py --model "Qwen/Qwen3-30B-A3B-Instruct-2507" --use_vllm
 
 # Use vLLM with custom port (8001)
-python3 examples/e2e.py --model "Qwen/Qwen3-30B-A3B-Instruct-2507" --use_vllm --vllm_port 8001
+python3 examples/pipeline_demo.py --model "Qwen/Qwen3-30B-A3B-Instruct-2507" --use_vllm --vllm_port 8001
 ```
 
 ## 🛠️ Components

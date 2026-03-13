@@ -192,8 +192,8 @@ async def process_request(
 
 
 async def main() -> None:
-    """Run the default end-to-end example."""
-    parser = argparse.ArgumentParser(description="Run the default end-to-end example")
+    """Run the default pipeline demo."""
+    parser = argparse.ArgumentParser(description="Run the default pipeline demo")
     parser.add_argument(
         "--use_azure_openai", action="store_true", help="Use Azure OpenAI"
     )
@@ -208,7 +208,7 @@ async def main() -> None:
     parser.add_argument("--log_level", type=int, default=0, help="Log level")
     args = parser.parse_args()
 
-    print("🔧 Starting Nuggetizer E2E Example...")
+    print("🔧 Starting Nuggetizer pipeline demo...")
     print(f"Using model: {args.model}")
 
     request = create_sample_request()
