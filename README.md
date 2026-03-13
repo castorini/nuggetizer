@@ -143,6 +143,10 @@ nuggetizer doctor --output json
 Legacy `scripts/*.py` entrypoints are still supported as compatibility shims, but
 new automation and documentation should prefer `nuggetizer ...`.
 
+## Contributing
+
+Contributor setup, local quality gates, and pull request expectations are documented in [CONTRIBUTING.md](CONTRIBUTING.md).
+
 Here's a simple example of how to use nuggetizer:
 
 ```python
