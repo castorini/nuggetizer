@@ -38,6 +38,24 @@ INVALID_ARGS_EXIT_CODE = 2
 MISSING_RESOURCE_EXIT_CODE = 4
 VALIDATION_EXIT_CODE = 5
 RUNTIME_EXIT_CODE = 6
+KNOWN_COMMANDS = (
+    "create",
+    "assign",
+    "assign-retrieval",
+    "metrics",
+    "describe",
+    "schema",
+    "doctor",
+    "validate",
+)
+TOP_LEVEL_EXAMPLES = (
+    "nuggetizer create --input-file pool.jsonl --output-file nuggets.jsonl",
+    (
+        "nuggetizer assign --input-kind answers --nuggets nuggets.jsonl "
+        "--contexts answers.jsonl --output-file assignments.jsonl"
+    ),
+    "nuggetizer doctor --output json",
+)
 
 
 class CLIError(Exception):
@@ -66,6 +84,19 @@ class CLIArgumentParser(argparse.ArgumentParser):
     """ArgumentParser that raises structured CLI errors instead of exiting."""
 
     def error(self, message: str) -> NoReturn:
+        if message == "the following arguments are required: command":
+            raise CLIError(
+                _build_missing_command_message(),
+                exit_code=INVALID_ARGS_EXIT_CODE,
+                status="validation_error",
+                error_code="missing_command",
+                command="unknown",
+                details={
+                    "available_commands": list(KNOWN_COMMANDS),
+                    "examples": list(TOP_LEVEL_EXAMPLES),
+                    "help_hint": "Run `nuggetizer --help` for full usage.",
+                },
+            )
         raise CLIError(
             message,
             exit_code=INVALID_ARGS_EXIT_CODE,
@@ -76,20 +107,22 @@ class CLIArgumentParser(argparse.ArgumentParser):
 
 
 def _detect_command(argv: Sequence[str]) -> str:
-    known_commands = {
-        "create",
-        "assign",
-        "assign-retrieval",
-        "metrics",
-        "describe",
-        "schema",
-        "doctor",
-        "validate",
-    }
     for token in argv:
-        if token in known_commands:
+        if token in KNOWN_COMMANDS:
             return token
     return "unknown"
+
+
+def _build_missing_command_message() -> str:
+    command_list = ", ".join(KNOWN_COMMANDS)
+    examples = "\n".join(f"  {example}" for example in TOP_LEVEL_EXAMPLES)
+    return (
+        "No command provided. Choose one of: "
+        f"{command_list}\n"
+        "Examples:\n"
+        f"{examples}\n"
+        "Run `nuggetizer --help` for full usage."
+    )
 
 
 def _wants_json(argv: Sequence[str]) -> bool:
