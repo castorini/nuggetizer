@@ -51,7 +51,7 @@ uv sync --group dev
 If you prefer not to activate the virtual environment, run commands through `uv run`, for example:
 
 ```bash
-uv run python examples/e2e.py --help
+uv run nuggetizer --help
 uv run pre-commit run --all-files
 ```
 
@@ -82,6 +82,66 @@ No environment variables needed. vLLM runs locally and doesn't require authentic
 **Note:** Nuggetizer supports multiple API providers. If both OpenAI and OpenRouter keys are available, OpenAI will be used by default. You can explicitly use OpenRouter by passing the `use_openrouter=True` parameter to the Nuggetizer constructor or using the `--use_openrouter` flag in the examples. For vLLM, use `use_vllm=True` and optionally specify `vllm_port` (default: 8000).
 
 ## 🚀 Quick Start
+
+The canonical command-line interface is `nuggetizer ...`. If your environment is
+activated, run commands directly. If it is not, the development fallback is
+`uv run nuggetizer ...`.
+
+### CLI Quick Start
+
+Create nuggets from a batch JSONL file:
+
+```bash
+nuggetizer create \
+  --input-file pool.jsonl \
+  --output-file nuggets.jsonl \
+  --model gpt-4o-mini
+```
+
+Create nuggets from a direct single-object JSON payload without `qid` or `docid`:
+
+```bash
+nuggetizer create \
+  --input-json '{"query":"What is Python used for?","candidates":["Python is widely used for web development and data analysis.","Python is also used for automation and machine learning."]}' \
+  --output json
+```
+
+Assign nuggets to RAG answers:
+
+```bash
+nuggetizer assign \
+  --input-kind answers \
+  --nuggets nuggets.jsonl \
+  --contexts answers.jsonl \
+  --output-file assignments.jsonl
+```
+
+Assign nuggets to a direct single context:
+
+```bash
+nuggetizer assign \
+  --input-json '{"query":"What is Python used for?","context":"Python is commonly used for web development and data analysis.","nuggets":[{"text":"Python is used for web development.","importance":"vital"},{"text":"Python is used for data analysis.","importance":"okay"}]}' \
+  --output json
+```
+
+Calculate metrics:
+
+```bash
+nuggetizer metrics \
+  --input-file assignments.jsonl \
+  --output-file metrics.jsonl
+```
+
+Inspect the CLI contract:
+
+```bash
+nuggetizer describe assign --output json
+nuggetizer schema assign-output-answers --output json
+nuggetizer doctor --output json
+```
+
+Legacy `scripts/*.py` entrypoints are still supported as compatibility shims, but
+new automation and documentation should prefer `nuggetizer ...`.
 
 Here's a simple example of how to use nuggetizer:
 
@@ -231,12 +291,14 @@ The Nuggetizer class provides a unified interface for:
 1. **Nugget Creation & Scoring**: Extracts and scores atomic information nuggets from text
 2. **Nugget Assignment**: Assigns nuggets to specific texts
 
-The following scripts are provided to help you with through the process for the TREC 2024 RAG Track:
+The following CLI commands help run the TREC 2024 RAG Track workflow:
 
 1. First, generate nuggets:
 ```bash
-# Extract nuggets
-python3 scripts/create_nuggets.py --input_file pool.jsonl --output_file nuggets.jsonl --log_level 1
+nuggetizer create \
+  --input-file pool.jsonl \
+  --output-file nuggets.jsonl \
+  --log-level 1
 ```
 
 2. For RAG answers, we assume they take on the format laid out by the wonderful [TREC 2024 RAG Track](https://trec-rag.github.io/annoucements/2024-track-guidelines/):
@@ -273,17 +335,30 @@ To *easily* generate answers in this format, consider using [Ragnarök](https://
 Let's now assign the nuggets to the RAG answers:
 
 ```bash
-# Assign nuggets to RAG answers
-python3 scripts/assign_nuggets.py \
-    --nugget_file nuggets.jsonl \
-    --answer_file ragnarok.jsonl \
-    --output_file final_assignments.jsonl
+nuggetizer assign \
+    --input-kind answers \
+    --nuggets nuggets.jsonl \
+    --contexts ragnarok.jsonl \
+    --output-file final_assignments.jsonl
 
-# Calculate metrics
-python3 scripts/calculate_metrics.py \
-    --input_file final_assignments.jsonl \
-    --output_file metrics.jsonl
+nuggetizer metrics \
+    --input-file final_assignments.jsonl \
+    --output-file metrics.jsonl
 ```
+
+For retrieval-style per-candidate assignment, use:
+
+```bash
+nuggetizer assign \
+    --input-kind retrieval \
+    --nuggets nuggets.jsonl \
+    --contexts retrieval.jsonl \
+    --output-file retrieval_assignments.jsonl
+```
+
+Compatibility note:
+`nuggetizer assign-retrieval ...` and the older `scripts/*.py` entrypoints still
+work, but they are aliases or shims around the same packaged implementation.
 
 The final output file (`final_assignments.jsonl`) will contain:
 - query: The original query
