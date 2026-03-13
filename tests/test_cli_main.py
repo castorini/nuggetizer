@@ -210,8 +210,14 @@ def test_missing_command_returns_descriptive_text_error(capsys: Any) -> None:
     assert exit_code == 2
     captured = capsys.readouterr()
     assert "No command provided." in captured.err
-    assert "create, assign, assign-retrieval, metrics, describe, schema, doctor, validate" in captured.err
-    assert "nuggetizer create --input-file pool.jsonl --output-file nuggets.jsonl" in captured.err
+    assert (
+        "create, assign, assign-retrieval, metrics, describe, schema, doctor, validate"
+        in captured.err
+    )
+    assert (
+        "nuggetizer create --input-file pool.jsonl --output-file nuggets.jsonl"
+        in captured.err
+    )
     assert "Run `nuggetizer --help` for full usage." in captured.err
 
 
