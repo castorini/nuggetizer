@@ -23,8 +23,10 @@ def build_create_nuggetizer_kwargs(args: Any) -> dict[str, Any]:
     nuggetizer_kwargs: dict[str, Any] = {
         "log_level": args.log_level,
         "use_azure_openai": args.use_azure_openai,
+        "use_openrouter": getattr(args, "use_openrouter", False),
         "store_trace": getattr(args, "include_trace", False),
         "store_reasoning": getattr(args, "include_reasoning", False),
+        "reasoning_effort": getattr(args, "reasoning_effort", None),
     }
     if args.creator_model or args.scorer_model:
         nuggetizer_kwargs.update(
@@ -40,6 +42,19 @@ def build_create_nuggetizer_kwargs(args: Any) -> dict[str, Any]:
     if args.max_nuggets:
         nuggetizer_kwargs["max_nuggets"] = args.max_nuggets
     return nuggetizer_kwargs
+
+
+def build_assign_nuggetizer_kwargs(args: Any) -> dict[str, Any]:
+    """Build Nuggetizer kwargs for assignment scripts."""
+    return {
+        "assigner_model": args.model,
+        "log_level": args.log_level,
+        "use_azure_openai": args.use_azure_openai,
+        "use_openrouter": getattr(args, "use_openrouter", False),
+        "store_trace": getattr(args, "include_trace", False),
+        "store_reasoning": getattr(args, "include_reasoning", False),
+        "reasoning_effort": getattr(args, "reasoning_effort", None),
+    }
 
 
 def run_create_batch(args: Any, logger: logging.Logger) -> CommandResponse:
@@ -102,13 +117,7 @@ def run_assign_answers_batch(args: Any, logger: logging.Logger) -> CommandRespon
 
     run_id = get_run_id(args.answer_file)
     logger.info("Using run_id: %s", run_id)
-    nuggetizer = Nuggetizer(
-        assigner_model=args.model,
-        log_level=args.log_level,
-        use_azure_openai=args.use_azure_openai,
-        store_trace=getattr(args, "include_trace", False),
-        store_reasoning=getattr(args, "include_reasoning", False),
-    )
+    nuggetizer = Nuggetizer(**build_assign_nuggetizer_kwargs(args))
 
     nugget_data = read_jsonl(args.nugget_file)
     answer_data = read_jsonl(args.answer_file)
@@ -175,13 +184,7 @@ def run_assign_retrieval_batch(args: Any, logger: logging.Logger) -> CommandResp
     processed_entries = get_processed_values(args.output_file, "qid", "docid")
     logger.info("Found %d already processed entries", len(processed_entries))
 
-    nuggetizer = Nuggetizer(
-        assigner_model=args.model,
-        log_level=args.log_level,
-        use_azure_openai=args.use_azure_openai,
-        store_trace=getattr(args, "include_trace", False),
-        store_reasoning=getattr(args, "include_reasoning", False),
-    )
+    nuggetizer = Nuggetizer(**build_assign_nuggetizer_kwargs(args))
 
     nugget_data = read_jsonl(args.nugget_file)
     retrieve_data = read_jsonl(args.retrieve_results_file)
@@ -317,13 +320,7 @@ async def async_run_assign_answers_batch(
     logger.info("Found %d already processed records", len(processed_qids))
 
     run_id = get_run_id(args.answer_file)
-    nuggetizer = Nuggetizer(
-        assigner_model=args.model,
-        log_level=args.log_level,
-        use_azure_openai=args.use_azure_openai,
-        store_trace=getattr(args, "include_trace", False),
-        store_reasoning=getattr(args, "include_reasoning", False),
-    )
+    nuggetizer = Nuggetizer(**build_assign_nuggetizer_kwargs(args))
     nugget_data = read_jsonl(args.nugget_file)
     answer_data = read_jsonl(args.answer_file)
     qid_to_answer_data = {answer["topic_id"]: answer for answer in answer_data}
@@ -381,13 +378,7 @@ async def async_run_assign_retrieval_batch(
 ) -> CommandResponse:
     """Run the retrieval assignment flow using async Nuggetizer methods."""
     processed_entries = get_processed_values(args.output_file, "qid", "docid")
-    nuggetizer = Nuggetizer(
-        assigner_model=args.model,
-        log_level=args.log_level,
-        use_azure_openai=args.use_azure_openai,
-        store_trace=getattr(args, "include_trace", False),
-        store_reasoning=getattr(args, "include_reasoning", False),
-    )
+    nuggetizer = Nuggetizer(**build_assign_nuggetizer_kwargs(args))
     nugget_data = read_jsonl(args.nugget_file)
     retrieve_data = read_jsonl(args.retrieve_results_file)
     qid_to_nuggets = {record["qid"]: record for record in nugget_data}

@@ -66,6 +66,41 @@ def test_direct_create_via_input_json(monkeypatch: Any, capsys: Any) -> None:
     }
 
 
+def test_direct_create_forwards_openrouter_and_reasoning_effort(
+    monkeypatch: Any, capsys: Any
+) -> None:
+    captured_kwargs: dict[str, Any] = {}
+
+    def fake_init(self: Nuggetizer, *args: Any, **kwargs: Any) -> None:
+        del args
+        captured_kwargs.update(kwargs)
+
+    def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        del request
+        return [ScoredNugget(text="router", importance="vital")]
+
+    monkeypatch.setattr(Nuggetizer, "__init__", fake_init)
+    monkeypatch.setattr(Nuggetizer, "create", fake_create)
+
+    exit_code = main(
+        [
+            "create",
+            "--input-json",
+            json.dumps({"query": "q", "candidates": ["c"]}),
+            "--use-openrouter",
+            "--reasoning-effort",
+            "minimal",
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    json.loads(capsys.readouterr().out)
+    assert captured_kwargs["use_openrouter"] is True
+    assert captured_kwargs["reasoning_effort"] == "minimal"
+
+
 def test_direct_assign_via_input_json(monkeypatch: Any, capsys: Any) -> None:
     def fake_assign(
         self: Nuggetizer, query: str, context: str, nuggets: list[ScoredNugget]
@@ -119,6 +154,60 @@ def test_direct_assign_via_input_json(monkeypatch: Any, capsys: Any) -> None:
             }
         ],
     }
+
+
+def test_direct_assign_forwards_openrouter_and_reasoning_effort(
+    monkeypatch: Any, capsys: Any
+) -> None:
+    captured_kwargs: dict[str, Any] = {}
+
+    def fake_init(self: Nuggetizer, *args: Any, **kwargs: Any) -> None:
+        del args
+        captured_kwargs.update(kwargs)
+
+    def fake_assign(
+        self: Nuggetizer, query: str, context: str, nuggets: list[ScoredNugget]
+    ) -> list[AssignedScoredNugget]:
+        del query, context
+        return [
+            AssignedScoredNugget(
+                text=nuggets[0].text,
+                importance=nuggets[0].importance,
+                assignment="support",
+            )
+        ]
+
+    monkeypatch.setattr(Nuggetizer, "__init__", fake_init)
+    monkeypatch.setattr(Nuggetizer, "assign", fake_assign)
+
+    exit_code = main(
+        [
+            "assign",
+            "--input-json",
+            json.dumps(
+                {
+                    "query": "What is Python used for?",
+                    "context": "Python is commonly used for web development.",
+                    "nuggets": [
+                        {
+                            "text": "Python is used for web development.",
+                            "importance": "vital",
+                        }
+                    ],
+                }
+            ),
+            "--use-openrouter",
+            "--reasoning-effort",
+            "xhigh",
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    json.loads(capsys.readouterr().out)
+    assert captured_kwargs["use_openrouter"] is True
+    assert captured_kwargs["reasoning_effort"] == "xhigh"
 
 
 def test_batch_assign_retrieval_alias_uses_same_flow(

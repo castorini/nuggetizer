@@ -13,6 +13,15 @@ from ..utils.api import (
 
 
 class AsyncLLMHandler:
+    SUPPORTED_REASONING_EFFORTS = (
+        "none",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+    )
+
     def __init__(
         self,
         model: str,
@@ -26,9 +35,20 @@ class AsyncLLMHandler:
         use_vllm: bool = False,
         openrouter_api_key: Optional[str] = None,
         vllm_port: int = 8000,
+        reasoning_effort: Optional[str] = None,
     ):
         self.model = model
         self.context_size = context_size
+        if (
+            reasoning_effort is not None
+            and reasoning_effort not in self.SUPPORTED_REASONING_EFFORTS
+        ):
+            raise ValueError(
+                "Unsupported reasoning_effort: "
+                f"{reasoning_effort}. Expected one of "
+                f"{', '.join(self.SUPPORTED_REASONING_EFFORTS)}."
+            )
+        self.reasoning_effort = reasoning_effort
 
         # Auto-configure API keys and Azure settings if not provided
         if use_azure_openai and (
@@ -136,12 +156,17 @@ class AsyncLLMHandler:
             ):
                 temperature = 1.0
             try:
+                completion_params: Dict[str, Any] = {
+                    "model": self.model,
+                    "messages": messages,
+                    "temperature": temperature,
+                    "max_completion_tokens": 2048,
+                    "timeout": 30,
+                }
+                if self.reasoning_effort is not None:
+                    completion_params["reasoning_effort"] = self.reasoning_effort
                 completion = await self.client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,  # type: ignore[arg-type]
-                    temperature=temperature,
-                    max_completion_tokens=2048,
-                    timeout=30,
+                    **completion_params
                 )
                 response = completion.choices[0].message.content
 

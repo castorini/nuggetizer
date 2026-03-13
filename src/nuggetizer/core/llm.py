@@ -13,6 +13,15 @@ from ..utils.api import (
 
 
 class LLMHandler:
+    SUPPORTED_REASONING_EFFORTS = (
+        "none",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+    )
+
     def __init__(
         self,
         model: str,
@@ -26,9 +35,20 @@ class LLMHandler:
         use_vllm: bool = False,
         openrouter_api_key: Optional[str] = None,
         vllm_port: int = 8000,
+        reasoning_effort: Optional[str] = None,
     ):
         self.model = model
         self.context_size = context_size
+        if (
+            reasoning_effort is not None
+            and reasoning_effort not in self.SUPPORTED_REASONING_EFFORTS
+        ):
+            raise ValueError(
+                "Unsupported reasoning_effort: "
+                f"{reasoning_effort}. Expected one of "
+                f"{', '.join(self.SUPPORTED_REASONING_EFFORTS)}."
+            )
+        self.reasoning_effort = reasoning_effort
 
         # Auto-configure API keys and Azure settings if not provided
         if use_azure_openai and (
@@ -162,6 +182,8 @@ class LLMHandler:
                         "max_completion_tokens": 4096,
                         "timeout": 60,
                     }
+                    if self.reasoning_effort is not None:
+                        completion_params["reasoning_effort"] = self.reasoning_effort
                 completion = self.client.chat.completions.create(**completion_params)
 
                 response = completion.choices[0].message.content

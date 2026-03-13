@@ -27,6 +27,7 @@ from .operations import (
     async_run_assign_answers_batch,
     async_run_assign_retrieval_batch,
     async_run_create_batch,
+    build_assign_nuggetizer_kwargs,
     build_create_nuggetizer_kwargs,
     run_assign_answers_batch,
     run_assign_retrieval_batch,
@@ -338,6 +339,16 @@ def build_parser() -> CLIArgumentParser:
         help="Use Azure OpenAI environment settings for OpenAI-compatible requests.",
     )
     create_parser.add_argument(
+        "--use-openrouter",
+        action="store_true",
+        help="Use OpenRouter for OpenAI-compatible requests.",
+    )
+    create_parser.add_argument(
+        "--reasoning-effort",
+        choices=["none", "minimal", "low", "medium", "high", "xhigh"],
+        help="Reasoning effort for OpenAI-compatible models that support it.",
+    )
+    create_parser.add_argument(
         "--resume",
         action="store_true",
         help="Allow appending to an existing output file without truncating it.",
@@ -445,6 +456,16 @@ def build_parser() -> CLIArgumentParser:
         help="Use Azure OpenAI environment settings for OpenAI-compatible requests.",
     )
     assign_parser.add_argument(
+        "--use-openrouter",
+        action="store_true",
+        help="Use OpenRouter for OpenAI-compatible requests.",
+    )
+    assign_parser.add_argument(
+        "--reasoning-effort",
+        choices=["none", "minimal", "low", "medium", "high", "xhigh"],
+        help="Reasoning effort for OpenAI-compatible models that support it.",
+    )
+    assign_parser.add_argument(
         "--resume",
         action="store_true",
         help="Allow appending to an existing output file without truncating it.",
@@ -539,6 +560,16 @@ def build_parser() -> CLIArgumentParser:
         "--use-azure-openai",
         action="store_true",
         help="Use Azure OpenAI environment settings for OpenAI-compatible requests.",
+    )
+    assign_retrieval_parser.add_argument(
+        "--use-openrouter",
+        action="store_true",
+        help="Use OpenRouter for OpenAI-compatible requests.",
+    )
+    assign_retrieval_parser.add_argument(
+        "--reasoning-effort",
+        choices=["none", "minimal", "low", "medium", "high", "xhigh"],
+        help="Reasoning effort for OpenAI-compatible models that support it.",
     )
     assign_retrieval_parser.add_argument(
         "--resume",
@@ -824,13 +855,7 @@ def _run_direct_assign(args: argparse.Namespace) -> CommandResponse:
             validation=validation,
             metrics={"nugget_count": len(payload["nuggets"])},
         )
-    nuggetizer = Nuggetizer(
-        assigner_model=args.model,
-        log_level=args.log_level,
-        use_azure_openai=args.use_azure_openai,
-        store_trace=args.include_trace,
-        store_reasoning=args.include_reasoning,
-    )
+    nuggetizer = Nuggetizer(**build_assign_nuggetizer_kwargs(args))
     query, context, nuggets = direct_assign_inputs(payload)
     if args.execution_mode == "async":
         assigned_nuggets = asyncio.run(
@@ -900,6 +925,8 @@ def _run_create_batch_command(args: argparse.Namespace) -> CommandResponse:
         max_nuggets=args.max_nuggets,
         log_level=args.log_level,
         use_azure_openai=args.use_azure_openai,
+        use_openrouter=args.use_openrouter,
+        reasoning_effort=args.reasoning_effort,
         include_trace=args.include_trace,
         include_reasoning=args.include_reasoning,
         redact_prompts=args.redact_prompts,
@@ -963,6 +990,8 @@ def _run_assign_batch_command(args: argparse.Namespace) -> CommandResponse:
             output_file=output_path,
             model=args.model,
             use_azure_openai=args.use_azure_openai,
+            use_openrouter=args.use_openrouter,
+            reasoning_effort=args.reasoning_effort,
             log_level=args.log_level,
             include_trace=args.include_trace,
             include_reasoning=args.include_reasoning,
@@ -986,6 +1015,8 @@ def _run_assign_batch_command(args: argparse.Namespace) -> CommandResponse:
             model=args.model,
             log_level=args.log_level,
             use_azure_openai=args.use_azure_openai,
+            use_openrouter=args.use_openrouter,
+            reasoning_effort=args.reasoning_effort,
             include_trace=args.include_trace,
             include_reasoning=args.include_reasoning,
             redact_prompts=args.redact_prompts,
@@ -1049,6 +1080,8 @@ def _run_assign_retrieval_alias(args: argparse.Namespace) -> CommandResponse:
         model=args.model,
         log_level=args.log_level,
         use_azure_openai=args.use_azure_openai,
+        use_openrouter=args.use_openrouter,
+        reasoning_effort=args.reasoning_effort,
         include_trace=args.include_trace,
         include_reasoning=args.include_reasoning,
         redact_prompts=args.redact_prompts,
