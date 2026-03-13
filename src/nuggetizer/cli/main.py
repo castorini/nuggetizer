@@ -9,6 +9,7 @@ from typing import Any, NoReturn, Sequence, cast
 
 from nuggetizer.models.nuggetizer import Nuggetizer
 
+from .adapters_common import make_data_artifact, make_file_artifact
 from .adapters import request_from_create_record, serialize_nugget
 from .introspection import (
     COMMAND_DESCRIPTIONS,
@@ -248,137 +249,511 @@ def _read_direct_payload(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def build_parser() -> CLIArgumentParser:
-    parser = CLIArgumentParser(prog="nuggetizer")
+    parser = CLIArgumentParser(
+        prog="nuggetizer",
+        description=(
+            "Nuggetizer packaged CLI for nugget creation, assignment, metrics, "
+            "validation, and artifact inspection."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Common patterns:\n"
+            "  nuggetizer create --input-file pool.jsonl --output-file nuggets.jsonl\n"
+            "  nuggetizer assign --input-kind answers --nuggets nuggets.jsonl "
+            "--contexts answers.jsonl --output-file assignments.jsonl\n"
+            "  nuggetizer doctor --output json"
+        ),
+    )
     subparsers = parser.add_subparsers(
         dest="command", required=True, parser_class=CLIArgumentParser
     )
 
-    create_parser = subparsers.add_parser("create")
+    create_parser = subparsers.add_parser(
+        "create",
+        help="Create and score nuggets from direct JSON input or batch JSONL input.",
+        description=(
+            "Create and score nuggets from direct JSON input or batch JSONL input."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     create_inputs = create_parser.add_mutually_exclusive_group(required=True)
-    create_inputs.add_argument("--input-file", type=str)
-    create_inputs.add_argument("--stdin", action="store_true")
-    create_inputs.add_argument("--input-json", type=str)
-    create_parser.add_argument("--output-file", type=str)
-    create_parser.add_argument(
-        "--output", choices=["text", "json", "jsonl"], default="text"
+    create_inputs.add_argument(
+        "--input-file",
+        type=str,
+        help="Batch JSONL request file in the shared query-candidate schema.",
     )
-    create_parser.add_argument("--model", type=str, default="gpt-4o")
-    create_parser.add_argument(
-        "--execution-mode", choices=["sync", "async"], default="sync"
+    create_inputs.add_argument(
+        "--stdin",
+        action="store_true",
+        help="Read one direct JSON request from standard input.",
     )
-    create_parser.add_argument("--creator-model", type=str)
-    create_parser.add_argument("--scorer-model", type=str)
-    create_parser.add_argument("--window-size", type=int)
-    create_parser.add_argument("--max-nuggets", type=int)
-    create_parser.add_argument("--log-level", type=int, default=0, choices=[0, 1, 2])
-    create_parser.add_argument("--use-azure-openai", action="store_true")
-    create_parser.add_argument("--resume", action="store_true")
-    create_parser.add_argument("--overwrite", action="store_true")
-    create_parser.add_argument("--fail-if-exists", action="store_true")
-    create_parser.add_argument("--dry-run", action="store_true")
-    create_parser.add_argument("--validate-only", action="store_true")
-    create_parser.add_argument("--include-trace", action="store_true")
-    create_parser.add_argument("--include-reasoning", action="store_true")
-    create_parser.add_argument("--redact-prompts", action="store_true")
-    create_parser.add_argument("--manifest-path", type=str)
+    create_inputs.add_argument(
+        "--input-json",
+        type=str,
+        help="Direct JSON request in the shared query-candidate schema.",
+    )
+    create_parser.add_argument(
+        "--output-file", type=str, help="Output JSONL path for batch nugget creation."
+    )
+    create_parser.add_argument(
+        "--output",
+        choices=["text", "json", "jsonl"],
+        default="text",
+        help="Human-readable text, machine-readable JSON envelope, or JSONL output.",
+    )
+    create_parser.add_argument(
+        "--model",
+        type=str,
+        default="gpt-4o",
+        help="Default model used for creation and scoring.",
+    )
+    create_parser.add_argument(
+        "--execution-mode",
+        choices=["sync", "async"],
+        default="sync",
+        help="Execution mode for direct JSON input or batch JSONL input.",
+    )
+    create_parser.add_argument(
+        "--creator-model", type=str, help="Override the nugget creation model."
+    )
+    create_parser.add_argument(
+        "--scorer-model", type=str, help="Override the nugget scoring model."
+    )
+    create_parser.add_argument(
+        "--window-size", type=int, help="Window size for chunked nugget creation."
+    )
+    create_parser.add_argument(
+        "--max-nuggets", type=int, help="Maximum nuggets to emit per request."
+    )
+    create_parser.add_argument(
+        "--log-level",
+        type=int,
+        default=0,
+        choices=[0, 1, 2],
+        help="Logging verbosity: 0=warnings, 1=info, 2=debug.",
+    )
+    create_parser.add_argument(
+        "--use-azure-openai",
+        action="store_true",
+        help="Use Azure OpenAI environment settings for OpenAI-compatible requests.",
+    )
+    create_parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Allow appending to an existing output file without truncating it.",
+    )
+    create_parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Truncate an existing output file before writing results.",
+    )
+    create_parser.add_argument(
+        "--fail-if-exists",
+        action="store_true",
+        help="Fail if the target output path already exists.",
+    )
+    create_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Resolve inputs and write policy without running models.",
+    )
+    create_parser.add_argument(
+        "--validate-only",
+        action="store_true",
+        help="Validate the declared contract without running models.",
+    )
+    create_parser.add_argument(
+        "--include-trace",
+        action="store_true",
+        help="Include model trace details in emitted results where available.",
+    )
+    create_parser.add_argument(
+        "--include-reasoning",
+        action="store_true",
+        help="Include model reasoning fields in emitted results where available.",
+    )
+    create_parser.add_argument(
+        "--redact-prompts",
+        action="store_true",
+        help="Redact prompt content from emitted trace fields.",
+    )
+    create_parser.add_argument(
+        "--manifest-path",
+        type=str,
+        help="Write the final JSON envelope to a manifest file.",
+    )
 
-    assign_parser = subparsers.add_parser("assign")
+    assign_parser = subparsers.add_parser(
+        "assign",
+        help="Assign nuggets to a direct context or to batch answers or retrieval results.",
+        description="Assign nuggets to a direct context or to batch answers or retrieval results.",
+    )
     assign_inputs = assign_parser.add_mutually_exclusive_group(required=True)
-    assign_inputs.add_argument("--stdin", action="store_true")
-    assign_inputs.add_argument("--input-json", type=str)
-    assign_inputs.add_argument("--contexts", type=str)
-    assign_parser.add_argument("--nuggets", type=str)
-    assign_parser.add_argument("--input-kind", choices=["answers", "retrieval"])
-    assign_parser.add_argument("--output-file", type=str)
+    assign_inputs.add_argument(
+        "--stdin",
+        action="store_true",
+        help="Read one direct JSON payload from standard input.",
+    )
+    assign_inputs.add_argument(
+        "--input-json",
+        type=str,
+        help="Direct JSON payload containing query, context, and nuggets.",
+    )
+    assign_inputs.add_argument(
+        "--contexts",
+        type=str,
+        help="Batch JSONL contexts file for answers or retrieval candidates.",
+    )
     assign_parser.add_argument(
-        "--output", choices=["text", "json", "jsonl"], default="text"
+        "--nuggets",
+        type=str,
+        help="Batch nugget JSONL file aligned by query identifier.",
     )
-    assign_parser.add_argument("--model", type=str, default="gpt-4o")
     assign_parser.add_argument(
-        "--execution-mode", choices=["sync", "async"], default="sync"
+        "--input-kind",
+        choices=["answers", "retrieval"],
+        help="Batch input type for --contexts.",
     )
-    assign_parser.add_argument("--log-level", type=int, default=0, choices=[0, 1, 2])
-    assign_parser.add_argument("--use-azure-openai", action="store_true")
-    assign_parser.add_argument("--resume", action="store_true")
-    assign_parser.add_argument("--overwrite", action="store_true")
-    assign_parser.add_argument("--fail-if-exists", action="store_true")
-    assign_parser.add_argument("--dry-run", action="store_true")
-    assign_parser.add_argument("--validate-only", action="store_true")
-    assign_parser.add_argument("--include-trace", action="store_true")
-    assign_parser.add_argument("--include-reasoning", action="store_true")
-    assign_parser.add_argument("--redact-prompts", action="store_true")
-    assign_parser.add_argument("--manifest-path", type=str)
+    assign_parser.add_argument(
+        "--output-file", type=str, help="Output JSONL path for batch nugget assignment."
+    )
+    assign_parser.add_argument(
+        "--output",
+        choices=["text", "json", "jsonl"],
+        default="text",
+        help="Human-readable text, machine-readable JSON envelope, or JSONL output.",
+    )
+    assign_parser.add_argument(
+        "--model", type=str, default="gpt-4o", help="Model used for nugget assignment."
+    )
+    assign_parser.add_argument(
+        "--execution-mode",
+        choices=["sync", "async"],
+        default="sync",
+        help="Execution mode for direct JSON input or batch JSONL input.",
+    )
+    assign_parser.add_argument(
+        "--log-level",
+        type=int,
+        default=0,
+        choices=[0, 1, 2],
+        help="Logging verbosity: 0=warnings, 1=info, 2=debug.",
+    )
+    assign_parser.add_argument(
+        "--use-azure-openai",
+        action="store_true",
+        help="Use Azure OpenAI environment settings for OpenAI-compatible requests.",
+    )
+    assign_parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Allow appending to an existing output file without truncating it.",
+    )
+    assign_parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Truncate an existing output file before writing results.",
+    )
+    assign_parser.add_argument(
+        "--fail-if-exists",
+        action="store_true",
+        help="Fail if the target output path already exists.",
+    )
+    assign_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Resolve inputs and write policy without running models.",
+    )
+    assign_parser.add_argument(
+        "--validate-only",
+        action="store_true",
+        help="Validate the declared contract without running models.",
+    )
+    assign_parser.add_argument(
+        "--include-trace",
+        action="store_true",
+        help="Include model trace details in emitted results where available.",
+    )
+    assign_parser.add_argument(
+        "--include-reasoning",
+        action="store_true",
+        help="Include model reasoning fields in emitted results where available.",
+    )
+    assign_parser.add_argument(
+        "--redact-prompts",
+        action="store_true",
+        help="Redact prompt content from emitted trace fields.",
+    )
+    assign_parser.add_argument(
+        "--manifest-path",
+        type=str,
+        help="Write the final JSON envelope to a manifest file.",
+    )
 
-    assign_retrieval_parser = subparsers.add_parser("assign-retrieval")
-    assign_retrieval_parser.add_argument("--nuggets", required=True, type=str)
-    assign_retrieval_parser.add_argument("--contexts", required=True, type=str)
-    assign_retrieval_parser.add_argument("--output-file", required=True, type=str)
-    assign_retrieval_parser.add_argument(
-        "--output", choices=["text", "json", "jsonl"], default="text"
-    )
-    assign_retrieval_parser.add_argument("--model", type=str, default="gpt-4")
-    assign_retrieval_parser.add_argument(
-        "--execution-mode", choices=["sync", "async"], default="sync"
+    assign_retrieval_parser = subparsers.add_parser(
+        "assign-retrieval",
+        help="Compatibility wrapper for retrieval-style nugget assignment.",
+        description="Compatibility wrapper for retrieval-style nugget assignment. Prefer `nuggetizer assign --input-kind retrieval` for new automation.",
     )
     assign_retrieval_parser.add_argument(
-        "--log-level", type=int, default=0, choices=[0, 1, 2]
+        "--nuggets",
+        required=True,
+        type=str,
+        help="Batch nugget JSONL file aligned by query identifier.",
     )
-    assign_retrieval_parser.add_argument("--use-azure-openai", action="store_true")
-    assign_retrieval_parser.add_argument("--resume", action="store_true")
-    assign_retrieval_parser.add_argument("--overwrite", action="store_true")
-    assign_retrieval_parser.add_argument("--fail-if-exists", action="store_true")
-    assign_retrieval_parser.add_argument("--dry-run", action="store_true")
-    assign_retrieval_parser.add_argument("--validate-only", action="store_true")
-    assign_retrieval_parser.add_argument("--include-trace", action="store_true")
-    assign_retrieval_parser.add_argument("--include-reasoning", action="store_true")
-    assign_retrieval_parser.add_argument("--redact-prompts", action="store_true")
-    assign_retrieval_parser.add_argument("--manifest-path", type=str)
+    assign_retrieval_parser.add_argument(
+        "--contexts",
+        required=True,
+        type=str,
+        help="Batch retrieval-results JSONL file.",
+    )
+    assign_retrieval_parser.add_argument(
+        "--output-file",
+        required=True,
+        type=str,
+        help="Output JSONL path for retrieval assignment.",
+    )
+    assign_retrieval_parser.add_argument(
+        "--output",
+        choices=["text", "json", "jsonl"],
+        default="text",
+        help="Human-readable text, machine-readable JSON envelope, or JSONL output.",
+    )
+    assign_retrieval_parser.add_argument(
+        "--model", type=str, default="gpt-4o", help="Model used for nugget assignment."
+    )
+    assign_retrieval_parser.add_argument(
+        "--execution-mode",
+        choices=["sync", "async"],
+        default="sync",
+        help="Execution mode for retrieval assignment.",
+    )
+    assign_retrieval_parser.add_argument(
+        "--log-level",
+        type=int,
+        default=0,
+        choices=[0, 1, 2],
+        help="Logging verbosity: 0=warnings, 1=info, 2=debug.",
+    )
+    assign_retrieval_parser.add_argument(
+        "--use-azure-openai",
+        action="store_true",
+        help="Use Azure OpenAI environment settings for OpenAI-compatible requests.",
+    )
+    assign_retrieval_parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Allow appending to an existing output file without truncating it.",
+    )
+    assign_retrieval_parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Truncate an existing output file before writing results.",
+    )
+    assign_retrieval_parser.add_argument(
+        "--fail-if-exists",
+        action="store_true",
+        help="Fail if the target output path already exists.",
+    )
+    assign_retrieval_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Resolve inputs and write policy without running models.",
+    )
+    assign_retrieval_parser.add_argument(
+        "--validate-only",
+        action="store_true",
+        help="Validate the declared contract without running models.",
+    )
+    assign_retrieval_parser.add_argument(
+        "--include-trace",
+        action="store_true",
+        help="Include model trace details in emitted results where available.",
+    )
+    assign_retrieval_parser.add_argument(
+        "--include-reasoning",
+        action="store_true",
+        help="Include model reasoning fields in emitted results where available.",
+    )
+    assign_retrieval_parser.add_argument(
+        "--redact-prompts",
+        action="store_true",
+        help="Redact prompt content from emitted trace fields.",
+    )
+    assign_retrieval_parser.add_argument(
+        "--manifest-path",
+        type=str,
+        help="Write the final JSON envelope to a manifest file.",
+    )
 
-    metrics_parser = subparsers.add_parser("metrics")
-    metrics_parser.add_argument("--input-file", required=True, type=str)
-    metrics_parser.add_argument("--output-file", required=True, type=str)
+    metrics_parser = subparsers.add_parser(
+        "metrics",
+        help="Calculate per-query and global nugget metrics from assignment JSONL.",
+        description="Calculate per-query and global nugget metrics from assignment JSONL.",
+    )
     metrics_parser.add_argument(
-        "--output", choices=["text", "json", "jsonl"], default="text"
+        "--input-file", required=True, type=str, help="Assignment JSONL file to score."
     )
-    metrics_parser.add_argument("--resume", action="store_true")
-    metrics_parser.add_argument("--overwrite", action="store_true")
-    metrics_parser.add_argument("--fail-if-exists", action="store_true")
-    metrics_parser.add_argument("--dry-run", action="store_true")
-    metrics_parser.add_argument("--validate-only", action="store_true")
-    metrics_parser.add_argument("--manifest-path", type=str)
+    metrics_parser.add_argument(
+        "--output-file", required=True, type=str, help="Metrics JSONL file to write."
+    )
+    metrics_parser.add_argument(
+        "--output",
+        choices=["text", "json", "jsonl"],
+        default="text",
+        help="Human-readable text, machine-readable JSON envelope, or JSONL output.",
+    )
+    metrics_parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Allow writing to an existing output file without truncating it.",
+    )
+    metrics_parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Truncate an existing output file before writing results.",
+    )
+    metrics_parser.add_argument(
+        "--fail-if-exists",
+        action="store_true",
+        help="Fail if the target output path already exists.",
+    )
+    metrics_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Resolve inputs and write policy without computing metrics.",
+    )
+    metrics_parser.add_argument(
+        "--validate-only",
+        action="store_true",
+        help="Validate the declared contract without computing metrics.",
+    )
+    metrics_parser.add_argument(
+        "--manifest-path",
+        type=str,
+        help="Write the final JSON envelope to a manifest file.",
+    )
 
-    describe_parser = subparsers.add_parser("describe")
-    describe_parser.add_argument("target", choices=sorted(COMMAND_DESCRIPTIONS))
-    describe_parser.add_argument("--output", choices=["text", "json"], default="text")
+    describe_parser = subparsers.add_parser(
+        "describe",
+        help="Inspect structured metadata for a public Nuggetizer command.",
+    )
+    describe_parser.add_argument(
+        "target",
+        choices=sorted(COMMAND_DESCRIPTIONS),
+        help="Public command to describe.",
+    )
+    describe_parser.add_argument(
+        "--output",
+        choices=["text", "json"],
+        default="text",
+        help="Human-readable description or JSON envelope.",
+    )
 
-    schema_parser = subparsers.add_parser("schema")
-    schema_parser.add_argument("artifact", choices=sorted(SCHEMAS))
-    schema_parser.add_argument("--output", choices=["text", "json"], default="text")
+    schema_parser = subparsers.add_parser(
+        "schema",
+        help="Print JSON schemas for supported Nuggetizer inputs, outputs, and envelopes.",
+    )
+    schema_parser.add_argument(
+        "artifact", choices=sorted(SCHEMAS), help="Schema artifact to print."
+    )
+    schema_parser.add_argument(
+        "--output",
+        choices=["text", "json"],
+        default="text",
+        help="Human-readable schema or JSON envelope.",
+    )
 
-    doctor_parser = subparsers.add_parser("doctor")
-    doctor_parser.add_argument("--output", choices=["text", "json"], default="text")
+    doctor_parser = subparsers.add_parser(
+        "doctor",
+        help="Report environment and backend readiness for the packaged Nuggetizer CLI.",
+    )
+    doctor_parser.add_argument(
+        "--output",
+        choices=["text", "json"],
+        default="text",
+        help="Human-readable readiness report or JSON envelope.",
+    )
 
-    view_parser = subparsers.add_parser("view")
-    view_parser.add_argument("path", type=str)
-    view_parser.add_argument("--type", dest="artifact_type", type=str)
-    view_parser.add_argument("--records", type=int, default=3)
-    view_parser.add_argument("--nugget-limit", type=int, default=5)
+    view_parser = subparsers.add_parser(
+        "view",
+        help="Inspect an existing Nuggetizer artifact.",
+        description="Inspect an existing Nuggetizer artifact and render a stable summary.",
+    )
+    view_parser.add_argument("path", type=str, help="Artifact path to inspect.")
     view_parser.add_argument(
-        "--color", choices=["auto", "always", "never"], default="auto"
+        "--type",
+        dest="artifact_type",
+        type=str,
+        help="Explicit artifact type when automatic detection is ambiguous.",
     )
-    view_parser.add_argument("--output", choices=["text", "json"], default="text")
+    view_parser.add_argument(
+        "--records",
+        type=int,
+        default=3,
+        help="Number of records to sample in the inspection summary.",
+    )
+    view_parser.add_argument(
+        "--nugget-limit",
+        type=int,
+        default=5,
+        help="Maximum nuggets to show per sampled record.",
+    )
+    view_parser.add_argument(
+        "--color",
+        choices=["auto", "always", "never"],
+        default="auto",
+        help="Color policy for text-mode rendering.",
+    )
+    view_parser.add_argument(
+        "--output",
+        choices=["text", "json"],
+        default="text",
+        help="Human-readable summary or JSON envelope.",
+    )
 
-    validate_parser = subparsers.add_parser("validate")
-    validate_parser.add_argument("target", choices=["create", "assign"])
+    validate_parser = subparsers.add_parser(
+        "validate",
+        help="Validate direct JSON input or batch JSONL inputs without running models.",
+        description="Validate direct JSON input or batch JSONL inputs without running models.",
+    )
+    validate_parser.add_argument(
+        "target", choices=["create", "assign"], help="Validation target to inspect."
+    )
     validate_inputs = validate_parser.add_mutually_exclusive_group(required=True)
-    validate_inputs.add_argument("--input-file", type=str)
-    validate_inputs.add_argument("--stdin", action="store_true")
-    validate_inputs.add_argument("--input-json", type=str)
-    validate_inputs.add_argument("--contexts", type=str)
-    validate_parser.add_argument("--nuggets", type=str)
-    validate_parser.add_argument("--input-kind", choices=["answers", "retrieval"])
-    validate_parser.add_argument("--output-file", type=str)
-    validate_parser.add_argument("--output", choices=["text", "json"], default="text")
+    validate_inputs.add_argument(
+        "--input-file", type=str, help="Batch JSONL request file to validate."
+    )
+    validate_inputs.add_argument(
+        "--stdin",
+        action="store_true",
+        help="Read one direct JSON payload from standard input.",
+    )
+    validate_inputs.add_argument(
+        "--input-json", type=str, help="Direct JSON payload to validate."
+    )
+    validate_inputs.add_argument(
+        "--contexts", type=str, help="Batch contexts file to validate for assignment."
+    )
+    validate_parser.add_argument(
+        "--nuggets", type=str, help="Batch nuggets file to validate for assignment."
+    )
+    validate_parser.add_argument(
+        "--input-kind",
+        choices=["answers", "retrieval"],
+        help="Batch input type for assignment validation.",
+    )
+    validate_parser.add_argument(
+        "--output-file",
+        type=str,
+        help="Optional output path to validate for write-policy planning.",
+    )
+    validate_parser.add_argument(
+        "--output",
+        choices=["text", "json"],
+        default="text",
+        help="Human-readable validation summary or JSON envelope.",
+    )
 
     return parser
 
@@ -424,7 +799,7 @@ def _run_direct_create(args: argparse.Namespace) -> CommandResponse:
                 "input_mode": "direct",
                 "execution_mode": args.execution_mode,
             },
-            artifacts=[{"type": "inline_result", "data": direct_output}],
+            artifacts=[make_data_artifact("create-result", direct_output)],
             metrics={"nugget_count": len(direct_output["nuggets"])},
         )
 
@@ -484,7 +859,7 @@ def _run_direct_assign(args: argparse.Namespace) -> CommandResponse:
                 "assign_mode": "context",
                 "execution_mode": args.execution_mode,
             },
-            artifacts=[{"type": "inline_result", "data": direct_output}],
+            artifacts=[make_data_artifact("assign-result", direct_output)],
             metrics={"nugget_count": len(direct_output["nuggets"])},
         )
 
@@ -510,7 +885,7 @@ def _run_create_batch_command(args: argparse.Namespace) -> CommandResponse:
                 "execution_mode": args.execution_mode,
                 "write_policy": write_policy,
             },
-            artifacts=[{"path": output_path, "type": "jsonl"}],
+            artifacts=[make_file_artifact("create-output", output_path)],
             validation=validation,
             metrics={"record_count": validation["record_count"]},
         )
@@ -541,7 +916,7 @@ def _run_create_batch_command(args: argparse.Namespace) -> CommandResponse:
         "execution_mode": args.execution_mode,
         "write_policy": write_policy,
     }
-    response.artifacts = [{"path": output_path, "type": "jsonl"}]
+    response.artifacts = [make_file_artifact("create-output", output_path)]
     _write_manifest(args.manifest_path, response)
     return response
 
@@ -575,7 +950,7 @@ def _run_assign_batch_command(args: argparse.Namespace) -> CommandResponse:
                 "execution_mode": args.execution_mode,
                 "write_policy": write_policy,
             },
-            artifacts=[{"path": output_path, "type": "jsonl"}],
+            artifacts=[make_file_artifact("assign-output", output_path)],
             validation=validation,
             metrics=validation,
         )
@@ -638,7 +1013,7 @@ def _run_assign_batch_command(args: argparse.Namespace) -> CommandResponse:
         "execution_mode": args.execution_mode,
         "write_policy": write_policy,
     }
-    response.artifacts = [{"path": output_path, "type": "jsonl"}]
+    response.artifacts = [make_file_artifact("assign-output", output_path)]
     _write_manifest(args.manifest_path, response)
     return response
 
@@ -663,7 +1038,7 @@ def _run_assign_retrieval_alias(args: argparse.Namespace) -> CommandResponse:
                 "execution_mode": args.execution_mode,
                 "write_policy": write_policy,
             },
-            artifacts=[{"path": output_path, "type": "jsonl"}],
+            artifacts=[make_file_artifact("assign-output", output_path)],
             validation=validation,
             metrics=validation,
         )
@@ -695,7 +1070,7 @@ def _run_assign_retrieval_alias(args: argparse.Namespace) -> CommandResponse:
         "execution_mode": args.execution_mode,
         "write_policy": write_policy,
     }
-    response.artifacts = [{"path": output_path, "type": "jsonl"}]
+    response.artifacts = [make_file_artifact("assign-output", output_path)]
     _write_manifest(args.manifest_path, response)
     return response
 
@@ -716,7 +1091,7 @@ def _run_metrics_command(args: argparse.Namespace) -> CommandResponse:
                 "input_mode": "batch",
                 "write_policy": _resolve_write_policy(args),
             },
-            artifacts=[{"path": output_path, "type": "jsonl"}],
+            artifacts=[make_file_artifact("metrics-output", output_path)],
             validation={"valid": True, "record_count": len(input_records)},
             metrics={"record_count": len(input_records)},
         )
@@ -732,7 +1107,7 @@ def _run_metrics_command(args: argparse.Namespace) -> CommandResponse:
             "input_mode": "batch",
             "write_policy": _resolve_write_policy(args),
         },
-        artifacts=[{"path": output_path, "type": "jsonl"}],
+        artifacts=[make_file_artifact("metrics-output", output_path)],
         metrics={
             "record_count": len(processed_records),
             "global_metrics": global_metrics,
@@ -748,7 +1123,7 @@ def _run_describe_command(args: argparse.Namespace) -> CommandResponse:
         command="describe",
         inputs={"target": args.target},
         resolved={"target_command": args.target},
-        artifacts=[{"type": "inline_result", "data": description}],
+        artifacts=[make_data_artifact(args.target, description)],
     )
     if args.output == "text":
         sys.stdout.write(json.dumps(description, indent=2) + "\n")
@@ -761,7 +1136,7 @@ def _run_schema_command(args: argparse.Namespace) -> CommandResponse:
         command="schema",
         inputs={"artifact": args.artifact},
         resolved={"artifact": args.artifact},
-        artifacts=[{"type": "inline_result", "data": schema}],
+        artifacts=[make_data_artifact(args.artifact, schema)],
     )
     if args.output == "text":
         sys.stdout.write(json.dumps(schema, indent=2) + "\n")
@@ -813,7 +1188,7 @@ def _run_view_command(args: argparse.Namespace) -> CommandResponse:
             "nugget_limit": args.nugget_limit,
             "color": args.color,
         },
-        artifacts=[{"type": "inline_result", "data": view_summary}],
+        artifacts=[make_data_artifact("view-summary", view_summary)],
         metrics=view_summary["summary"],
     )
     if args.output == "text":

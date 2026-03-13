@@ -348,4 +348,4 @@ def test_calculate_metrics_script_writes_per_query_and_global_metrics(
     ]
 
     stdout = capsys.readouterr().out
-    assert "'qid': 'all'" in stdout
+    assert stdout == ""

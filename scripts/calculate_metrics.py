@@ -1,27 +1,20 @@
 #!/usr/bin/env python3
-import argparse
-import json
+from __future__ import annotations
 
-from nuggetizer.cli.operations import run_metrics
-from nuggetizer.cli.spec import METRICS_COMMAND
+import sys
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=METRICS_COMMAND.description)
-    parser.add_argument(
-        "--input_file", type=str, help="Path to input JSONL file with assignments"
-    )
-    parser.add_argument("--output_file", type=str, help="Path to output JSONL file")
-    args = parser.parse_args()
+def cli_compatible_main(argv: list[str] | None = None) -> int:
+    from nuggetizer.cli.main import main as cli_main
 
-    processed_records, global_metrics = run_metrics(args)
-
-    with open(args.output_file, "w", encoding="utf-8") as file_obj:
-        for record in processed_records:
-            file_obj.write(json.dumps(record) + "\n")
-        print(global_metrics)
-        file_obj.write(json.dumps(global_metrics) + "\n")
+    argv = sys.argv[1:] if argv is None else argv
+    translated = ["metrics"]
+    for token in argv:
+        translated.append(
+            f"--{token[2:].replace('_', '-')}" if token.startswith("--") else token
+        )
+    return cli_main(translated)
 
 
 if __name__ == "__main__":
-    main()
+    cli_compatible_main()

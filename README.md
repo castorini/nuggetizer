@@ -137,11 +137,21 @@ Inspect the CLI contract:
 ```bash
 nuggetizer describe assign --output json
 nuggetizer schema assign-output-answers --output json
+nuggetizer validate create --input-json '{"query":"q","candidates":["p"]}' --output json
 nuggetizer doctor --output json
+nuggetizer view assignments.jsonl --records 1
 ```
 
-Legacy `scripts/*.py` entrypoints are still supported as compatibility shims, but
-new automation and documentation should prefer `nuggetizer ...`.
+Legacy `scripts/*.py` entrypoints are still supported as compatibility wrappers
+around the packaged CLI, but new automation and documentation should prefer
+`nuggetizer ...`.
+
+### CLI For Automation
+
+- Use `--output json` for automation; that is the authoritative machine-readable interface.
+- `nuggetizer doctor --output json` reports command and backend readiness with explicit `ready`, `missing_env`, or `blocked` states.
+- `nuggetizer describe ...` and `nuggetizer schema ...` expose the supported command metadata and payload contracts without running models.
+- `nuggetizer validate ...` is non-mutating and returns a real pass or fail instead of performing any repair work.
 
 ## Contributing
 

@@ -76,6 +76,19 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
             "metrics-output",
         ],
     },
+    "describe": {
+        "summary": "Inspect structured metadata for a public Nuggetizer command.",
+    },
+    "schema": {
+        "summary": "Print JSON schemas for supported Nuggetizer inputs, outputs, and envelopes.",
+    },
+    "doctor": {
+        "summary": "Report environment and backend readiness for the packaged Nuggetizer CLI.",
+    },
+    "validate": {
+        "summary": "Validate direct JSON input or batch JSONL inputs without running models.",
+        "targets": ["create", "assign"],
+    },
 }
 
 
@@ -181,6 +194,17 @@ SCHEMAS: dict[str, dict[str, Any]] = {
         "type": "object",
         "required": ["path", "artifact_type", "summary", "sampled_records"],
     },
+    "doctor-output": {
+        "type": "object",
+        "required": [
+            "python_version",
+            "python_ok",
+            "env_file_present",
+            "backend_readiness",
+            "command_readiness",
+            "overall_status",
+        ],
+    },
     "cli-envelope": {
         "type": "object",
         "required": [
@@ -205,20 +229,73 @@ SCHEMAS: dict[str, dict[str, Any]] = {
 def doctor_report() -> dict[str, Any]:
     """Return a lightweight environment readiness report."""
     env_path = Path(".env")
+    python_ok = sys.version_info >= (3, 11)
+    openai_ready = bool(os.getenv("OPENAI_API_KEY") or os.getenv("OPEN_AI_API_KEY"))
+    openrouter_ready = bool(os.getenv("OPENROUTER_API_KEY"))
+    azure_ready = bool(
+        os.getenv("AZURE_OPENAI_API_BASE")
+        and os.getenv("AZURE_OPENAI_API_VERSION")
+        and os.getenv("AZURE_OPENAI_API_KEY")
+    )
+
+    def status(*, ready: bool, missing_env: list[str] | None = None) -> dict[str, Any]:
+        missing_env = missing_env or []
+        return {
+            "status": "ready"
+            if ready
+            else ("missing_env" if missing_env else "blocked"),
+            "missing_env": missing_env,
+            "missing_dependencies": [],
+        }
+
+    backend_readiness = {
+        "openai": status(
+            ready=python_ok and openai_ready,
+            missing_env=[] if openai_ready else ["OPENAI_API_KEY"],
+        ),
+        "openrouter": status(
+            ready=python_ok and openrouter_ready,
+            missing_env=[] if openrouter_ready else ["OPENROUTER_API_KEY"],
+        ),
+        "azure_openai": status(
+            ready=python_ok and azure_ready,
+            missing_env=[]
+            if azure_ready
+            else [
+                "AZURE_OPENAI_API_BASE",
+                "AZURE_OPENAI_API_VERSION",
+                "AZURE_OPENAI_API_KEY",
+            ],
+        ),
+        "vllm_local": status(ready=python_ok),
+    }
+    command_readiness = {
+        command: status(ready=python_ok)
+        for command in [
+            "create",
+            "assign",
+            "assign-retrieval",
+            "metrics",
+            "view",
+            "describe",
+            "schema",
+            "doctor",
+            "validate",
+        ]
+    }
     return {
         "python_version": sys.version.split()[0],
-        "python_ok": sys.version_info >= (3, 11),
+        "python_ok": python_ok,
         "package_importable": True,
         "env_file_present": env_path.exists(),
         "provider_keys": {
-            "openai": bool(os.getenv("OPENAI_API_KEY") or os.getenv("OPEN_AI_API_KEY")),
-            "openrouter": bool(os.getenv("OPENROUTER_API_KEY")),
-            "azure": bool(
-                os.getenv("AZURE_OPENAI_API_BASE")
-                and os.getenv("AZURE_OPENAI_API_VERSION")
-                and os.getenv("AZURE_OPENAI_API_KEY")
-            ),
+            "openai": openai_ready,
+            "openrouter": openrouter_ready,
+            "azure": azure_ready,
         },
+        "backend_readiness": backend_readiness,
+        "command_readiness": command_readiness,
+        "overall_status": "ready" if python_ok else "blocked",
     }
 
 

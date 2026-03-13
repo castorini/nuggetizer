@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from nuggetizer.cli.main import main
 from nuggetizer.core.types import AssignedScoredNugget, ScoredNugget, Trace
 from nuggetizer.models.nuggetizer import Nuggetizer
@@ -54,6 +56,8 @@ def test_direct_create_via_input_json(monkeypatch: Any, capsys: Any) -> None:
     assert output["schema_version"] == "castorini.cli.v1"
     assert output["command"] == "create"
     assert output["status"] == "success"
+    assert output["artifacts"][0]["kind"] == "data"
+    assert output["artifacts"][0]["name"] == "create-result"
     assert output["artifacts"][0]["data"] == {
         "query": "What is Python used for?",
         "nuggets": [
@@ -249,6 +253,19 @@ def test_doctor_returns_json_envelope(capsys: Any) -> None:
     output = json.loads(capsys.readouterr().out)
     assert output["command"] == "doctor"
     assert "python_version" in output["metrics"]
+    assert "backend_readiness" in output["metrics"]
+    assert "command_readiness" in output["metrics"]
+
+
+def test_top_level_help_includes_command_summaries(capsys: Any) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(["--help"])
+
+    assert exc_info.value.code == 0
+    stdout = capsys.readouterr().out
+    assert "Nuggetizer packaged CLI" in stdout
+    assert "create and score nuggets" in stdout.lower()
+    assert "inspect an existing nuggetizer artifact" in stdout.lower()
 
 
 def test_validate_create_batch_returns_json_envelope(
@@ -517,7 +534,10 @@ def test_view_create_output_returns_json_summary(tmp_path: Path, capsys: Any) ->
                 "query": "What is Python used for? " * 10,
                 "qid": "q1",
                 "nuggets": [
-                    {"text": "Python is used for web development.", "importance": "vital"},
+                    {
+                        "text": "Python is used for web development.",
+                        "importance": "vital",
+                    },
                     {"text": "Python is used for data analysis.", "importance": "okay"},
                 ],
             }
@@ -531,9 +551,10 @@ def test_view_create_output_returns_json_summary(tmp_path: Path, capsys: Any) ->
     assert output["command"] == "view"
     assert output["artifacts"][0]["data"]["artifact_type"] == "create-output"
     assert output["artifacts"][0]["data"]["summary"]["total_nuggets"] == 2
-    assert output["artifacts"][0]["data"]["sampled_records"][0]["query"] == (
-        "What is Python used for? " * 10
-    ).strip()
+    assert (
+        output["artifacts"][0]["data"]["sampled_records"][0]["query"]
+        == ("What is Python used for? " * 10).strip()
+    )
 
 
 def test_view_create_output_honors_nugget_limit(tmp_path: Path, capsys: Any) -> None:
@@ -545,7 +566,10 @@ def test_view_create_output_honors_nugget_limit(tmp_path: Path, capsys: Any) -> 
                 "query": "What is Python used for?",
                 "qid": "q1",
                 "nuggets": [
-                    {"text": "Python is used for web development.", "importance": "vital"},
+                    {
+                        "text": "Python is used for web development.",
+                        "importance": "vital",
+                    },
                     {"text": "Python is used for data analysis.", "importance": "okay"},
                 ],
             }
