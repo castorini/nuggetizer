@@ -128,8 +128,41 @@ def test_direct_create_text_output_prints_reasoning(
     assert exit_code == 0
     assert capsys.readouterr().out == (
         "vital: Python is used for web development.\n"
-        "reasoning: Scored as vital because it directly answers the query.\n"
+        "\n"
+        "Reasoning Trace 1: Scored as vital because it directly answers the query.\n"
     )
+
+
+def test_direct_create_json_output_aggregates_unique_reasoning_traces(
+    monkeypatch: Any, capsys: Any
+) -> None:
+    def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        del request
+        return [
+            ScoredNugget(text="A", importance="vital", reasoning="same trace"),
+            ScoredNugget(text="B", importance="okay", reasoning="same trace"),
+            ScoredNugget(text="C", importance="okay", reasoning="different trace"),
+        ]
+
+    monkeypatch.setattr(Nuggetizer, "create", fake_create)
+
+    exit_code = main(
+        [
+            "create",
+            "--input-json",
+            json.dumps({"query": "What is Python used for?", "candidates": ["c"]}),
+            "--include-reasoning",
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["artifacts"][0]["data"]["reasoning_traces"] == [
+        "same trace",
+        "different trace",
+    ]
 
 
 def test_direct_assign_via_input_json(monkeypatch: Any, capsys: Any) -> None:
@@ -185,6 +218,51 @@ def test_direct_assign_via_input_json(monkeypatch: Any, capsys: Any) -> None:
             }
         ],
     }
+
+
+def test_direct_assign_text_output_prints_unique_reasoning_traces(
+    monkeypatch: Any, capsys: Any
+) -> None:
+    def fake_assign(
+        self: Nuggetizer, query: str, context: str, nuggets: list[ScoredNugget]
+    ) -> list[AssignedScoredNugget]:
+        del query, context, nuggets
+        return [
+            AssignedScoredNugget(
+                text="A",
+                importance="vital",
+                assignment="support",
+                reasoning="same trace",
+            ),
+            AssignedScoredNugget(
+                text="B",
+                importance="okay",
+                assignment="partial_support",
+                reasoning="same trace",
+            ),
+        ]
+
+    monkeypatch.setattr(Nuggetizer, "assign", fake_assign)
+
+    exit_code = main(
+        [
+            "assign",
+            "--input-json",
+            json.dumps(
+                {
+                    "query": "What is Python used for?",
+                    "context": "Python is commonly used for web development.",
+                    "nuggets": [{"text": "n", "importance": "vital"}],
+                }
+            ),
+            "--include-reasoning",
+        ]
+    )
+
+    assert exit_code == 0
+    assert capsys.readouterr().out == (
+        "support: vital A\npartial_support: okay B\n\nReasoning Trace 1: same trace\n"
+    )
 
 
 def test_direct_assign_forwards_openrouter_and_reasoning_effort(

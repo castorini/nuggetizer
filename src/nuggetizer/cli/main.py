@@ -10,7 +10,11 @@ from typing import Any, NoReturn, Sequence, cast
 from nuggetizer.models.nuggetizer import Nuggetizer
 
 from .adapters_common import make_data_artifact, make_file_artifact
-from .adapters import request_from_create_record, serialize_nugget
+from .adapters import (
+    collect_reasoning_traces,
+    request_from_create_record,
+    serialize_nugget,
+)
 from .introspection import (
     COMMAND_DESCRIPTIONS,
     SCHEMAS,
@@ -247,6 +251,42 @@ def _read_direct_payload(args: argparse.Namespace) -> dict[str, Any]:
         error_code="missing_direct_input",
         command=args.command,
     )
+
+
+def _format_reasoning_traces(traces: list[str]) -> str:
+    return "\n".join(
+        f"Reasoning Trace {index}: {trace}"
+        for index, trace in enumerate(traces, start=1)
+    )
+
+
+def _format_direct_nugget_output(
+    nuggets: list[dict[str, Any]],
+    *,
+    include_reasoning: bool,
+    include_assignment: bool,
+) -> str:
+    lines: list[str] = []
+    for nugget in nuggets:
+        if include_assignment:
+            lines.append(
+                f"{nugget['assignment']}: {nugget['importance']} {nugget['text']}"
+            )
+        else:
+            lines.append(f"{nugget['importance']}: {nugget['text']}")
+    if include_reasoning:
+        reasoning_traces = []
+        seen: set[str] = set()
+        for nugget in nuggets:
+            reasoning = str(nugget.get("reasoning", "")).strip()
+            if not reasoning or reasoning in seen:
+                continue
+            seen.add(reasoning)
+            reasoning_traces.append(reasoning)
+        if reasoning_traces:
+            lines.append("")
+            lines.append(_format_reasoning_traces(reasoning_traces))
+    return "\n".join(lines)
 
 
 def build_parser() -> CLIArgumentParser:
@@ -822,6 +862,10 @@ def _run_direct_create(args: argparse.Namespace) -> CommandResponse:
             for nugget in scored_nuggets
         ],
     }
+    if args.include_reasoning:
+        reasoning_traces = collect_reasoning_traces(scored_nuggets)
+        if reasoning_traces:
+            direct_output["reasoning_traces"] = reasoning_traces
     if args.output == "json":
         return CommandResponse(
             command="create",
@@ -834,10 +878,14 @@ def _run_direct_create(args: argparse.Namespace) -> CommandResponse:
             metrics={"nugget_count": len(direct_output["nuggets"])},
         )
 
-    for nugget in cast(list[dict[str, str]], direct_output["nuggets"]):
-        sys.stdout.write(f"{nugget['importance']}: {nugget['text']}\n")
-        if args.include_reasoning and nugget.get("reasoning"):
-            sys.stdout.write(f"reasoning: {nugget['reasoning']}\n")
+    sys.stdout.write(
+        _format_direct_nugget_output(
+            cast(list[dict[str, Any]], direct_output["nuggets"]),
+            include_reasoning=args.include_reasoning,
+            include_assignment=False,
+        )
+        + "\n"
+    )
     return CommandResponse(command="create")
 
 
@@ -877,6 +925,10 @@ def _run_direct_assign(args: argparse.Namespace) -> CommandResponse:
             for nugget in assigned_nuggets
         ],
     }
+    if args.include_reasoning:
+        reasoning_traces = collect_reasoning_traces(assigned_nuggets)
+        if reasoning_traces:
+            direct_output["reasoning_traces"] = reasoning_traces
     if args.output == "json":
         return CommandResponse(
             command="assign",
@@ -890,10 +942,14 @@ def _run_direct_assign(args: argparse.Namespace) -> CommandResponse:
             metrics={"nugget_count": len(direct_output["nuggets"])},
         )
 
-    for nugget in cast(list[dict[str, str]], direct_output["nuggets"]):
-        sys.stdout.write(
-            f"{nugget['assignment']}: {nugget['importance']} {nugget['text']}\n"
+    sys.stdout.write(
+        _format_direct_nugget_output(
+            cast(list[dict[str, Any]], direct_output["nuggets"]),
+            include_reasoning=args.include_reasoning,
+            include_assignment=True,
         )
+        + "\n"
+    )
     return CommandResponse(command="assign")
 
 

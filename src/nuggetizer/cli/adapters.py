@@ -14,6 +14,21 @@ from nuggetizer.core.types import (
 from .validation import require_keys
 
 
+def collect_reasoning_traces(
+    nuggets: Sequence[ScoredNugget | AssignedScoredNugget],
+) -> list[str]:
+    """Return de-duplicated reasoning traces in first-seen order."""
+    traces: list[str] = []
+    seen: set[str] = set()
+    for nugget in nuggets:
+        reasoning = (nugget.reasoning or "").strip()
+        if not reasoning or reasoning in seen:
+            continue
+        seen.add(reasoning)
+        traces.append(reasoning)
+    return traces
+
+
 def request_from_create_record(record: dict[str, Any]) -> Request:
     """Convert a batch create record into a Request object."""
     require_keys(record, ["query", "candidates"])
@@ -47,7 +62,7 @@ def create_output_record(
     redact_prompts: bool = False,
 ) -> dict[str, Any]:
     """Serialize create output in the legacy JSONL schema."""
-    return {
+    output = {
         "query": request.query.text,
         "qid": request.query.qid,
         "nuggets": [
@@ -60,6 +75,11 @@ def create_output_record(
             for nugget in scored_nuggets
         ],
     }
+    if include_reasoning:
+        reasoning_traces = collect_reasoning_traces(scored_nuggets)
+        if reasoning_traces:
+            output["reasoning_traces"] = reasoning_traces
+    return output
 
 
 def assign_answer_output_record(
@@ -74,7 +94,7 @@ def assign_answer_output_record(
 ) -> dict[str, Any]:
     """Serialize answer assignment output in the legacy JSONL schema."""
     answer_text = " ".join(answer["text"] for answer in answer_record["answer"])
-    return {
+    output = {
         "query": nugget_record["query"],
         "qid": nugget_record["qid"],
         "answer_text": answer_text,
@@ -90,6 +110,11 @@ def assign_answer_output_record(
             for nugget in assigned_nuggets
         ],
     }
+    if include_reasoning:
+        reasoning_traces = collect_reasoning_traces(assigned_nuggets)
+        if reasoning_traces:
+            output["reasoning_traces"] = reasoning_traces
+    return output
 
 
 def assign_retrieval_output_record(
@@ -102,7 +127,7 @@ def assign_retrieval_output_record(
     redact_prompts: bool = False,
 ) -> dict[str, Any]:
     """Serialize retrieval assignment output in the legacy JSONL schema."""
-    return {
+    output = {
         "text": nugget_record["query"],
         "qid": nugget_record["qid"],
         "candidate_text": candidate["doc"]["segment"],
@@ -117,6 +142,11 @@ def assign_retrieval_output_record(
             for nugget in assigned_nuggets
         ],
     }
+    if include_reasoning:
+        reasoning_traces = collect_reasoning_traces(assigned_nuggets)
+        if reasoning_traces:
+            output["reasoning_traces"] = reasoning_traces
+    return output
 
 
 def serialize_nugget(
