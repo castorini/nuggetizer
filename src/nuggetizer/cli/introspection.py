@@ -63,6 +63,19 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
             "nuggetizer metrics --input-file assignments.jsonl --output-file metrics.jsonl"
         ],
     },
+    "view": {
+        "summary": "Inspect Nuggetizer artifact files with a human-readable preview.",
+        "examples": [
+            "nuggetizer view nuggets.jsonl",
+            "nuggetizer view assignments.jsonl --records 1",
+        ],
+        "supported_types": [
+            "create-output",
+            "assign-output-answers",
+            "assign-output-retrieval",
+            "metrics-output",
+        ],
+    },
 }
 
 
@@ -163,6 +176,10 @@ SCHEMAS: dict[str, dict[str, Any]] = {
             "vital_score",
             "all_score",
         ],
+    },
+    "view-summary": {
+        "type": "object",
+        "required": ["path", "artifact_type", "summary", "sampled_records"],
     },
     "cli-envelope": {
         "type": "object",
