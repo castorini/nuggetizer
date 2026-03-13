@@ -59,7 +59,7 @@ uv run pre-commit run --all-files
 
 Create a `.env` file with your API credentials. Nuggetizer supports multiple API providers:
 
-**Azure OpenAI (default for GPT models):**
+**Azure OpenAI (optional, enable explicitly with `use_azure_openai=True` or `--use-azure-openai`):**
 ```bash
 AZURE_OPENAI_API_BASE=your_azure_endpoint
 AZURE_OPENAI_API_VERSION=your_api_version
