@@ -10,6 +10,8 @@ dist/
 *.pyc
 *.pyo
 *.pyd
+**/*.py[cod]
+**/*$py.class
 
 # Remove all egg-info folders
 */egg-info/
@@ -22,6 +24,27 @@ src/nuggetizer.egg-info/
 .cursor/
 
 .pyre/
+**/.pyre/
 .ruff_cache/
+**/.ruff_cache/
+.mypy_cache/
+**/.mypy_cache/
+.pytest_cache/
+**/.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+build/
+.venv/
+**/.venv/
+venv/
+**/venv/
+env/
+**/env/
+ENV/
+**/ENV/
+.env.*
+**/.env
+**/.env.*
 notebooks/
 uv.lock
