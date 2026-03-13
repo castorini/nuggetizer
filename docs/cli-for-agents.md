@@ -4,6 +4,9 @@
 Use it in preference to `scripts/*.py`. If the virtual environment is not
 activated, the development fallback is `uv run nuggetizer ...`.
 
+`nuggetizer view` renders an existing output artifact for humans after the main
+pipeline command has finished writing it.
+
 ## Command Mapping
 
 Old:
@@ -91,6 +94,14 @@ Validate a create input file before execution:
 
 ```bash
 nuggetizer validate create --input-file pool.jsonl --output json
+```
+
+View existing create, assign, or metrics artifacts:
+
+```bash
+nuggetizer view nuggets.jsonl
+nuggetizer view assignments.jsonl --records 1
+nuggetizer view metrics.jsonl
 ```
 
 ## Failure Example

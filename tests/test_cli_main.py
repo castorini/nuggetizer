@@ -211,7 +211,7 @@ def test_missing_command_returns_descriptive_text_error(capsys: Any) -> None:
     captured = capsys.readouterr()
     assert "No command provided." in captured.err
     assert (
-        "create, assign, assign-retrieval, metrics, describe, schema, doctor, validate"
+        "create, assign, assign-retrieval, metrics, view, describe, schema, doctor, validate"
         in captured.err
     )
     assert (
@@ -506,3 +506,125 @@ def test_batch_assign_dry_run_returns_counts_without_writing(
     assert output["mode"] == "dry-run"
     assert output["validation"]["nugget_record_count"] == 1
     assert not output_path.exists()
+
+
+def test_view_create_output_returns_json_summary(tmp_path: Path, capsys: Any) -> None:
+    path = tmp_path / "nuggets.jsonl"
+    write_jsonl(
+        path,
+        [
+            {
+                "query": "What is Python used for? " * 10,
+                "qid": "q1",
+                "nuggets": [
+                    {"text": "Python is used for web development.", "importance": "vital"},
+                    {"text": "Python is used for data analysis.", "importance": "okay"},
+                ],
+            }
+        ],
+    )
+
+    exit_code = main(["view", str(path), "--records", "1", "--output", "json"])
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["command"] == "view"
+    assert output["artifacts"][0]["data"]["artifact_type"] == "create-output"
+    assert output["artifacts"][0]["data"]["summary"]["total_nuggets"] == 2
+    assert output["artifacts"][0]["data"]["sampled_records"][0]["query"].endswith("...")
+
+
+def test_view_assign_answers_text_renders_assignments(
+    tmp_path: Path, capsys: Any
+) -> None:
+    path = tmp_path / "assignments.jsonl"
+    write_jsonl(
+        path,
+        [
+            {
+                "query": "What is Python used for?",
+                "qid": "q1",
+                "answer_text": "Python is used for web development and data analysis.",
+                "response_length": 12,
+                "run_id": "demo-run",
+                "nuggets": [
+                    {
+                        "text": "Python is used for web development.",
+                        "importance": "vital",
+                        "assignment": "support",
+                    },
+                    {
+                        "text": "Python is used for data analysis.",
+                        "importance": "okay",
+                        "assignment": "partial_support",
+                    },
+                ],
+            }
+        ],
+    )
+
+    exit_code = main(["view", str(path), "--color", "never"])
+
+    assert exit_code == 0
+    stdout = capsys.readouterr().out
+    assert "Nuggetizer View" in stdout
+    assert "run_ids: demo-run" in stdout
+    assert "assignments: support=1, partial_support=1, not_support=0" in stdout
+
+
+def test_view_metrics_output_reports_global_metrics(
+    tmp_path: Path, capsys: Any
+) -> None:
+    path = tmp_path / "metrics.jsonl"
+    write_jsonl(
+        path,
+        [
+            {
+                "qid": "q1",
+                "strict_vital_score": 1.0,
+                "strict_all_score": 0.5,
+                "vital_score": 1.0,
+                "all_score": 0.75,
+            },
+            {
+                "qid": "all",
+                "strict_vital_score": 1.0,
+                "strict_all_score": 0.5,
+                "vital_score": 1.0,
+                "all_score": 0.75,
+            },
+        ],
+    )
+
+    exit_code = main(["view", str(path), "--output", "json"])
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["artifacts"][0]["data"]["artifact_type"] == "metrics-output"
+    assert output["artifacts"][0]["data"]["summary"]["record_count"] == 1
+    assert output["artifacts"][0]["data"]["summary"]["has_global_metrics"] is True
+    assert output["artifacts"][0]["data"]["summary"]["global_metrics"]["qid"] == "all"
+
+
+def test_view_empty_file_returns_json_error(tmp_path: Path, capsys: Any) -> None:
+    path = tmp_path / "empty.jsonl"
+    path.write_text("", encoding="utf-8")
+
+    exit_code = main(["view", str(path), "--output", "json"])
+
+    assert exit_code == 5
+    output = json.loads(capsys.readouterr().out)
+    assert output["command"] == "view"
+    assert output["errors"][0]["code"] == "invalid_view_input"
+
+
+def test_view_malformed_file_returns_json_error(tmp_path: Path, capsys: Any) -> None:
+    path = tmp_path / "broken.jsonl"
+    path.write_text("{not-json}\n", encoding="utf-8")
+
+    exit_code = main(["view", str(path), "--output", "json"])
+
+    assert exit_code == 5
+    output = json.loads(capsys.readouterr().out)
+    assert output["command"] == "view"
+    assert output["errors"][0]["code"] == "invalid_view_input"
