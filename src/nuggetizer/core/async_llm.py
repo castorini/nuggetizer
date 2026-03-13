@@ -131,6 +131,41 @@ class AsyncLLMHandler:
         else:
             raise ValueError(f"Invalid API type: {api_type}")
 
+    def _build_reasoning_params(self) -> Dict[str, Any]:
+        """Build provider-specific reasoning request parameters."""
+        if self.reasoning_effort is None:
+            return {}
+        if hasattr(self.client, "base_url") and "openrouter.ai" in str(
+            self.client.base_url
+        ):
+            return {
+                "reasoning": {
+                    "effort": self.reasoning_effort,
+                    "exclude": False,
+                }
+            }
+        return {"reasoning_effort": self.reasoning_effort}
+
+    @staticmethod
+    def _extract_reasoning_content(message: Any) -> Optional[str]:
+        """Extract reasoning text from common OpenAI-compatible response shapes."""
+        if hasattr(message, "reasoning") and message.reasoning:
+            return str(message.reasoning)
+        if hasattr(message, "reasoning_content") and message.reasoning_content:
+            return str(message.reasoning_content)
+        if isinstance(message, dict):
+            if "reasoning" in message and message["reasoning"]:
+                return str(message["reasoning"])
+            if "reasoning_content" in message and message["reasoning_content"]:
+                return str(message["reasoning_content"])
+        model_extra = getattr(message, "model_extra", None)
+        if isinstance(model_extra, dict):
+            if "reasoning" in model_extra and model_extra["reasoning"]:
+                return str(model_extra["reasoning"])
+            if "reasoning_content" in model_extra and model_extra["reasoning_content"]:
+                return str(model_extra["reasoning_content"])
+        return None
+
     async def run(
         self, messages: List[Dict[str, str]], temperature: float = 0
     ) -> Tuple[str, int, Optional[Dict[str, Any]], Optional[str]]:
@@ -163,38 +198,15 @@ class AsyncLLMHandler:
                     "max_completion_tokens": 2048,
                     "timeout": 30,
                 }
-                if self.reasoning_effort is not None:
-                    completion_params["reasoning_effort"] = self.reasoning_effort
+                completion_params.update(self._build_reasoning_params())
                 completion = await self.client.chat.completions.create(
                     **completion_params
                 )
                 response = completion.choices[0].message.content
 
                 # Extract reasoning content if available
-                reasoning_content = None
                 message = completion.choices[0].message
-                # Check for reasoning field in the message
-                if hasattr(message, "reasoning") and message.reasoning:
-                    reasoning_content = message.reasoning
-                elif (
-                    hasattr(message, "reasoning_content") and message.reasoning_content
-                ):
-                    reasoning_content = message.reasoning_content
-                # Also check if it's a dict with reasoning field
-                elif (
-                    isinstance(message, dict)
-                    and "reasoning" in message
-                    and message["reasoning"]
-                ):
-                    reasoning_content = message["reasoning"]
-                elif (
-                    isinstance(message, dict)
-                    and "reasoning_content" in message
-                    and message["reasoning_content"]
-                ):
-                    reasoning_content = message["reasoning_content"]
-                else:
-                    pass
+                reasoning_content = self._extract_reasoning_content(message)
 
                 # Handle None response
                 if response is None:

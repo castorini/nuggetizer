@@ -836,6 +836,8 @@ def _run_direct_create(args: argparse.Namespace) -> CommandResponse:
 
     for nugget in cast(list[dict[str, str]], direct_output["nuggets"]):
         sys.stdout.write(f"{nugget['importance']}: {nugget['text']}\n")
+        if args.include_reasoning and nugget.get("reasoning"):
+            sys.stdout.write(f"reasoning: {nugget['reasoning']}\n")
     return CommandResponse(command="create")
 
 

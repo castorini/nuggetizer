@@ -101,6 +101,37 @@ def test_direct_create_forwards_openrouter_and_reasoning_effort(
     assert captured_kwargs["reasoning_effort"] == "minimal"
 
 
+def test_direct_create_text_output_prints_reasoning(
+    monkeypatch: Any, capsys: Any
+) -> None:
+    def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        del request
+        return [
+            ScoredNugget(
+                text="Python is used for web development.",
+                importance="vital",
+                reasoning="Scored as vital because it directly answers the query.",
+            )
+        ]
+
+    monkeypatch.setattr(Nuggetizer, "create", fake_create)
+
+    exit_code = main(
+        [
+            "create",
+            "--input-json",
+            json.dumps({"query": "What is Python used for?", "candidates": ["c"]}),
+            "--include-reasoning",
+        ]
+    )
+
+    assert exit_code == 0
+    assert capsys.readouterr().out == (
+        "vital: Python is used for web development.\n"
+        "reasoning: Scored as vital because it directly answers the query.\n"
+    )
+
+
 def test_direct_assign_via_input_json(monkeypatch: Any, capsys: Any) -> None:
     def fake_assign(
         self: Nuggetizer, query: str, context: str, nuggets: list[ScoredNugget]
