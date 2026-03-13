@@ -52,10 +52,8 @@ def _style(text: str, color: str, enabled: bool) -> str:
 
 
 def _truncate(text: str, limit: int = 140) -> str:
-    cleaned = " ".join(text.split())
-    if len(cleaned) <= limit:
-        return cleaned
-    return f"{cleaned[: limit - 3]}..."
+    del limit
+    return " ".join(text.split())
 
 
 def load_records(path: str) -> list[dict[str, Any]]:
@@ -130,9 +128,15 @@ def _assignment_counts(nuggets: list[dict[str, Any]]) -> dict[str, int]:
 
 
 def build_view_summary(
-    path: str, records: list[dict[str, Any]], artifact_type: str, *, record_limit: int
+    path: str,
+    records: list[dict[str, Any]],
+    artifact_type: str,
+    *,
+    record_limit: int,
+    nugget_limit: int | None = 5,
 ) -> dict[str, Any]:
     limit = max(record_limit, 0)
+    per_record_nugget_limit = None if nugget_limit is None else max(nugget_limit, 0)
     sampled_records: list[dict[str, Any]] = []
     summary: dict[str, Any] = {"record_count": len(records)}
 
@@ -149,7 +153,7 @@ def build_view_summary(
                             "text": _truncate(str(nugget.get("text", "")), 120),
                             "importance": nugget.get("importance"),
                         }
-                        for nugget in record["nuggets"][:5]
+                        for nugget in record["nuggets"][:per_record_nugget_limit]
                     ],
                 }
             )
@@ -170,7 +174,7 @@ def build_view_summary(
                             "importance": nugget.get("importance"),
                             "assignment": nugget.get("assignment"),
                         }
-                        for nugget in record["nuggets"][:5]
+                        for nugget in record["nuggets"][:per_record_nugget_limit]
                     ],
                 }
             )
@@ -189,7 +193,7 @@ def build_view_summary(
                             "importance": nugget.get("importance"),
                             "assignment": nugget.get("assignment"),
                         }
-                        for nugget in record["nuggets"][:5]
+                        for nugget in record["nuggets"][:per_record_nugget_limit]
                     ],
                 }
             )

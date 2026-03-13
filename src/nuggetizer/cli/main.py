@@ -362,6 +362,7 @@ def build_parser() -> CLIArgumentParser:
     view_parser.add_argument("path", type=str)
     view_parser.add_argument("--type", dest="artifact_type", type=str)
     view_parser.add_argument("--records", type=int, default=3)
+    view_parser.add_argument("--nugget-limit", type=int, default=5)
     view_parser.add_argument(
         "--color", choices=["auto", "always", "never"], default="auto"
     )
@@ -796,7 +797,11 @@ def _run_view_command(args: argparse.Namespace) -> CommandResponse:
         ) from error
 
     view_summary = build_view_summary(
-        args.path, records, artifact_type, record_limit=args.records
+        args.path,
+        records,
+        artifact_type,
+        record_limit=args.records,
+        nugget_limit=args.nugget_limit,
     )
     response = CommandResponse(
         command="view",
@@ -805,6 +810,7 @@ def _run_view_command(args: argparse.Namespace) -> CommandResponse:
         resolved={
             "artifact_type": artifact_type,
             "records": args.records,
+            "nugget_limit": args.nugget_limit,
             "color": args.color,
         },
         artifacts=[{"type": "inline_result", "data": view_summary}],

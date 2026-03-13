@@ -531,7 +531,34 @@ def test_view_create_output_returns_json_summary(tmp_path: Path, capsys: Any) ->
     assert output["command"] == "view"
     assert output["artifacts"][0]["data"]["artifact_type"] == "create-output"
     assert output["artifacts"][0]["data"]["summary"]["total_nuggets"] == 2
-    assert output["artifacts"][0]["data"]["sampled_records"][0]["query"].endswith("...")
+    assert output["artifacts"][0]["data"]["sampled_records"][0]["query"] == (
+        "What is Python used for? " * 10
+    ).strip()
+
+
+def test_view_create_output_honors_nugget_limit(tmp_path: Path, capsys: Any) -> None:
+    path = tmp_path / "nuggets.jsonl"
+    write_jsonl(
+        path,
+        [
+            {
+                "query": "What is Python used for?",
+                "qid": "q1",
+                "nuggets": [
+                    {"text": "Python is used for web development.", "importance": "vital"},
+                    {"text": "Python is used for data analysis.", "importance": "okay"},
+                ],
+            }
+        ],
+    )
+
+    exit_code = main(
+        ["view", str(path), "--records", "1", "--nugget-limit", "1", "--output", "json"]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert len(output["artifacts"][0]["data"]["sampled_records"][0]["nuggets"]) == 1
 
 
 def test_view_assign_answers_text_renders_assignments(
