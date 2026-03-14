@@ -8,7 +8,7 @@ def cli_compatible_main(argv: list[str] | None = None) -> int:
     from nuggetizer.cli.main import main as cli_main
 
     argv = sys.argv[1:] if argv is None else argv
-    translated = ["assign-retrieval"]
+    translated = ["assign", "--input-kind", "retrieval"]
     rename_map = {
         "--nugget_file": "--nuggets",
         "--retrieve_results_file": "--contexts",

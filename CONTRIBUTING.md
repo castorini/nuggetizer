@@ -42,7 +42,7 @@ The pre-commit hooks are the canonical lint, format, and type-check entrypoint f
 
 ## Prompt, Schema, and Pipeline Safety
 
-- Do not silently change JSONL schemas emitted by `create`, `assign`, `assign-retrieval`, or `metrics`.
+- Do not silently change JSONL schemas emitted by `create`, `assign`, `assign`, or `metrics`.
 - Preserve the canonical `nuggetizer` CLI interface and legacy script compatibility shims unless the pull request explicitly documents a migration.
 - When editing prompt templates, verify that the loader paths and expected label semantics still match the code paths that consume them.
 - Preserve provider fallback and retry behavior unless the pull request is intentionally redesigning those paths.

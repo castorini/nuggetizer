@@ -241,6 +241,13 @@ The default `examples/pipeline_demo.py` uses the async Nuggetizer pipeline. If y
 python3 examples/sync_pipeline_demo.py
 ```
 
+For an opt-in live smoke test that exercises the packaged CLI against a real
+OpenAI-compatible backend, run:
+
+```bash
+NUGGETIZER_LIVE_OPENAI_SMOKE=1 uv run pytest tests/test_live_openai_smoke.py
+```
+
 **Running with OpenRouter API:**
 You can use OpenRouter API to access multiple model providers:
 ```bash
@@ -371,8 +378,7 @@ nuggetizer assign \
 ```
 
 Compatibility note:
-`nuggetizer assign-retrieval ...` and the older `scripts/*.py` entrypoints still
-work, but they are aliases or shims around the same packaged implementation.
+The older `scripts/*.py` entrypoints still work as thin wrappers around the packaged CLI.
 
 The final output file (`final_assignments.jsonl`) will contain:
 - query: The original query

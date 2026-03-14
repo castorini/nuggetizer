@@ -55,7 +55,6 @@ RUNTIME_EXIT_CODE = 6
 KNOWN_COMMANDS = (
     "create",
     "assign",
-    "assign-retrieval",
     "metrics",
     "view",
     "describe",
@@ -567,112 +566,6 @@ def build_parser() -> CLIArgumentParser:
         help="Write the final JSON envelope to a manifest file.",
     )
 
-    assign_retrieval_parser = subparsers.add_parser(
-        "assign-retrieval",
-        help="Compatibility wrapper for retrieval-style nugget assignment.",
-        description="Compatibility wrapper for retrieval-style nugget assignment. Prefer `nuggetizer assign --input-kind retrieval` for new automation.",
-    )
-    assign_retrieval_parser.add_argument(
-        "--nuggets",
-        required=True,
-        type=str,
-        help="Batch nugget JSONL file aligned by query identifier.",
-    )
-    assign_retrieval_parser.add_argument(
-        "--contexts",
-        required=True,
-        type=str,
-        help="Batch retrieval-results JSONL file.",
-    )
-    assign_retrieval_parser.add_argument(
-        "--output-file",
-        required=True,
-        type=str,
-        help="Output JSONL path for retrieval assignment.",
-    )
-    assign_retrieval_parser.add_argument(
-        "--output",
-        choices=["text", "json", "jsonl"],
-        default="text",
-        help="Human-readable text, machine-readable JSON envelope, or JSONL output.",
-    )
-    assign_retrieval_parser.add_argument(
-        "--model", type=str, default="gpt-4o", help="Model used for nugget assignment."
-    )
-    assign_retrieval_parser.add_argument(
-        "--execution-mode",
-        choices=["sync", "async"],
-        default="sync",
-        help="Execution mode for retrieval assignment.",
-    )
-    assign_retrieval_parser.add_argument(
-        "--log-level",
-        type=int,
-        default=0,
-        choices=[0, 1, 2],
-        help="Logging verbosity: 0=warnings, 1=info, 2=debug.",
-    )
-    assign_retrieval_parser.add_argument(
-        "--use-azure-openai",
-        action="store_true",
-        help="Use Azure OpenAI environment settings for OpenAI-compatible requests.",
-    )
-    assign_retrieval_parser.add_argument(
-        "--use-openrouter",
-        action="store_true",
-        help="Use OpenRouter for OpenAI-compatible requests.",
-    )
-    assign_retrieval_parser.add_argument(
-        "--reasoning-effort",
-        choices=["none", "minimal", "low", "medium", "high", "xhigh"],
-        help="Reasoning effort for OpenAI-compatible models that support it.",
-    )
-    assign_retrieval_parser.add_argument(
-        "--resume",
-        action="store_true",
-        help="Allow appending to an existing output file without truncating it.",
-    )
-    assign_retrieval_parser.add_argument(
-        "--overwrite",
-        action="store_true",
-        help="Truncate an existing output file before writing results.",
-    )
-    assign_retrieval_parser.add_argument(
-        "--fail-if-exists",
-        action="store_true",
-        help="Fail if the target output path already exists.",
-    )
-    assign_retrieval_parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Resolve inputs and write policy without running models.",
-    )
-    assign_retrieval_parser.add_argument(
-        "--validate-only",
-        action="store_true",
-        help="Validate the declared contract without running models.",
-    )
-    assign_retrieval_parser.add_argument(
-        "--include-trace",
-        action="store_true",
-        help="Include model trace details in emitted results where available.",
-    )
-    assign_retrieval_parser.add_argument(
-        "--include-reasoning",
-        action="store_true",
-        help="Include model reasoning fields in emitted results where available.",
-    )
-    assign_retrieval_parser.add_argument(
-        "--redact-prompts",
-        action="store_true",
-        help="Redact prompt content from emitted trace fields.",
-    )
-    assign_retrieval_parser.add_argument(
-        "--manifest-path",
-        type=str,
-        help="Write the final JSON envelope to a manifest file.",
-    )
-
     metrics_parser = subparsers.add_parser(
         "metrics",
         help="Calculate per-query and global nugget metrics from assignment JSONL.",
@@ -1138,65 +1031,6 @@ def _run_assign_batch_command(args: argparse.Namespace) -> CommandResponse:
     return response
 
 
-def _run_assign_retrieval_alias(args: argparse.Namespace) -> CommandResponse:
-    _ensure_file_exists(args.nuggets, command="assign-retrieval", field_name="nuggets")
-    _ensure_file_exists(
-        args.contexts, command="assign-retrieval", field_name="contexts"
-    )
-    output_path = _prepare_output_path(args, command="assign-retrieval")
-    write_policy = _resolve_write_policy(args)
-    validation = validate_assign_batch_files(args.nuggets, args.contexts)
-    if args.validate_only or args.dry_run:
-        return CommandResponse(
-            command="assign-retrieval",
-            mode="validate" if args.validate_only else "dry-run",
-            inputs={"nuggets": args.nuggets, "contexts": args.contexts},
-            resolved={
-                "input_mode": "batch",
-                "assign_mode": "retrieval",
-                "alias_for": "assign",
-                "execution_mode": args.execution_mode,
-                "write_policy": write_policy,
-            },
-            artifacts=[make_file_artifact("assign-output", output_path)],
-            validation=validation,
-            metrics=validation,
-        )
-    compat_args = argparse.Namespace(
-        nugget_file=args.nuggets,
-        retrieve_results_file=args.contexts,
-        output_file=output_path,
-        model=args.model,
-        log_level=args.log_level,
-        use_azure_openai=args.use_azure_openai,
-        use_openrouter=args.use_openrouter,
-        reasoning_effort=args.reasoning_effort,
-        include_trace=args.include_trace,
-        include_reasoning=args.include_reasoning,
-        redact_prompts=args.redact_prompts,
-    )
-    if args.execution_mode == "async":
-        response = asyncio.run(
-            async_run_assign_retrieval_batch(compat_args, setup_logging(args.log_level))
-        )
-    else:
-        response = run_assign_retrieval_batch(
-            compat_args, setup_logging(args.log_level)
-        )
-    response.command = "assign-retrieval"
-    response.inputs = {"nuggets": args.nuggets, "contexts": args.contexts}
-    response.resolved = {
-        "input_mode": "batch",
-        "assign_mode": "retrieval",
-        "alias_for": "assign",
-        "execution_mode": args.execution_mode,
-        "write_policy": write_policy,
-    }
-    response.artifacts = [make_file_artifact("assign-output", output_path)]
-    _write_manifest(args.manifest_path, response)
-    return response
-
-
 def _run_metrics_command(args: argparse.Namespace) -> CommandResponse:
     _ensure_file_exists(args.input_file, command="metrics", field_name="input_file")
     output_path = _prepare_output_path(args, command="metrics")
@@ -1387,8 +1221,6 @@ def _run_command(args: argparse.Namespace) -> CommandResponse:
         if args.contexts is not None:
             return _run_assign_batch_command(args)
         return _run_direct_assign(args)
-    if args.command == "assign-retrieval":
-        return _run_assign_retrieval_alias(args)
     if args.command == "metrics":
         return _run_metrics_command(args)
     if args.command == "describe":

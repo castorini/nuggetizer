@@ -387,7 +387,9 @@ def test_batch_assign_retrieval_alias_uses_same_flow(
 
     exit_code = main(
         [
-            "assign-retrieval",
+            "assign",
+            "--input-kind",
+            "retrieval",
             "--nuggets",
             str(nugget_path),
             "--contexts",
@@ -430,7 +432,7 @@ def test_missing_command_returns_descriptive_text_error(capsys: Any) -> None:
     captured = capsys.readouterr()
     assert "No command provided." in captured.err
     assert (
-        "create, assign, assign-retrieval, metrics, view, describe, schema, doctor, validate"
+        "create, assign, metrics, view, describe, schema, doctor, validate"
         in captured.err
     )
     assert (

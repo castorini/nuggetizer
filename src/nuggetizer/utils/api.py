@@ -6,8 +6,7 @@ from dotenv import load_dotenv
 
 def get_openai_api_key() -> Optional[str]:
     load_dotenv(dotenv_path=".env")
-    openai_api_key = os.getenv("OPENAI_API_KEY") or os.getenv("OPEN_AI_API_KEY")
-    return openai_api_key
+    return os.getenv("OPENAI_API_KEY") or None
 
 
 def get_azure_openai_args() -> Dict[str, Optional[str]]:
@@ -44,8 +43,7 @@ def get_anyscale_api_key() -> Optional[str]:
 
 def get_openrouter_api_key() -> Optional[str]:
     load_dotenv(dotenv_path=".env")
-    openrouter_api_key = os.getenv("OPENROUTER_API_KEY")
-    return openrouter_api_key
+    return os.getenv("OPENROUTER_API_KEY") or None
 
 
 def get_vllm_api_key() -> Optional[str]:

@@ -17,10 +17,6 @@ CREATE_COMMAND = CommandSpec(
 ASSIGN_COMMAND = CommandSpec(
     name="assign", description="Assign nuggets to answer text from input JSONL files"
 )
-ASSIGN_RETRIEVAL_COMMAND = CommandSpec(
-    name="assign-retrieval",
-    description="Assign nuggets to retrieved candidate segments",
-)
 METRICS_COMMAND = CommandSpec(
     name="metrics", description="Calculate metrics for nugget assignments"
 )

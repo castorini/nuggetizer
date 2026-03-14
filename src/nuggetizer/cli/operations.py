@@ -249,7 +249,7 @@ def run_assign_retrieval_batch(args: Any, logger: logging.Logger) -> CommandResp
                     failed_count += 1
 
     return CommandResponse(
-        command="assign-retrieval",
+        command="assign",
         metrics={
             "assigned_records": assigned_count,
             "skipped_records": skipped_count,
@@ -428,7 +428,7 @@ async def async_run_assign_retrieval_batch(
                     failed_count += 1
 
     return CommandResponse(
-        command="assign-retrieval",
+        command="assign",
         metrics={
             "assigned_records": assigned_count,
             "skipped_records": skipped_count,

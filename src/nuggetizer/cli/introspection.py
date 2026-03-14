@@ -52,7 +52,7 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
             },
         },
         "batch_input_kinds": ["answers", "retrieval"],
-        "legacy_mappings": [
+        "script_wrappers": [
             "scripts/assign_nuggets.py",
             "scripts/assign_nuggets_retrieve_results.py",
         ],
@@ -230,7 +230,7 @@ def doctor_report() -> dict[str, Any]:
     """Return a lightweight environment readiness report."""
     env_path = Path(".env")
     python_ok = sys.version_info >= (3, 11)
-    openai_ready = bool(os.getenv("OPENAI_API_KEY") or os.getenv("OPEN_AI_API_KEY"))
+    openai_ready = bool(os.getenv("OPENAI_API_KEY"))
     openrouter_ready = bool(os.getenv("OPENROUTER_API_KEY"))
     azure_ready = bool(
         os.getenv("AZURE_OPENAI_API_BASE")
@@ -274,7 +274,6 @@ def doctor_report() -> dict[str, Any]:
         for command in [
             "create",
             "assign",
-            "assign-retrieval",
             "metrics",
             "view",
             "describe",
