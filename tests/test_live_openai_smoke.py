@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import sys
@@ -7,7 +8,9 @@ from textwrap import indent
 
 import pytest
 
+from nuggetizer.cli.adapters import scored_nuggets_from_record
 from nuggetizer.cli.main import main
+from nuggetizer.models.nuggetizer import Nuggetizer
 
 
 pytestmark = pytest.mark.skipif(
@@ -124,27 +127,25 @@ def test_direct_create_and_assign_openai_smoke(
             "The weather was cloudy and the coffee was average."
         ),
     }
-    for label, context in assignment_cases.items():
-        assign_result = _run_json_command(
-            [
-                "assign",
-                "--model",
-                model,
-                "--input-json",
-                json.dumps(
-                    {
-                        "query": query,
-                        "context": context,
-                        "nuggets": nuggets,
-                    }
-                ),
-                "--output",
-                "json",
-            ],
-            capsys,
+    nuggetizer = Nuggetizer(assigner_model=model)
+    assigned_batches = asyncio.run(
+        nuggetizer.async_assign_batch(
+            [query] * len(assignment_cases),
+            list(assignment_cases.values()),
+            [scored_nuggets_from_record({"nuggets": nuggets})]
+            * len(assignment_cases),
         )
-        assert assign_result["command"] == "assign"
-        assert assign_result["status"] == "success"
-        assigned = assign_result["artifacts"][0]["data"]
-        assert assigned["nuggets"]
-        _pretty_print_assign(label, query, context, assigned["nuggets"])
+    )
+    for (label, context), assigned_batch in zip(
+        assignment_cases.items(), assigned_batches, strict=True
+    ):
+        assigned_nuggets = [
+            {
+                "text": nugget.text,
+                "importance": nugget.importance,
+                "assignment": nugget.assignment,
+            }
+            for nugget in assigned_batch
+        ]
+        assert assigned_nuggets
+        _pretty_print_assign(label, query, context, assigned_nuggets)
