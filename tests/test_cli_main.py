@@ -127,9 +127,11 @@ def test_direct_create_text_output_prints_reasoning(
 
     assert exit_code == 0
     assert capsys.readouterr().out == (
+        "query: What is Python used for?\n"
+        "nuggets:\n"
         "vital: Python is used for web development.\n"
         "\n"
-        "Reasoning Trace 1: Scored as vital because it directly answers the query.\n"
+        "reasoning trace 1: Scored as vital because it directly answers the query.\n"
     )
 
 

@@ -253,9 +253,11 @@ def _read_direct_payload(args: argparse.Namespace) -> dict[str, Any]:
     )
 
 
-def _format_reasoning_traces(traces: list[str]) -> str:
+def _format_reasoning_traces(
+    traces: list[str], *, label_prefix: str = "Reasoning Trace"
+) -> str:
     return "\n".join(
-        f"Reasoning Trace {index}: {trace}"
+        f"{label_prefix} {index}: {trace}"
         for index, trace in enumerate(traces, start=1)
     )
 
@@ -265,8 +267,13 @@ def _format_direct_nugget_output(
     *,
     include_reasoning: bool,
     include_assignment: bool,
+    query: str | None = None,
+    reasoning_label_prefix: str = "Reasoning Trace",
 ) -> str:
     lines: list[str] = []
+    if query is not None:
+        lines.append(f"query: {query}")
+        lines.append("nuggets:")
     for nugget in nuggets:
         if include_assignment:
             lines.append(
@@ -285,7 +292,11 @@ def _format_direct_nugget_output(
             reasoning_traces.append(reasoning)
         if reasoning_traces:
             lines.append("")
-            lines.append(_format_reasoning_traces(reasoning_traces))
+            lines.append(
+                _format_reasoning_traces(
+                    reasoning_traces, label_prefix=reasoning_label_prefix
+                )
+            )
     return "\n".join(lines)
 
 
@@ -883,6 +894,8 @@ def _run_direct_create(args: argparse.Namespace) -> CommandResponse:
             cast(list[dict[str, Any]], direct_output["nuggets"]),
             include_reasoning=args.include_reasoning,
             include_assignment=False,
+            query=request_obj.query.text,
+            reasoning_label_prefix="reasoning trace",
         )
         + "\n"
     )
