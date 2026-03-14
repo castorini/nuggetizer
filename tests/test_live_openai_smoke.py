@@ -176,7 +176,7 @@ def test_direct_create_reasoning_openai_smoke(
             "--execution-mode",
             "async",
             "--reasoning-effort",
-            "low",
+            "medium",
             "--include-reasoning",
             "--input-json",
             json.dumps(
