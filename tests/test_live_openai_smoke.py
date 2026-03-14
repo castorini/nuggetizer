@@ -188,7 +188,7 @@ def test_direct_create_and_assign_openai_smoke(
         _pretty_print_assign(label, query, context, assigned_nuggets)
 
 
-def test_direct_create_reasoning_openai_smoke(
+def test_direct_create_and_assign_reasoning_openai_smoke(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     if not os.getenv("OPENAI_API_KEY") and not os.getenv("OPENROUTER_API_KEY"):
