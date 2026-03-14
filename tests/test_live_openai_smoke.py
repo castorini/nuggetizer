@@ -29,6 +29,29 @@ def _run_json_command(
     return json.loads(lines[-1])
 
 
+def _unique_nonempty_traces(traces: list[object] | tuple[object, ...]) -> list[str]:
+    unique_traces: list[str] = []
+    seen: set[str] = set()
+    for trace in traces:
+        normalized = str(trace).strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        unique_traces.append(normalized)
+    return unique_traces
+
+
+def _append_reasoning_traces(
+    lines: list[str], traces: list[object] | tuple[object, ...], *, label_prefix: str
+) -> None:
+    unique_traces = _unique_nonempty_traces(traces)
+    if not unique_traces:
+        return
+    lines.append("")
+    for index, trace in enumerate(unique_traces, start=1):
+        lines.append(f"{label_prefix} {index}: {trace}")
+
+
 def _pretty_print_create(model: str, result: dict[str, object]) -> None:
     nuggets = result["nuggets"]
     lines = [
@@ -45,25 +68,27 @@ def _pretty_print_create(model: str, result: dict[str, object]) -> None:
                 indent(str(nugget["text"]), "       "),
             ]
         )
-        reasoning = nugget.get("reasoning")
-        if reasoning:
-            lines.extend(["     reasoning:", indent(str(reasoning), "       ")])
-    creator_reasoning_traces = result.get("creator_reasoning_traces") or []
-    if creator_reasoning_traces:
-        lines.append("creator reasoning:")
-        for trace in creator_reasoning_traces:
-            lines.append(indent(str(trace), "  "))
-    scoring_reasoning_traces = result.get("scoring_reasoning_traces") or []
-    if scoring_reasoning_traces:
-        lines.append("scoring reasoning:")
-        for trace in scoring_reasoning_traces:
-            lines.append(indent(str(trace), "  "))
+    _append_reasoning_traces(
+        lines,
+        list(result.get("creator_reasoning_traces") or []),
+        label_prefix="creator reasoning trace",
+    )
+    _append_reasoning_traces(
+        lines,
+        list(result.get("scoring_reasoning_traces") or []),
+        label_prefix="scoring reasoning trace",
+    )
     sys.__stdout__.write("\n".join(lines) + "\n")
     sys.__stdout__.flush()
 
 
 def _pretty_print_assign(
-    label: str, query: str, context: str, nuggets: list[dict[str, object]]
+    label: str,
+    query: str,
+    context: str,
+    nuggets: list[dict[str, object]],
+    *,
+    scoring_reasoning_traces: list[object] | tuple[object, ...] = (),
 ) -> None:
     lines = [
         "",
@@ -81,9 +106,11 @@ def _pretty_print_assign(
                 indent(str(nugget["text"]), "       "),
             ]
         )
-        reasoning = nugget.get("reasoning")
-        if reasoning:
-            lines.extend(["     reasoning:", indent(str(reasoning), "       ")])
+    _append_reasoning_traces(
+        lines,
+        scoring_reasoning_traces,
+        label_prefix="scoring reasoning trace",
+    )
     sys.__stdout__.write("\n".join(lines) + "\n")
     sys.__stdout__.flush()
 
@@ -204,3 +231,41 @@ def test_direct_create_reasoning_openai_smoke(
     scoring_traces = created.get("scoring_reasoning_traces") or []
     assert creator_traces or scoring_traces
     _pretty_print_create(model, created)
+
+    query = str(created["query"])
+    context = "Python is used for web development and data analysis."
+    assign_result = _run_json_command(
+        [
+            "assign",
+            "--model",
+            model,
+            "--execution-mode",
+            "async",
+            "--reasoning-effort",
+            "medium",
+            "--include-reasoning",
+            "--input-json",
+            json.dumps(
+                {
+                    "query": query,
+                    "context": context,
+                    "nuggets": created["nuggets"],
+                }
+            ),
+            "--output",
+            "json",
+        ],
+        capsys,
+    )
+    assert assign_result["command"] == "assign"
+    assert assign_result["status"] == "success"
+    assigned = assign_result["artifacts"][0]["data"]
+    assert assigned["nuggets"]
+    assert assigned.get("reasoning_traces")
+    _pretty_print_assign(
+        "reasoning",
+        query,
+        context,
+        assigned["nuggets"],
+        scoring_reasoning_traces=list(assigned.get("reasoning_traces") or []),
+    )
