@@ -166,6 +166,22 @@ def _build_error_response(error: CLIError) -> CommandResponse:
     )
 
 
+def _build_runtime_error_response(command: str, error: Exception) -> CommandResponse:
+    return CommandResponse(
+        command=command,
+        status="runtime_error",
+        exit_code=RUNTIME_EXIT_CODE,
+        errors=[
+            {
+                "code": "runtime_error",
+                "message": str(error),
+                "details": {},
+                "retryable": False,
+            }
+        ],
+    )
+
+
 def _ensure_file_exists(path: str, *, command: str, field_name: str) -> None:
     if not Path(path).exists():
         raise CLIError(
@@ -635,7 +651,7 @@ def build_parser() -> CLIArgumentParser:
         help="Print JSON schemas for supported Nuggetizer inputs, outputs, and envelopes.",
     )
     schema_parser.add_argument(
-        "artifact", choices=sorted(SCHEMAS), help="Schema artifact to print."
+        "target", choices=sorted(SCHEMAS), help="Schema artifact to print."
     )
     schema_parser.add_argument(
         "--output",
@@ -1087,12 +1103,12 @@ def _run_describe_command(args: argparse.Namespace) -> CommandResponse:
 
 
 def _run_schema_command(args: argparse.Namespace) -> CommandResponse:
-    schema = SCHEMAS[args.artifact]
+    schema = SCHEMAS[args.target]
     response = CommandResponse(
         command="schema",
-        inputs={"artifact": args.artifact},
-        resolved={"artifact": args.artifact},
-        artifacts=[make_data_artifact(args.artifact, schema)],
+        inputs={"target": args.target},
+        resolved={"target": args.target},
+        artifacts=[make_data_artifact(args.target, schema)],
     )
     if args.output == "text":
         sys.stdout.write(json.dumps(schema, indent=2) + "\n")
@@ -1113,7 +1129,6 @@ def _run_doctor_command(args: argparse.Namespace) -> CommandResponse:
 
 
 def _run_view_command(args: argparse.Namespace) -> CommandResponse:
-    _ensure_file_exists(args.path, command="view", field_name="path")
     try:
         records = load_records(args.path)
         artifact_type = detect_artifact_type(records, args.artifact_type)
@@ -1260,19 +1275,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             sys.stderr.write(f"error: {error.message}\n")
         return error.exit_code
     except Exception as error:  # pragma: no cover - defensive runtime envelope
-        response = CommandResponse(
-            command=_detect_command(argv_list),
-            status="runtime_error",
-            exit_code=RUNTIME_EXIT_CODE,
-            errors=[
-                {
-                    "code": "runtime_error",
-                    "message": str(error),
-                    "details": {},
-                    "retryable": False,
-                }
-            ],
-        )
+        response = _build_runtime_error_response(_detect_command(argv_list), error)
         if wants_json:
             _emit_json(response.to_envelope())
         else:

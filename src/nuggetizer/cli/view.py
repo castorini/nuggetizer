@@ -76,8 +76,10 @@ def _assignment_label(label: Any, enabled: bool) -> str:
 
 
 def _truncate(text: str, limit: int = 140) -> str:
-    del limit
-    return " ".join(text.split())
+    collapsed = " ".join(text.split())
+    if len(collapsed) <= limit:
+        return collapsed
+    return collapsed[: limit - 1] + "\u2026"
 
 
 def load_records(path: str) -> list[dict[str, Any]]:
@@ -98,11 +100,7 @@ def load_records(path: str) -> list[dict[str, Any]]:
             if isinstance(payload, list):
                 return payload
             raise ViewError(f"unsupported JSON payload in {path}")
-        records = [
-            json.loads(line)
-            for line in raw_text.splitlines()
-            if line.strip()
-        ]
+        records = [json.loads(line) for line in raw_text.splitlines() if line.strip()]
     except json.JSONDecodeError as exc:
         raise ViewError(f"file is not valid JSON/JSONL: {path}") from exc
 
@@ -165,7 +163,9 @@ def build_view_summary(
     summary: dict[str, Any] = {"record_count": len(records)}
 
     if artifact_type == "create-output":
-        summary["total_nuggets"] = sum(len(record.get("nuggets", [])) for record in records)
+        summary["total_nuggets"] = sum(
+            len(record.get("nuggets", [])) for record in records
+        )
         for record in records[:limit]:
             sampled_records.append(
                 {
@@ -183,7 +183,11 @@ def build_view_summary(
             )
     elif artifact_type == "assign-output-answers":
         summary["run_ids"] = sorted(
-            {str(record.get("run_id", "")) for record in records if record.get("run_id")}
+            {
+                str(record.get("run_id", ""))
+                for record in records
+                if record.get("run_id")
+            }
         )
         for record in records[:limit]:
             sampled_records.append(
@@ -311,7 +315,9 @@ def render_view_summary(view: dict[str, Any], *, color: str) -> str:
             lines.append(f"nuggets: {record['nugget_count']}")
 
         for nugget_index, nugget in enumerate(record["nuggets"], start=1):
-            prefix = f"{nugget_index}. {_importance_label(nugget['importance'], enabled)}"
+            prefix = (
+                f"{nugget_index}. {_importance_label(nugget['importance'], enabled)}"
+            )
             if "assignment" in nugget:
                 prefix += f"/{_assignment_label(nugget['assignment'], enabled)}"
             lines.append(f"{prefix}: {nugget['text']}")

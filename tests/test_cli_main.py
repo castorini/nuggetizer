@@ -748,7 +748,7 @@ def test_view_create_output_returns_json_summary(tmp_path: Path, capsys: Any) ->
         path,
         [
             {
-                "query": "What is Python used for? " * 10,
+                "query": "What is Python used for? " * 5,
                 "qid": "q1",
                 "nuggets": [
                     {
@@ -770,7 +770,7 @@ def test_view_create_output_returns_json_summary(tmp_path: Path, capsys: Any) ->
     assert output["artifacts"][0]["data"]["summary"]["total_nuggets"] == 2
     assert (
         output["artifacts"][0]["data"]["sampled_records"][0]["query"]
-        == ("What is Python used for? " * 10).strip()
+        == ("What is Python used for? " * 5).strip()
     )
 
 

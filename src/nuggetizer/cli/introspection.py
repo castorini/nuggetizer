@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 import os
 import sys
 from pathlib import Path
@@ -12,6 +13,7 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
     "create": {
         "summary": "Create and score nuggets from either batch JSONL or direct JSON input.",
         "execution_mode_default": "sync",
+        "inspection_safe": False,
         "examples": [
             "nuggetizer create --input-file pool.jsonl --output-file nuggets.jsonl",
             (
@@ -32,6 +34,7 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
     "assign": {
         "summary": "Assign nuggets to either a direct context string or batch answers/retrieval records.",
         "execution_mode_default": "sync",
+        "inspection_safe": False,
         "examples": [
             (
                 "nuggetizer assign --input-kind answers --nuggets nuggets.jsonl "
@@ -59,6 +62,7 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
     },
     "metrics": {
         "summary": "Calculate per-query and global nugget metrics from assignment JSONL.",
+        "inspection_safe": False,
         "examples": [
             "nuggetizer metrics --input-file assignments.jsonl --output-file metrics.jsonl"
         ],
@@ -75,19 +79,24 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
             "assign-output-retrieval",
             "metrics-output",
         ],
+        "inspection_safe": True,
     },
     "describe": {
         "summary": "Inspect structured metadata for a public Nuggetizer command.",
+        "inspection_safe": True,
     },
     "schema": {
         "summary": "Print JSON schemas for supported Nuggetizer inputs, outputs, and envelopes.",
+        "inspection_safe": True,
     },
     "doctor": {
         "summary": "Report environment and backend readiness for the packaged Nuggetizer CLI.",
+        "inspection_safe": True,
     },
     "validate": {
         "summary": "Validate direct JSON input or batch JSONL inputs without running models.",
         "targets": ["create", "assign"],
+        "inspection_safe": True,
     },
 }
 
@@ -237,28 +246,41 @@ def doctor_report() -> dict[str, Any]:
         and os.getenv("AZURE_OPENAI_API_VERSION")
         and os.getenv("AZURE_OPENAI_API_KEY")
     )
+    openai_dep_ready = importlib.util.find_spec("openai") is not None
 
-    def status(*, ready: bool, missing_env: list[str] | None = None) -> dict[str, Any]:
+    def status(
+        *,
+        ready: bool,
+        missing_env: list[str] | None = None,
+        missing_deps: list[str] | None = None,
+    ) -> dict[str, Any]:
         missing_env = missing_env or []
+        missing_deps = missing_deps or []
         return {
             "status": "ready"
             if ready
-            else ("missing_env" if missing_env else "blocked"),
+            else (
+                "missing_env"
+                if missing_env
+                else ("missing_dependency" if missing_deps else "blocked")
+            ),
             "missing_env": missing_env,
-            "missing_dependencies": [],
+            "missing_dependencies": missing_deps,
         }
 
     backend_readiness = {
         "openai": status(
-            ready=python_ok and openai_ready,
+            ready=python_ok and openai_ready and openai_dep_ready,
             missing_env=[] if openai_ready else ["OPENAI_API_KEY"],
+            missing_deps=[] if openai_dep_ready else ["openai"],
         ),
         "openrouter": status(
-            ready=python_ok and openrouter_ready,
+            ready=python_ok and openrouter_ready and openai_dep_ready,
             missing_env=[] if openrouter_ready else ["OPENROUTER_API_KEY"],
+            missing_deps=[] if openai_dep_ready else ["openai"],
         ),
         "azure_openai": status(
-            ready=python_ok and azure_ready,
+            ready=python_ok and azure_ready and openai_dep_ready,
             missing_env=[]
             if azure_ready
             else [
@@ -266,8 +288,12 @@ def doctor_report() -> dict[str, Any]:
                 "AZURE_OPENAI_API_VERSION",
                 "AZURE_OPENAI_API_KEY",
             ],
+            missing_deps=[] if openai_dep_ready else ["openai"],
         ),
-        "vllm_local": status(ready=python_ok),
+        "vllm_local": status(
+            ready=python_ok and openai_dep_ready,
+            missing_deps=[] if openai_dep_ready else ["openai"],
+        ),
     }
     command_readiness = {
         command: status(ready=python_ok)
