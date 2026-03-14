@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from textwrap import indent
 
 import pytest
@@ -44,7 +45,8 @@ def _pretty_print_create(model: str, result: dict[str, object]) -> None:
         reasoning = nugget.get("reasoning")
         if reasoning:
             lines.extend(["     reasoning:", indent(str(reasoning), "       ")])
-    print("\n".join(lines))
+    sys.__stdout__.write("\n".join(lines) + "\n")
+    sys.__stdout__.flush()
 
 
 def _pretty_print_assign(
@@ -69,7 +71,8 @@ def _pretty_print_assign(
         reasoning = nugget.get("reasoning")
         if reasoning:
             lines.extend(["     reasoning:", indent(str(reasoning), "       ")])
-    print("\n".join(lines))
+    sys.__stdout__.write("\n".join(lines) + "\n")
+    sys.__stdout__.flush()
 
 
 def test_direct_create_and_assign_openai_smoke(
