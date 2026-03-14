@@ -48,6 +48,16 @@ def _pretty_print_create(model: str, result: dict[str, object]) -> None:
         reasoning = nugget.get("reasoning")
         if reasoning:
             lines.extend(["     reasoning:", indent(str(reasoning), "       ")])
+    creator_reasoning_traces = result.get("creator_reasoning_traces") or []
+    if creator_reasoning_traces:
+        lines.append("creator reasoning:")
+        for trace in creator_reasoning_traces:
+            lines.append(indent(str(trace), "  "))
+    scoring_reasoning_traces = result.get("scoring_reasoning_traces") or []
+    if scoring_reasoning_traces:
+        lines.append("scoring reasoning:")
+        for trace in scoring_reasoning_traces:
+            lines.append(indent(str(trace), "  "))
     sys.__stdout__.write("\n".join(lines) + "\n")
     sys.__stdout__.flush()
 
@@ -149,3 +159,48 @@ def test_direct_create_and_assign_openai_smoke(
         ]
         assert assigned_nuggets
         _pretty_print_assign(label, query, context, assigned_nuggets)
+
+
+def test_direct_create_reasoning_openai_smoke(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    if not os.getenv("OPENAI_API_KEY") and not os.getenv("OPENROUTER_API_KEY"):
+        pytest.skip("OPENAI_API_KEY or OPENROUTER_API_KEY is required.")
+
+    model = os.getenv("NUGGETIZER_LIVE_OPENAI_REASONING_MODEL", "gpt-5-mini")
+    create_result = _run_json_command(
+        [
+            "create",
+            "--model",
+            model,
+            "--execution-mode",
+            "async",
+            "--reasoning-effort",
+            "low",
+            "--include-reasoning",
+            "--input-json",
+            json.dumps(
+                {
+                    "query": "What is Python used for?",
+                    "candidates": [
+                        (
+                            "Python is widely used for web development, data analysis, "
+                            "automation, scripting, machine learning, artificial intelligence, "
+                            "scientific computing, data visualization, and backend development."
+                        )
+                    ],
+                }
+            ),
+            "--output",
+            "json",
+        ],
+        capsys,
+    )
+    assert create_result["command"] == "create"
+    assert create_result["status"] == "success"
+    created = create_result["artifacts"][0]["data"]
+    assert created["nuggets"]
+    creator_traces = created.get("creator_reasoning_traces") or []
+    scoring_traces = created.get("scoring_reasoning_traces") or []
+    assert creator_traces or scoring_traces
+    _pretty_print_create(model, created)
