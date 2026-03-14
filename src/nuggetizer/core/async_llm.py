@@ -1,5 +1,5 @@
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import tiktoken
 from openai import AsyncAzureOpenAI, AsyncOpenAI
@@ -148,6 +148,133 @@ class AsyncLLMHandler:
             }
         return {"reasoning_effort": self.reasoning_effort}
 
+    def _uses_reasoning_style_api(self) -> bool:
+        return (
+            "o1" in self.model
+            or "o3" in self.model
+            or "o4" in self.model
+            or "gpt-5" in self.model
+        )
+
+    def _uses_responses_reasoning_api(self) -> bool:
+        return self.reasoning_effort is not None and self._uses_reasoning_style_api()
+
+    @staticmethod
+    def _normalize_messages(
+        messages: List[Dict[str, str]], model: str
+    ) -> List[Dict[str, str]]:
+        if ("o1" in model or "o3" in model or "o4" in model) and len(messages) >= 2:
+            normalized_messages = [message.copy() for message in messages[1:]]
+            normalized_messages[0]["content"] = (
+                messages[0]["content"] + "\n" + messages[1]["content"]
+            )
+            return normalized_messages
+        return messages
+
+    @classmethod
+    def _build_responses_input(
+        cls, messages: List[Dict[str, str]], model: str
+    ) -> List[Dict[str, Any]]:
+        normalized_messages = cls._normalize_messages(messages, model)
+        return [
+            {
+                "type": "message",
+                "role": message["role"],
+                "content": [
+                    {
+                        "type": "input_text",
+                        "text": message["content"],
+                    }
+                ],
+            }
+            for message in normalized_messages
+        ]
+
+    def _extract_responses_text_and_reasoning(
+        self, response: Any
+    ) -> Tuple[str, Optional[str]]:
+        text = ""
+        if hasattr(response, "output_text") and response.output_text:
+            text = str(response.output_text)
+        else:
+            for item in getattr(response, "output", []):
+                item_type = getattr(item, "type", None)
+                if item_type is None and isinstance(item, dict):
+                    item_type = item.get("type")
+                if item_type != "message":
+                    continue
+                content_items = getattr(item, "content", None)
+                if content_items is None and isinstance(item, dict):
+                    content_items = item.get("content", [])
+                for content in content_items or []:
+                    content_type = getattr(content, "type", None)
+                    if content_type is None and isinstance(content, dict):
+                        content_type = content.get("type")
+                    if content_type == "output_text":
+                        content_text = getattr(content, "text", None)
+                        if content_text is None and isinstance(content, dict):
+                            content_text = content.get("text")
+                        if content_text:
+                            text = str(content_text)
+
+        reasoning_parts: List[str] = []
+        for item in getattr(response, "output", []):
+            item_type = getattr(item, "type", None)
+            if item_type is None and isinstance(item, dict):
+                item_type = item.get("type")
+            if item_type != "reasoning":
+                continue
+            direct_parts: List[str] = []
+            summaries = getattr(item, "summary", None)
+            if summaries is None and isinstance(item, dict):
+                summaries = item.get("summary", [])
+            summary_parts: List[str] = []
+            for summary in summaries or []:
+                if isinstance(summary, str):
+                    summary_parts.append(summary)
+                    continue
+                summary_type = getattr(summary, "type", None)
+                if summary_type is None and isinstance(summary, dict):
+                    summary_type = summary.get("type")
+                if summary_type not in (None, "summary_text"):
+                    continue
+                summary_text = getattr(summary, "text", None)
+                if summary_text is None and isinstance(summary, dict):
+                    summary_text = summary.get("text")
+                if summary_text:
+                    summary_parts.append(str(summary_text))
+            direct_reasoning = getattr(item, "reasoning", None)
+            if direct_reasoning is None and isinstance(item, dict):
+                direct_reasoning = item.get("reasoning")
+            if direct_reasoning:
+                direct_parts.append(str(direct_reasoning))
+            direct_reasoning_content = getattr(item, "reasoning_content", None)
+            if direct_reasoning_content is None and isinstance(item, dict):
+                direct_reasoning_content = item.get("reasoning_content")
+            if direct_reasoning_content:
+                direct_parts.append(str(direct_reasoning_content))
+            item_content = getattr(item, "content", None)
+            if item_content is None and isinstance(item, dict):
+                item_content = item.get("content", [])
+            for content in item_content or []:
+                if isinstance(content, str):
+                    direct_parts.append(content)
+                    continue
+                content_text = getattr(content, "text", None)
+                if content_text is None and isinstance(content, dict):
+                    content_text = content.get("text")
+                if content_text:
+                    direct_parts.append(str(content_text))
+            if hasattr(self.client, "base_url") and "openrouter.ai" in str(
+                self.client.base_url
+            ):
+                reasoning_parts.extend(direct_parts or summary_parts)
+            else:
+                reasoning_parts.extend(summary_parts or direct_parts)
+
+        reasoning = "\n".join(reasoning_parts) if reasoning_parts else None
+        return text, reasoning
+
     @staticmethod
     def _extract_reasoning_content(message: Any) -> Optional[str]:
         """Extract reasoning text from common OpenAI-compatible response shapes."""
@@ -178,13 +305,6 @@ class AsyncLLMHandler:
             Tuple of (content, token_count, usage_metadata, reasoning_content)
         """
         while True:
-            if "o1" in self.model or "o3" in self.model or "o4" in self.model:
-                # System message is not supported for o1 models
-                new_messages = messages[1:]
-                new_messages[0]["content"] = (
-                    messages[0]["content"] + "\n" + messages[1]["content"]
-                )
-                messages = new_messages[:]
             if (
                 "o1" in self.model
                 or "o3" in self.model
@@ -193,39 +313,74 @@ class AsyncLLMHandler:
             ):
                 temperature = 1.0
             try:
-                completion_params: Dict[str, Any] = {
-                    "model": self.model,
-                    "messages": messages,
-                    "temperature": temperature,
-                    "max_completion_tokens": 2048,
-                    "timeout": 30,
-                }
-                completion_params.update(self._build_reasoning_params())
-                completion = await self.client.chat.completions.create(
-                    **completion_params
-                )
-                response = completion.choices[0].message.content
-
-                # Extract reasoning content if available
-                message = completion.choices[0].message
-                reasoning_content = self._extract_reasoning_content(message)
-
-                # Handle None response
-                if response is None:
-                    response = ""
-
-                # Extract usage metadata
-                usage_metadata = None
-                if hasattr(completion, "usage") and completion.usage:
-                    usage_metadata = {
-                        "prompt_tokens": getattr(
-                            completion.usage, "prompt_tokens", None
-                        ),
-                        "completion_tokens": getattr(
-                            completion.usage, "completion_tokens", None
-                        ),
-                        "total_tokens": getattr(completion.usage, "total_tokens", None),
+                normalized_messages = self._normalize_messages(messages, self.model)
+                if self._uses_responses_reasoning_api():
+                    assert self.reasoning_effort is not None
+                    response_obj = await cast(Any, self.client.responses).create(
+                        model=self.model,
+                        input=self._build_responses_input(messages, self.model),
+                        max_output_tokens=2048,
+                        timeout=30,
+                        reasoning={
+                            "effort": self.reasoning_effort,
+                            "summary": "auto",
+                        },
+                    )
+                    response, reasoning_content = (
+                        self._extract_responses_text_and_reasoning(response_obj)
+                    )
+                    usage_metadata = None
+                    usage = getattr(response_obj, "usage", None)
+                    if usage:
+                        usage_metadata = {
+                            "prompt_tokens": getattr(
+                                usage,
+                                "input_tokens",
+                                getattr(usage, "prompt_tokens", None),
+                            ),
+                            "completion_tokens": getattr(
+                                usage,
+                                "output_tokens",
+                                getattr(usage, "completion_tokens", None),
+                            ),
+                            "total_tokens": getattr(usage, "total_tokens", None),
+                        }
+                else:
+                    completion_params: Dict[str, Any] = {
+                        "model": self.model,
+                        "messages": normalized_messages,
+                        "temperature": temperature,
+                        "max_completion_tokens": 2048,
+                        "timeout": 30,
                     }
+                    completion_params.update(self._build_reasoning_params())
+                    completion = await self.client.chat.completions.create(
+                        **completion_params
+                    )
+                    response = completion.choices[0].message.content
+
+                    # Extract reasoning content if available
+                    message = completion.choices[0].message
+                    reasoning_content = self._extract_reasoning_content(message)
+
+                    # Handle None response
+                    if response is None:
+                        response = ""
+
+                    # Extract usage metadata
+                    usage_metadata = None
+                    if hasattr(completion, "usage") and completion.usage:
+                        usage_metadata = {
+                            "prompt_tokens": getattr(
+                                completion.usage, "prompt_tokens", None
+                            ),
+                            "completion_tokens": getattr(
+                                completion.usage, "completion_tokens", None
+                            ),
+                            "total_tokens": getattr(
+                                completion.usage, "total_tokens", None
+                            ),
+                        }
 
                 try:
                     # For newer models like gpt-4o that may not have specific

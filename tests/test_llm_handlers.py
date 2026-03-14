@@ -21,7 +21,22 @@ def _fake_completion(message: Any) -> Any:
     )
 
 
-def test_sync_llm_handler_forwards_reasoning_effort() -> None:
+def _fake_responses_response(
+    *,
+    output_text: str,
+    reasoning_summary: list[Any] | None = None,
+) -> Any:
+    return SimpleNamespace(
+        output_text=output_text,
+        output=[
+            SimpleNamespace(type="message", content=[]),
+            SimpleNamespace(type="reasoning", summary=reasoning_summary or []),
+        ],
+        usage=SimpleNamespace(input_tokens=1, output_tokens=1, total_tokens=2),
+    )
+
+
+def test_sync_llm_handler_uses_responses_api_for_openai_reasoning_models() -> None:
     recorded_kwargs: dict[str, Any] = {}
     handler = LLMHandler(
         model="gpt-5.4",
@@ -31,23 +46,34 @@ def test_sync_llm_handler_forwards_reasoning_effort() -> None:
 
     def fake_create(**kwargs: Any) -> Any:
         recorded_kwargs.update(kwargs)
-        return _fake_completion(SimpleNamespace(content="response", reasoning="chain"))
+        return _fake_responses_response(
+            output_text="response",
+            reasoning_summary=[SimpleNamespace(type="summary_text", text="chain")],
+        )
 
     handler.client = cast(
         OpenAI,
-        SimpleNamespace(
-            chat=SimpleNamespace(completions=SimpleNamespace(create=fake_create))
-        ),
+        SimpleNamespace(responses=SimpleNamespace(create=fake_create)),
     )
 
     response, _, _, reasoning = handler.run([{"role": "user", "content": "prompt"}])
 
     assert response == "response"
     assert reasoning == "chain"
-    assert recorded_kwargs["reasoning_effort"] == "minimal"
+    assert recorded_kwargs["reasoning"] == {
+        "effort": "minimal",
+        "summary": "auto",
+    }
+    assert recorded_kwargs["input"] == [
+        {
+            "type": "message",
+            "role": "user",
+            "content": [{"type": "input_text", "text": "prompt"}],
+        }
+    ]
 
 
-def test_async_llm_handler_forwards_reasoning_effort() -> None:
+def test_async_llm_handler_uses_responses_api_for_openai_reasoning_models() -> None:
     recorded_kwargs: dict[str, Any] = {}
     handler = AsyncLLMHandler(
         model="gpt-5.4",
@@ -57,15 +83,14 @@ def test_async_llm_handler_forwards_reasoning_effort() -> None:
 
     async def fake_create(**kwargs: Any) -> Any:
         recorded_kwargs.update(kwargs)
-        return _fake_completion(
-            SimpleNamespace(content="response", reasoning_content="trace")
+        return _fake_responses_response(
+            output_text="response",
+            reasoning_summary=[SimpleNamespace(type="summary_text", text="trace")],
         )
 
     handler.client = cast(
         AsyncOpenAI,
-        SimpleNamespace(
-            chat=SimpleNamespace(completions=SimpleNamespace(create=fake_create))
-        ),
+        SimpleNamespace(responses=SimpleNamespace(create=fake_create)),
     )
 
     response, _, _, reasoning = asyncio.run(
@@ -74,7 +99,88 @@ def test_async_llm_handler_forwards_reasoning_effort() -> None:
 
     assert response == "response"
     assert reasoning == "trace"
-    assert recorded_kwargs["reasoning_effort"] == "xhigh"
+    assert recorded_kwargs["reasoning"] == {
+        "effort": "xhigh",
+        "summary": "auto",
+    }
+    assert recorded_kwargs["input"] == [
+        {
+            "type": "message",
+            "role": "user",
+            "content": [{"type": "input_text", "text": "prompt"}],
+        }
+    ]
+
+
+def test_sync_llm_handler_uses_responses_api_for_openrouter_reasoning_models() -> None:
+    recorded_kwargs: dict[str, Any] = {}
+    handler = LLMHandler(
+        model="openrouter/openai/o4-mini",
+        api_keys="test-key",
+        api_type="openrouter",
+        api_base="https://openrouter.ai/api/v1",
+        reasoning_effort="high",
+    )
+
+    def fake_create(**kwargs: Any) -> Any:
+        recorded_kwargs.update(kwargs)
+        return _fake_responses_response(
+            output_text="response",
+            reasoning_summary=["openrouter summary"],
+        )
+
+    handler.client = cast(
+        OpenAI,
+        SimpleNamespace(
+            base_url="https://openrouter.ai/api/v1",
+            responses=SimpleNamespace(create=fake_create),
+        ),
+    )
+
+    response, _, _, reasoning = handler.run([{"role": "user", "content": "prompt"}])
+
+    assert response == "response"
+    assert reasoning == "openrouter summary"
+    assert recorded_kwargs["reasoning"] == {
+        "effort": "high",
+        "summary": "auto",
+    }
+
+
+def test_sync_llm_handler_prefers_direct_reasoning_for_openrouter_responses() -> None:
+    handler = LLMHandler(
+        model="openrouter/openai/o4-mini",
+        api_keys="test-key",
+        api_type="openrouter",
+        api_base="https://openrouter.ai/api/v1",
+        reasoning_effort="high",
+    )
+
+    def fake_create(**kwargs: Any) -> Any:
+        del kwargs
+        return SimpleNamespace(
+            output_text="response",
+            output=[
+                SimpleNamespace(
+                    type="reasoning",
+                    reasoning="raw openrouter reasoning",
+                    summary=["openrouter summary"],
+                )
+            ],
+            usage=SimpleNamespace(input_tokens=1, output_tokens=1, total_tokens=2),
+        )
+
+    handler.client = cast(
+        OpenAI,
+        SimpleNamespace(
+            base_url="https://openrouter.ai/api/v1",
+            responses=SimpleNamespace(create=fake_create),
+        ),
+    )
+
+    _, _, _, reasoning = handler.run([{"role": "user", "content": "prompt"}])
+
+    assert reasoning == "raw openrouter reasoning"
 
 
 def test_sync_llm_handler_uses_openrouter_reasoning_payload() -> None:
