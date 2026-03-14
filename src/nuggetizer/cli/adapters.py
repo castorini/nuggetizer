@@ -29,6 +29,16 @@ def collect_reasoning_traces(
     return traces
 
 
+def collect_nonempty_reasoning_traces(traces: Sequence[str | None]) -> list[str]:
+    """Return non-empty reasoning traces in original order."""
+    collected: list[str] = []
+    for trace in traces:
+        normalized = (trace or "").strip()
+        if normalized:
+            collected.append(normalized)
+    return collected
+
+
 def request_from_create_record(record: dict[str, Any]) -> Request:
     """Convert a batch create record into a Request object."""
     require_keys(record, ["query", "candidates"])
@@ -57,6 +67,7 @@ def create_output_record(
     request: Request,
     scored_nuggets: list[ScoredNugget],
     *,
+    creator_reasoning_traces: Sequence[str | None] = (),
     include_reasoning: bool = False,
     include_trace: bool = False,
     redact_prompts: bool = False,
@@ -76,9 +87,12 @@ def create_output_record(
         ],
     }
     if include_reasoning:
-        reasoning_traces = collect_reasoning_traces(scored_nuggets)
-        if reasoning_traces:
-            output["reasoning_traces"] = reasoning_traces
+        creator_traces = collect_nonempty_reasoning_traces(creator_reasoning_traces)
+        scoring_traces = collect_reasoning_traces(scored_nuggets)
+        if creator_traces:
+            output["creator_reasoning_traces"] = creator_traces
+        if scoring_traces:
+            output["scoring_reasoning_traces"] = scoring_traces
     return output
 
 

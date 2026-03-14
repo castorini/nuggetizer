@@ -119,8 +119,9 @@ class Nuggetizer(BaseNuggetizer):
         if log_level >= 2:
             self.logger.setLevel(logging.DEBUG)
 
-        # Store creator reasoning for printing
+        # Store creator reasoning for printing and history-aware serialization
         self.creator_reasoning: Optional[str] = None
+        self.creator_reasoning_traces: List[str] = []
 
     def _get_nugget_prompt_content(
         self, request: Request, start: int, end: int, nuggets: List[str]
@@ -170,7 +171,8 @@ class Nuggetizer(BaseNuggetizer):
 
     def create(self, request: Request) -> List[ScoredNugget]:
         """Create and score nuggets from the request documents."""
-
+        self.creator_reasoning = None
+        self.creator_reasoning_traces = []
         current_nuggets: List[str] = []
 
         start = 0
@@ -204,6 +206,7 @@ class Nuggetizer(BaseNuggetizer):
                     # Store creator reasoning if available
                     if reasoning_content and self.store_reasoning:
                         self.creator_reasoning = reasoning_content
+                        self.creator_reasoning_traces.append(reasoning_content)
 
                     if self.log_level >= 2:
                         self.logger.info(f"Raw LLM response:\n{response}")
@@ -358,7 +361,8 @@ class Nuggetizer(BaseNuggetizer):
         self._ensure_async_llm()
         assert self.creator_llm_async is not None
         assert self.scorer_llm_async is not None
-
+        self.creator_reasoning = None
+        self.creator_reasoning_traces = []
         current_nuggets: List[str] = []
 
         start = 0
@@ -395,6 +399,7 @@ class Nuggetizer(BaseNuggetizer):
 
                     if reasoning_content and self.store_reasoning:
                         self.creator_reasoning = reasoning_content
+                        self.creator_reasoning_traces.append(reasoning_content)
 
                     if self.log_level >= 2:
                         self.logger.info(f"Raw LLM response:\n{response}")
@@ -806,6 +811,10 @@ class Nuggetizer(BaseNuggetizer):
     def get_creator_reasoning(self) -> Optional[str]:
         """Get the reasoning content from the creator component."""
         return self.creator_reasoning
+
+    def get_creator_reasoning_traces(self) -> List[str]:
+        """Get the ordered creator reasoning history for the current create call."""
+        return list(self.creator_reasoning_traces)
 
     def create_batch(self, requests: List[Request]) -> List[List[ScoredNugget]]:
         """Create nuggets for multiple requests."""

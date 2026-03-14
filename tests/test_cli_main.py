@@ -106,6 +106,10 @@ def test_direct_create_text_output_prints_reasoning(
 ) -> None:
     def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
         del request
+        self.creator_reasoning_traces = [
+            "Creator window 1 trace.",
+            "Creator window 2 trace.",
+        ]
         return [
             ScoredNugget(
                 text="Python is used for web development.",
@@ -131,7 +135,10 @@ def test_direct_create_text_output_prints_reasoning(
         "nuggets:\n"
         "vital: Python is used for web development.\n"
         "\n"
-        "reasoning trace 1: Scored as vital because it directly answers the query.\n"
+        "creator reasoning trace 1: Creator window 1 trace.\n"
+        "creator reasoning trace 2: Creator window 2 trace.\n"
+        "\n"
+        "scoring reasoning trace 1: Scored as vital because it directly answers the query.\n"
     )
 
 
@@ -140,6 +147,7 @@ def test_direct_create_json_output_aggregates_unique_reasoning_traces(
 ) -> None:
     def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
         del request
+        self.creator_reasoning_traces = ["creator trace 1", "creator trace 2"]
         return [
             ScoredNugget(text="A", importance="vital", reasoning="same trace"),
             ScoredNugget(text="B", importance="okay", reasoning="same trace"),
@@ -161,7 +169,11 @@ def test_direct_create_json_output_aggregates_unique_reasoning_traces(
 
     assert exit_code == 0
     output = json.loads(capsys.readouterr().out)
-    assert output["artifacts"][0]["data"]["reasoning_traces"] == [
+    assert output["artifacts"][0]["data"]["creator_reasoning_traces"] == [
+        "creator trace 1",
+        "creator trace 2",
+    ]
+    assert output["artifacts"][0]["data"]["scoring_reasoning_traces"] == [
         "same trace",
         "different trace",
     ]
@@ -263,7 +275,10 @@ def test_direct_assign_text_output_prints_unique_reasoning_traces(
 
     assert exit_code == 0
     assert capsys.readouterr().out == (
-        "support: vital A\npartial_support: okay B\n\nReasoning Trace 1: same trace\n"
+        "support: vital A\n"
+        "partial_support: okay B\n"
+        "\n"
+        "scoring reasoning trace 1: same trace\n"
     )
 
 

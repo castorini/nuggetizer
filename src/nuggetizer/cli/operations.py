@@ -86,6 +86,7 @@ def run_create_batch(args: Any, logger: logging.Logger) -> CommandResponse:
                     create_output_record(
                         request,
                         scored_nuggets,
+                        creator_reasoning_traces=nuggetizer.get_creator_reasoning_traces(),
                         include_reasoning=getattr(args, "include_reasoning", False),
                         include_trace=getattr(args, "include_trace", False),
                         redact_prompts=getattr(args, "redact_prompts", False),
@@ -291,6 +292,7 @@ async def async_run_create_batch(args: Any, logger: logging.Logger) -> CommandRe
                     create_output_record(
                         request,
                         scored_nuggets,
+                        creator_reasoning_traces=nuggetizer.get_creator_reasoning_traces(),
                         include_reasoning=getattr(args, "include_reasoning", False),
                         include_trace=getattr(args, "include_trace", False),
                         redact_prompts=getattr(args, "redact_prompts", False),

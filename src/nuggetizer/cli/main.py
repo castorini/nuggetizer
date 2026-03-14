@@ -11,6 +11,7 @@ from nuggetizer.models.nuggetizer import Nuggetizer
 
 from .adapters_common import make_data_artifact, make_file_artifact
 from .adapters import (
+    collect_nonempty_reasoning_traces,
     collect_reasoning_traces,
     request_from_create_record,
     serialize_nugget,
@@ -268,7 +269,8 @@ def _format_direct_nugget_output(
     include_reasoning: bool,
     include_assignment: bool,
     query: str | None = None,
-    reasoning_label_prefix: str = "Reasoning Trace",
+    creator_reasoning_traces: Sequence[str] = (),
+    scoring_reasoning_traces: Sequence[str] = (),
 ) -> str:
     lines: list[str] = []
     if query is not None:
@@ -282,19 +284,22 @@ def _format_direct_nugget_output(
         else:
             lines.append(f"{nugget['importance']}: {nugget['text']}")
     if include_reasoning:
-        reasoning_traces = []
-        seen: set[str] = set()
-        for nugget in nuggets:
-            reasoning = str(nugget.get("reasoning", "")).strip()
-            if not reasoning or reasoning in seen:
-                continue
-            seen.add(reasoning)
-            reasoning_traces.append(reasoning)
-        if reasoning_traces:
+        creator_traces = [trace for trace in creator_reasoning_traces if trace.strip()]
+        scoring_traces = [trace for trace in scoring_reasoning_traces if trace.strip()]
+        if creator_traces or scoring_traces:
             lines.append("")
+        if creator_traces:
             lines.append(
                 _format_reasoning_traces(
-                    reasoning_traces, label_prefix=reasoning_label_prefix
+                    creator_traces, label_prefix="creator reasoning trace"
+                )
+            )
+        if creator_traces and scoring_traces:
+            lines.append("")
+        if scoring_traces:
+            lines.append(
+                _format_reasoning_traces(
+                    scoring_traces, label_prefix="scoring reasoning trace"
                 )
             )
     return "\n".join(lines)
@@ -874,9 +879,14 @@ def _run_direct_create(args: argparse.Namespace) -> CommandResponse:
         ],
     }
     if args.include_reasoning:
-        reasoning_traces = collect_reasoning_traces(scored_nuggets)
-        if reasoning_traces:
-            direct_output["reasoning_traces"] = reasoning_traces
+        creator_reasoning_traces = collect_nonempty_reasoning_traces(
+            nuggetizer.get_creator_reasoning_traces()
+        )
+        scoring_reasoning_traces = collect_reasoning_traces(scored_nuggets)
+        if creator_reasoning_traces:
+            direct_output["creator_reasoning_traces"] = creator_reasoning_traces
+        if scoring_reasoning_traces:
+            direct_output["scoring_reasoning_traces"] = scoring_reasoning_traces
     if args.output == "json":
         return CommandResponse(
             command="create",
@@ -895,7 +905,12 @@ def _run_direct_create(args: argparse.Namespace) -> CommandResponse:
             include_reasoning=args.include_reasoning,
             include_assignment=False,
             query=request_obj.query.text,
-            reasoning_label_prefix="reasoning trace",
+            creator_reasoning_traces=cast(
+                list[str], direct_output.get("creator_reasoning_traces", [])
+            ),
+            scoring_reasoning_traces=cast(
+                list[str], direct_output.get("scoring_reasoning_traces", [])
+            ),
         )
         + "\n"
     )
@@ -960,6 +975,9 @@ def _run_direct_assign(args: argparse.Namespace) -> CommandResponse:
             cast(list[dict[str, Any]], direct_output["nuggets"]),
             include_reasoning=args.include_reasoning,
             include_assignment=True,
+            scoring_reasoning_traces=cast(
+                list[str], direct_output.get("reasoning_traces", [])
+            ),
         )
         + "\n"
     )
