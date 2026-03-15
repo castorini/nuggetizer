@@ -359,6 +359,13 @@ def build_parser() -> CLIArgumentParser:
         action="version",
         version=f"%(prog)s {importlib.metadata.version('nuggetizer')}",
     )
+    parser.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        default=False,
+        help="Suppress all log output (sets log level to CRITICAL).",
+    )
     subparsers = parser.add_subparsers(
         dest="command", required=True, parser_class=CLIArgumentParser
     )
@@ -1043,10 +1050,10 @@ def _run_create_batch_command(args: argparse.Namespace) -> CommandResponse:
     )
     if args.execution_mode == "async":
         response = asyncio.run(
-            async_run_create_batch(compat_args, setup_logging(args.log_level))
+            async_run_create_batch(compat_args, setup_logging(args.log_level, quiet=getattr(args, "quiet", False)))
         )
     else:
-        response = run_create_batch(compat_args, setup_logging(args.log_level))
+        response = run_create_batch(compat_args, setup_logging(args.log_level, quiet=getattr(args, "quiet", False)))
     response.inputs = {"input_file": args.input_file}
     response.resolved = {
         "input_mode": "batch",
@@ -1110,12 +1117,12 @@ def _run_assign_batch_command(args: argparse.Namespace) -> CommandResponse:
         if args.execution_mode == "async":
             response = asyncio.run(
                 async_run_assign_answers_batch(
-                    compat_args, setup_logging(args.log_level)
+                    compat_args, setup_logging(args.log_level, quiet=getattr(args, "quiet", False))
                 )
             )
         else:
             response = run_assign_answers_batch(
-                compat_args, setup_logging(args.log_level)
+                compat_args, setup_logging(args.log_level, quiet=getattr(args, "quiet", False))
             )
     else:
         compat_args = argparse.Namespace(
@@ -1134,12 +1141,12 @@ def _run_assign_batch_command(args: argparse.Namespace) -> CommandResponse:
         if args.execution_mode == "async":
             response = asyncio.run(
                 async_run_assign_retrieval_batch(
-                    compat_args, setup_logging(args.log_level)
+                    compat_args, setup_logging(args.log_level, quiet=getattr(args, "quiet", False))
                 )
             )
         else:
             response = run_assign_retrieval_batch(
-                compat_args, setup_logging(args.log_level)
+                compat_args, setup_logging(args.log_level, quiet=getattr(args, "quiet", False))
             )
 
     response.command = "assign"
@@ -1476,7 +1483,7 @@ def _run_validate_command(args: argparse.Namespace) -> CommandResponse:
 
 def _run_command(args: argparse.Namespace) -> CommandResponse:
     if getattr(args, "log_level", None) is not None:
-        setup_logging(args.log_level)
+        setup_logging(args.log_level, quiet=getattr(args, "quiet", False))
 
     if args.command == "create":
         if args.input_file:
