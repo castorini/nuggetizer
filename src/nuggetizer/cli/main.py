@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 from typing import Any, NoReturn, Sequence, cast
 
+import shtab
+
 from nuggetizer.models.nuggetizer import Nuggetizer
 from nuggetizer.core.types import Nugget, NuggetAssignMode
 from nuggetizer.prompts import (
@@ -366,6 +368,7 @@ def build_parser() -> CLIArgumentParser:
         default=False,
         help="Suppress all log output (sets log level to CRITICAL).",
     )
+    shtab.add_argument_to(parser, ["--print-completion"])
     subparsers = parser.add_subparsers(
         dest="command", required=True, parser_class=CLIArgumentParser
     )
