@@ -19,6 +19,7 @@ from nuggetizer.prompts import (
 )
 
 from .adapters_common import make_data_artifact, make_file_artifact
+from .config import load_config
 from .adapters import (
     collect_nonempty_reasoning_traces,
     collect_reasoning_traces,
@@ -1239,6 +1240,8 @@ def _run_schema_command(args: argparse.Namespace) -> CommandResponse:
 
 def _run_doctor_command(args: argparse.Namespace) -> CommandResponse:
     report = doctor_report()
+    config_path = getattr(args, "_config_path", None)
+    report["config_file"] = str(config_path) if config_path else None
     response = CommandResponse(
         command="doctor",
         metrics=report,
@@ -1524,10 +1527,16 @@ def _run_command(args: argparse.Namespace) -> CommandResponse:
 def main(argv: Sequence[str] | None = None) -> int:
     argv_list = list(argv) if argv is not None else sys.argv[1:]
     parser = build_parser()
+    config, config_path = load_config()
     wants_json = _wants_json(argv_list)
 
     try:
         args = parser.parse_args(argv_list)
+        args._config_path = config_path
+        for key, value in config.items():
+            flag = f"--{key.replace('_', '-')}"
+            if flag not in argv_list:
+                setattr(args, key, value)
         response = _run_command(args)
         if getattr(args, "output", "text") == "json":
             _emit_json(response.to_envelope())

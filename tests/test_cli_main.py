@@ -1186,6 +1186,24 @@ def test_view_malformed_file_returns_json_error(tmp_path: Path, capsys: Any) -> 
     assert output["errors"][0]["code"] == "invalid_view_input"
 
 
+def test_config_file_sets_default_output_format(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    config_dir = tmp_path / "config" / "nuggetizer"
+    config_dir.mkdir(parents=True)
+    config_file = config_dir / "config.toml"
+    config_file.write_text('output = "json"\n', encoding="utf-8")
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+
+    exit_code = main(["doctor"])
+
+    assert exit_code == 0
+    stdout = capsys.readouterr().out
+    output = json.loads(stdout)
+    assert output["command"] == "doctor"
+    assert output["metrics"]["config_file"] == str(config_file)
+
+
 def test_pipe_create_jsonl_output_is_valid_for_assign(
     monkeypatch: Any, capsys: Any
 ) -> None:
