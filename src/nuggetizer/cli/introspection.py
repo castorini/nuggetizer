@@ -81,6 +81,16 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
         ],
         "inspection_safe": True,
     },
+    "prompt": {
+        "summary": "Inspect built-in Nuggetizer prompt templates.",
+        "examples": [
+            "nuggetizer prompt list",
+            "nuggetizer prompt show create",
+            "nuggetizer prompt show assign --assign-mode support_grade_2 --output json",
+        ],
+        "inspection_safe": True,
+        "subcommands": ["list", "show"],
+    },
     "describe": {
         "summary": "Inspect structured metadata for a public Nuggetizer command.",
         "inspection_safe": True,
@@ -202,6 +212,17 @@ SCHEMAS: dict[str, dict[str, Any]] = {
     "view-summary": {
         "type": "object",
         "required": ["path", "artifact_type", "summary", "sampled_records"],
+    },
+    "prompt-catalog": {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "required": ["target", "template_name", "assign_mode", "template"],
+        },
+    },
+    "prompt-template": {
+        "type": "object",
+        "required": ["target", "template_name", "assign_mode", "template"],
     },
     "doctor-output": {
         "type": "object",

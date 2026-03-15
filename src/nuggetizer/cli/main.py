@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, NoReturn, Sequence, cast
 
 from nuggetizer.models.nuggetizer import Nuggetizer
+from nuggetizer.core.types import NuggetAssignMode
 
 from .adapters_common import make_data_artifact, make_file_artifact
 from .adapters import (
@@ -28,6 +29,13 @@ from .introspection import (
 from .io import read_jsonl
 from .logging_utils import setup_logging
 from .normalize import direct_assign_inputs, direct_create_record
+from .prompt_view import (
+    build_prompt_template_view,
+    list_prompt_templates,
+    render_prompt_catalog_text,
+    render_prompt_template_text,
+    resolve_prompt_template,
+)
 from .operations import (
     async_run_assign_answers_batch,
     async_run_assign_retrieval_batch,
@@ -57,6 +65,7 @@ KNOWN_COMMANDS = (
     "assign",
     "metrics",
     "view",
+    "prompt",
     "describe",
     "schema",
     "doctor",
@@ -333,6 +342,7 @@ def build_parser() -> CLIArgumentParser:
             "  nuggetizer create --input-file pool.jsonl --output-file nuggets.jsonl\n"
             "  nuggetizer assign --input-kind answers --nuggets nuggets.jsonl "
             "--contexts answers.jsonl --output-file assignments.jsonl\n"
+            "  nuggetizer prompt show create\n"
             "  nuggetizer doctor --output json"
         ),
     )
@@ -706,6 +716,48 @@ def build_parser() -> CLIArgumentParser:
         choices=["text", "json"],
         default="text",
         help="Human-readable summary or JSON envelope.",
+    )
+
+    prompt_parser = subparsers.add_parser(
+        "prompt",
+        help="Inspect built-in Nuggetizer prompt templates.",
+        description="Inspect built-in Nuggetizer prompt templates.",
+    )
+    prompt_subparsers = prompt_parser.add_subparsers(
+        dest="prompt_command", required=True, parser_class=CLIArgumentParser
+    )
+
+    prompt_list_parser = prompt_subparsers.add_parser(
+        "list",
+        help="List built-in prompt templates.",
+    )
+    prompt_list_parser.add_argument(
+        "--output",
+        choices=["text", "json"],
+        default="text",
+        help="Human-readable catalog or JSON envelope.",
+    )
+
+    prompt_show_parser = prompt_subparsers.add_parser(
+        "show",
+        help="Show a built-in prompt template.",
+    )
+    prompt_show_parser.add_argument(
+        "target",
+        choices=["create", "assign", "score"],
+        help="Prompt family to inspect.",
+    )
+    prompt_show_parser.add_argument(
+        "--assign-mode",
+        choices=["support_grade_2", "support_grade_3"],
+        default="support_grade_3",
+        help="Assignment prompt mode when target is assign.",
+    )
+    prompt_show_parser.add_argument(
+        "--output",
+        choices=["text", "json"],
+        default="text",
+        help="Human-readable prompt template or JSON envelope.",
     )
 
     validate_parser = subparsers.add_parser(
@@ -1167,6 +1219,42 @@ def _run_view_command(args: argparse.Namespace) -> CommandResponse:
     return response
 
 
+def _run_prompt_command(args: argparse.Namespace) -> CommandResponse:
+    if args.prompt_command == "list":
+        catalog = list_prompt_templates()
+        response = CommandResponse(
+            command="prompt",
+            mode="inspect",
+            artifacts=[make_data_artifact("prompt-catalog", catalog)],
+        )
+        if args.output == "text":
+            sys.stdout.write(render_prompt_catalog_text(catalog) + "\n")
+        return response
+
+    assign_mode = NuggetAssignMode(args.assign_mode)
+    template_name, template = resolve_prompt_template(args.target, assign_mode)
+    view = build_prompt_template_view(
+        args.target,
+        template_name,
+        template,
+        assign_mode=assign_mode if args.target == "assign" else None,
+    )
+    response = CommandResponse(
+        command="prompt",
+        mode="inspect",
+        inputs={"target": args.target},
+        resolved={
+            "prompt_command": "show",
+            "target": args.target,
+            "assign_mode": view["assign_mode"],
+        },
+        artifacts=[make_data_artifact("prompt-template", view)],
+    )
+    if args.output == "text":
+        sys.stdout.write(render_prompt_template_text(view) + "\n")
+    return response
+
+
 def _run_validate_command(args: argparse.Namespace) -> CommandResponse:
     if args.target == "create":
         if args.input_file is not None:
@@ -1246,6 +1334,8 @@ def _run_command(args: argparse.Namespace) -> CommandResponse:
         return _run_doctor_command(args)
     if args.command == "view":
         return _run_view_command(args)
+    if args.command == "prompt":
+        return _run_prompt_command(args)
     if args.command == "validate":
         return _run_validate_command(args)
     raise CLIError(

@@ -26,6 +26,52 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
     ]
 
 
+def test_prompt_list_returns_json_catalog(capsys: Any) -> None:
+    exit_code = main(["prompt", "list", "--output", "json"])
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["command"] == "prompt"
+    assert output["artifacts"][0]["name"] == "prompt-catalog"
+    catalog = output["artifacts"][0]["data"]
+    assert len(catalog) == 4
+    assert {entry["target"] for entry in catalog} == {"create", "assign", "score"}
+
+
+def test_prompt_show_create_returns_text_template(capsys: Any) -> None:
+    exit_code = main(["prompt", "show", "create"])
+
+    assert exit_code == 0
+    stdout = capsys.readouterr().out
+    assert "Nuggetizer Prompt Template" in stdout
+    assert "target: create" in stdout
+    assert "template_name: creator_template" in stdout
+    assert "[user]" in stdout
+    assert "Search Query: {query}" in stdout
+
+
+def test_prompt_show_assign_support_grade_2_returns_json(capsys: Any) -> None:
+    exit_code = main(
+        [
+            "prompt",
+            "show",
+            "assign",
+            "--assign-mode",
+            "support_grade_2",
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["command"] == "prompt"
+    view = output["artifacts"][0]["data"]
+    assert view["target"] == "assign"
+    assert view["assign_mode"] == "support_grade_2"
+    assert view["template_name"] == "assigner_2grade_template"
+
+
 def test_direct_create_via_input_json(monkeypatch: Any, capsys: Any) -> None:
     def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
         assert request.query.qid == "q0"
@@ -432,7 +478,7 @@ def test_missing_command_returns_descriptive_text_error(capsys: Any) -> None:
     captured = capsys.readouterr()
     assert "No command provided." in captured.err
     assert (
-        "create, assign, metrics, view, describe, schema, doctor, validate"
+        "create, assign, metrics, view, prompt, describe, schema, doctor, validate"
         in captured.err
     )
     assert (
