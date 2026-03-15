@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import argparse
+import importlib.metadata
 import json
 import sys
 from pathlib import Path
@@ -352,6 +353,11 @@ def build_parser() -> CLIArgumentParser:
             "  nuggetizer prompt show create\n"
             "  nuggetizer doctor --output json"
         ),
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {importlib.metadata.version('nuggetizer')}",
     )
     subparsers = parser.add_subparsers(
         dest="command", required=True, parser_class=CLIArgumentParser

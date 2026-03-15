@@ -26,6 +26,15 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
     ]
 
 
+def test_version_flag_prints_version_and_exits(capsys: Any) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(["--version"])
+
+    assert exc_info.value.code == 0
+    stdout = capsys.readouterr().out
+    assert "nuggetizer" in stdout
+
+
 def test_prompt_list_returns_json_catalog(capsys: Any) -> None:
     exit_code = main(["prompt", "list", "--output", "json"])
 
