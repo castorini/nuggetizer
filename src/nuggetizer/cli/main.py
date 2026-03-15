@@ -8,7 +8,10 @@ import sys
 from pathlib import Path
 from typing import Any, NoReturn, Sequence, cast
 
-import shtab
+try:
+    import shtab
+except ModuleNotFoundError:  # optional dev dependency
+    shtab = None  # type: ignore[assignment]
 
 from nuggetizer.models.nuggetizer import Nuggetizer
 from nuggetizer.core.types import Nugget, NuggetAssignMode
@@ -369,7 +372,8 @@ def build_parser() -> CLIArgumentParser:
         default=False,
         help="Suppress all log output (sets log level to CRITICAL).",
     )
-    shtab.add_argument_to(parser, ["--print-completion"])
+    if shtab is not None:
+        shtab.add_argument_to(parser, ["--print-completion"])
     subparsers = parser.add_subparsers(
         dest="command", required=True, parser_class=CLIArgumentParser
     )
