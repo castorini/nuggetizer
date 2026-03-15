@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 from typing import Any
 
 from nuggetizer.core.metrics import calculate_global_metrics
@@ -16,6 +17,13 @@ from .adapters import (
 )
 from .io import append_jsonl_record, get_processed_values, get_run_id, read_jsonl
 from .responses import CommandResponse
+from tqdm import tqdm
+
+
+def _disable_progress(args: object) -> bool:
+    quiet = getattr(args, "quiet", False)
+    output_format = getattr(args, "output", "text")
+    return quiet or output_format in ("json", "jsonl") or not sys.stderr.isatty()
 
 
 def build_create_nuggetizer_kwargs(args: Any) -> dict[str, Any]:
@@ -69,8 +77,11 @@ def run_create_batch(args: Any, logger: logging.Logger) -> CommandResponse:
     generated_count = 0
     skipped_count = 0
     failed_count = 0
+    disable = _disable_progress(args)
     with open(args.output_file, "a", encoding="utf-8") as file_obj:
-        for i, record in enumerate(input_data, 1):
+        for i, record in enumerate(
+            tqdm(input_data, desc="Creating", file=sys.stderr, disable=disable), 1
+        ):
             qid = record["query"]["qid"]
             if qid in processed_qids:
                 logger.info("Skipping already processed record %s", qid)
@@ -127,8 +138,11 @@ def run_assign_answers_batch(args: Any, logger: logging.Logger) -> CommandRespon
     assigned_count = 0
     skipped_count = 0
     failed_count = 0
+    disable = _disable_progress(args)
     with open(args.output_file, "a", encoding="utf-8") as file_obj:
-        for i, nugget_record in enumerate(nugget_data, 1):
+        for i, nugget_record in enumerate(
+            tqdm(nugget_data, desc="Assigning", file=sys.stderr, disable=disable), 1
+        ):
             qid = nugget_record["qid"]
             if qid in processed_qids:
                 logger.info("Skipping already processed record %s", qid)
@@ -194,8 +208,11 @@ def run_assign_retrieval_batch(args: Any, logger: logging.Logger) -> CommandResp
     assigned_count = 0
     skipped_count = 0
     failed_count = 0
+    disable = _disable_progress(args)
     with open(args.output_file, "a", encoding="utf-8") as file_obj:
-        for retrieve_record in retrieve_data:
+        for retrieve_record in tqdm(
+            retrieve_data, desc="Assigning", file=sys.stderr, disable=disable
+        ):
             qid = retrieve_record["query"]["qid"]
             nugget_record = qid_to_nuggets.get(qid)
             if not nugget_record:
@@ -276,8 +293,11 @@ async def async_run_create_batch(args: Any, logger: logging.Logger) -> CommandRe
     generated_count = 0
     skipped_count = 0
     failed_count = 0
+    disable = _disable_progress(args)
     with open(args.output_file, "a", encoding="utf-8") as file_obj:
-        for i, record in enumerate(input_data, 1):
+        for i, record in enumerate(
+            tqdm(input_data, desc="Creating", file=sys.stderr, disable=disable), 1
+        ):
             qid = record["query"]["qid"]
             if qid in processed_qids:
                 logger.info("Skipping already processed record %s", qid)
@@ -330,8 +350,11 @@ async def async_run_assign_answers_batch(
     assigned_count = 0
     skipped_count = 0
     failed_count = 0
+    disable = _disable_progress(args)
     with open(args.output_file, "a", encoding="utf-8") as file_obj:
-        for nugget_record in nugget_data:
+        for nugget_record in tqdm(
+            nugget_data, desc="Assigning", file=sys.stderr, disable=disable
+        ):
             qid = nugget_record["qid"]
             if qid in processed_qids:
                 skipped_count += 1
@@ -388,8 +411,11 @@ async def async_run_assign_retrieval_batch(
     assigned_count = 0
     skipped_count = 0
     failed_count = 0
+    disable = _disable_progress(args)
     with open(args.output_file, "a", encoding="utf-8") as file_obj:
-        for retrieve_record in retrieve_data:
+        for retrieve_record in tqdm(
+            retrieve_data, desc="Assigning", file=sys.stderr, disable=disable
+        ):
             qid = retrieve_record["query"]["qid"]
             nugget_record = qid_to_nuggets.get(qid)
             if not nugget_record:

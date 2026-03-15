@@ -26,6 +26,47 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
     ]
 
 
+def test_batch_json_output_suppresses_progress_bar(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    input_path = tmp_path / "pool.jsonl"
+    output_path = tmp_path / "nuggets.jsonl"
+    write_jsonl(
+        input_path,
+        [
+            {
+                "query": {"qid": "q1", "text": "What is Python used for?"},
+                "candidates": [
+                    {
+                        "docid": "d1",
+                        "doc": {"segment": "Python is used for web development."},
+                    }
+                ],
+            }
+        ],
+    )
+
+    def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        return [ScoredNugget(text="nugget", importance="vital")]
+
+    monkeypatch.setattr(Nuggetizer, "create", fake_create)
+
+    exit_code = main(
+        [
+            "create",
+            "--input-file",
+            str(input_path),
+            "--output-file",
+            str(output_path),
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    assert capsys.readouterr().err == ""
+
+
 def test_quiet_flag_suppresses_stderr(capsys: Any) -> None:
     exit_code = main(["--quiet", "doctor", "--output", "json"])
 
