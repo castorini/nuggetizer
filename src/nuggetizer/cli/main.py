@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, NoReturn, Sequence, cast
 
 from nuggetizer.models.nuggetizer import Nuggetizer
-from nuggetizer.core.types import NuggetAssignMode, ScoredNugget
+from nuggetizer.core.types import Nugget, NuggetAssignMode
 from nuggetizer.prompts import (
     create_assign_prompt,
     create_nugget_prompt,
@@ -1309,7 +1309,7 @@ def _run_prompt_command(args: argparse.Namespace) -> CommandResponse:
     return response
 
 
-def _normalize_score_payload(payload: dict[str, Any]) -> tuple[str, list[ScoredNugget]]:
+def _normalize_score_payload(payload: dict[str, Any]) -> tuple[str, list[Nugget]]:
     if "query" not in payload or "nuggets" not in payload:
         raise CLIError(
             "score prompt render requires query and nuggets",
@@ -1319,11 +1319,8 @@ def _normalize_score_payload(payload: dict[str, Any]) -> tuple[str, list[ScoredN
             command="prompt",
         )
     nuggets = [
-        ScoredNugget(
+        Nugget(
             text=nugget if isinstance(nugget, str) else nugget["text"],
-            importance=(
-                "okay" if isinstance(nugget, str) else nugget.get("importance", "okay")
-            ),
         )
         for nugget in cast(list[Any], payload["nuggets"])
     ]
@@ -1385,9 +1382,9 @@ def _run_prompt_render_command(args: argparse.Namespace) -> CommandResponse:
         }
         resolved_assign_mode = assign_mode
     else:
-        query, nuggets = _normalize_score_payload(payload)
-        messages = create_score_prompt(query, nuggets)
-        inputs = {"query": query, "nugget_count": len(nuggets)}
+        query, score_nuggets = _normalize_score_payload(payload)
+        messages = create_score_prompt(query, score_nuggets)
+        inputs = {"query": query, "nugget_count": len(score_nuggets)}
         resolved_assign_mode = None
 
     view = build_rendered_prompt_view(

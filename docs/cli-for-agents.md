@@ -6,6 +6,8 @@ activated, the development fallback is `uv run nuggetizer ...`.
 
 `nuggetizer view` renders an existing output artifact for humans after the main
 pipeline command has finished writing it.
+`nuggetizer prompt` inspects built-in prompt templates and renders exact prompt
+messages for direct input payloads without calling a model.
 
 ## Command Mapping
 
@@ -102,6 +104,21 @@ View existing create, assign, or metrics artifacts:
 nuggetizer view nuggets.jsonl
 nuggetizer view assignments.jsonl --records 1
 nuggetizer view metrics.jsonl
+```
+
+Inspect or render prompt templates:
+
+```bash
+nuggetizer prompt list
+nuggetizer prompt show create
+nuggetizer prompt show assign --assign-mode support_grade_2
+nuggetizer prompt render create \
+  --input-json '{"query":"What is Python used for?","candidates":["Python is used for web development."]}'
+nuggetizer prompt render assign \
+  --assign-mode support_grade_3 \
+  --input-json '{"query":"What is Python used for?","context":"Python is used for web development.","nuggets":[{"text":"Python is used for web development.","importance":"vital"}]}'
+nuggetizer prompt render score \
+  --input-json '{"query":"What is Python used for?","nuggets":["Python is used for web development."]}'
 ```
 
 ## Failure Example
