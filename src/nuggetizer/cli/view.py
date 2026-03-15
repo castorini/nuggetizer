@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -39,6 +40,8 @@ class ViewError(ValueError):
 
 
 def _color_enabled(color: str) -> bool:
+    if os.environ.get("NO_COLOR") is not None:
+        return False
     if color == "always":
         return True
     if color == "never":

@@ -26,6 +26,38 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
     ]
 
 
+def test_no_color_env_suppresses_ansi_codes(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    monkeypatch.setenv("NO_COLOR", "")
+    path = tmp_path / "assignments.jsonl"
+    write_jsonl(
+        path,
+        [
+            {
+                "query": "What is Python?",
+                "qid": "q1",
+                "answer_text": "Python is used for web development.",
+                "response_length": 12,
+                "run_id": "demo-run",
+                "nuggets": [
+                    {
+                        "text": "Python is used for web development.",
+                        "importance": "vital",
+                        "assignment": "support",
+                    }
+                ],
+            }
+        ],
+    )
+
+    exit_code = main(["view", str(path), "--color", "always"])
+
+    assert exit_code == 0
+    stdout = capsys.readouterr().out
+    assert "\033[" not in stdout
+
+
 def test_version_flag_prints_version_and_exits(capsys: Any) -> None:
     with pytest.raises(SystemExit) as exc_info:
         main(["--version"])
