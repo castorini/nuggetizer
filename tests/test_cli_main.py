@@ -1184,3 +1184,35 @@ def test_view_malformed_file_returns_json_error(tmp_path: Path, capsys: Any) -> 
     output = json.loads(capsys.readouterr().out)
     assert output["command"] == "view"
     assert output["errors"][0]["code"] == "invalid_view_input"
+
+
+def test_pipe_create_jsonl_output_is_valid_for_assign(
+    monkeypatch: Any, capsys: Any
+) -> None:
+    """Verify that create's JSON output contains nuggets consumable by assign."""
+
+    def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        return [ScoredNugget(text="Python is useful.", importance="vital")]
+
+    monkeypatch.setattr(Nuggetizer, "create", fake_create)
+
+    exit_code = main(
+        [
+            "create",
+            "--input-json",
+            json.dumps(
+                {"query": "What is Python?", "candidates": ["Python is useful."]}
+            ),
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    envelope = json.loads(capsys.readouterr().out)
+    data = envelope["artifacts"][0]["data"]
+    assert "query" in data
+    assert "nuggets" in data
+    assert all(
+        "text" in nugget and "importance" in nugget for nugget in data["nuggets"]
+    )
