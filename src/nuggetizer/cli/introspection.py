@@ -86,10 +86,11 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
         "examples": [
             "nuggetizer prompt list",
             "nuggetizer prompt show create",
+            'nuggetizer prompt render create --input-json \'{"query":"q","candidates":["p"]}\'',
             "nuggetizer prompt show assign --assign-mode support_grade_2 --output json",
         ],
         "inspection_safe": True,
-        "subcommands": ["list", "show"],
+        "subcommands": ["list", "show", "render"],
     },
     "describe": {
         "summary": "Inspect structured metadata for a public Nuggetizer command.",
@@ -223,6 +224,10 @@ SCHEMAS: dict[str, dict[str, Any]] = {
     "prompt-template": {
         "type": "object",
         "required": ["target", "template_name", "assign_mode", "template"],
+    },
+    "rendered-prompt": {
+        "type": "object",
+        "required": ["target", "template_name", "assign_mode", "messages", "inputs"],
     },
     "doctor-output": {
         "type": "object",

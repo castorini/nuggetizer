@@ -72,6 +72,102 @@ def test_prompt_show_assign_support_grade_2_returns_json(capsys: Any) -> None:
     assert view["template_name"] == "assigner_2grade_template"
 
 
+def test_prompt_render_create_returns_text_prompt(capsys: Any) -> None:
+    exit_code = main(
+        [
+            "prompt",
+            "render",
+            "create",
+            "--input-json",
+            json.dumps({"query": "What is Python used for?", "candidates": ["web"]}),
+            "--part",
+            "user",
+        ]
+    )
+
+    assert exit_code == 0
+    stdout = capsys.readouterr().out
+    assert "Nuggetizer Rendered Prompt" in stdout
+    assert "target: create" in stdout
+    assert "[user]" in stdout
+    assert "[system]" not in stdout
+    assert "Search Query: What is Python used for?" in stdout
+
+
+def test_prompt_render_assign_returns_json_prompt(capsys: Any) -> None:
+    exit_code = main(
+        [
+            "prompt",
+            "render",
+            "assign",
+            "--assign-mode",
+            "support_grade_2",
+            "--input-json",
+            json.dumps(
+                {
+                    "query": "What is Python used for?",
+                    "context": "Python is used for web development.",
+                    "nuggets": [{"text": "Python is used for web development.", "importance": "vital"}],
+                }
+            ),
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    view = output["artifacts"][0]["data"]
+    assert view["target"] == "assign"
+    assert view["assign_mode"] == "support_grade_2"
+    assert view["messages"][0]["role"] == "system"
+    assert "support or not_support" in view["messages"][1]["content"]
+
+
+def test_prompt_render_score_returns_json_prompt(capsys: Any) -> None:
+    exit_code = main(
+        [
+            "prompt",
+            "render",
+            "score",
+            "--input-json",
+            json.dumps(
+                {
+                    "query": "What is Python used for?",
+                    "nuggets": ["Python is used for web development."],
+                }
+            ),
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    view = output["artifacts"][0]["data"]
+    assert view["target"] == "score"
+    assert "label each of the 1 nuggets" in view["messages"][1]["content"]
+
+
+def test_prompt_render_score_requires_query_and_nuggets(capsys: Any) -> None:
+    exit_code = main(
+        [
+            "prompt",
+            "render",
+            "score",
+            "--input-json",
+            json.dumps({"query": "q"}),
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 2
+    output = json.loads(capsys.readouterr().out)
+    assert output["command"] == "prompt"
+    assert output["errors"][0]["code"] == "invalid_score_prompt_input"
+
+
 def test_direct_create_via_input_json(monkeypatch: Any, capsys: Any) -> None:
     def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
         assert request.query.qid == "q0"

@@ -8,7 +8,12 @@ from pathlib import Path
 from typing import Any, NoReturn, Sequence, cast
 
 from nuggetizer.models.nuggetizer import Nuggetizer
-from nuggetizer.core.types import NuggetAssignMode
+from nuggetizer.core.types import NuggetAssignMode, ScoredNugget
+from nuggetizer.prompts import (
+    create_assign_prompt,
+    create_nugget_prompt,
+    create_score_prompt,
+)
 
 from .adapters_common import make_data_artifact, make_file_artifact
 from .adapters import (
@@ -31,8 +36,10 @@ from .logging_utils import setup_logging
 from .normalize import direct_assign_inputs, direct_create_record
 from .prompt_view import (
     build_prompt_template_view,
+    build_rendered_prompt_view,
     list_prompt_templates,
     render_prompt_catalog_text,
+    render_rendered_prompt_text,
     render_prompt_template_text,
     resolve_prompt_template,
 )
@@ -760,6 +767,53 @@ def build_parser() -> CLIArgumentParser:
         help="Human-readable prompt template or JSON envelope.",
     )
 
+    prompt_render_parser = prompt_subparsers.add_parser(
+        "render",
+        help="Render a built-in prompt template against direct input.",
+    )
+    prompt_render_parser.add_argument(
+        "target",
+        choices=["create", "assign", "score"],
+        help="Prompt family to render.",
+    )
+    prompt_render_parser.add_argument(
+        "--assign-mode",
+        choices=["support_grade_2", "support_grade_3"],
+        default="support_grade_3",
+        help="Assignment prompt mode when target is assign.",
+    )
+    prompt_render_inputs = prompt_render_parser.add_mutually_exclusive_group(
+        required=True
+    )
+    prompt_render_inputs.add_argument(
+        "--stdin",
+        action="store_true",
+        help="Read one direct JSON payload from standard input.",
+    )
+    prompt_render_inputs.add_argument(
+        "--input-json",
+        type=str,
+        help="Direct JSON payload for the selected prompt family.",
+    )
+    prompt_render_parser.add_argument(
+        "--max-nuggets",
+        type=int,
+        default=30,
+        help="Maximum nuggets to include in create prompt rendering.",
+    )
+    prompt_render_parser.add_argument(
+        "--part",
+        choices=["system", "user", "all"],
+        default="all",
+        help="Rendered prompt section to show in text mode.",
+    )
+    prompt_render_parser.add_argument(
+        "--output",
+        choices=["text", "json"],
+        default="text",
+        help="Human-readable rendered prompt or JSON envelope.",
+    )
+
     validate_parser = subparsers.add_parser(
         "validate",
         help="Validate direct JSON input or batch JSONL inputs without running models.",
@@ -1255,6 +1309,111 @@ def _run_prompt_command(args: argparse.Namespace) -> CommandResponse:
     return response
 
 
+def _normalize_score_payload(payload: dict[str, Any]) -> tuple[str, list[ScoredNugget]]:
+    if "query" not in payload or "nuggets" not in payload:
+        raise CLIError(
+            "score prompt render requires query and nuggets",
+            exit_code=INVALID_ARGS_EXIT_CODE,
+            status="validation_error",
+            error_code="invalid_score_prompt_input",
+            command="prompt",
+        )
+    nuggets = [
+        ScoredNugget(
+            text=nugget if isinstance(nugget, str) else nugget["text"],
+            importance=(
+                "okay" if isinstance(nugget, str) else nugget.get("importance", "okay")
+            ),
+        )
+        for nugget in cast(list[Any], payload["nuggets"])
+    ]
+    return str(payload["query"]), nuggets
+
+
+def _run_prompt_render_command(args: argparse.Namespace) -> CommandResponse:
+    payload = _read_direct_payload(args)
+    assign_mode = NuggetAssignMode(args.assign_mode)
+    template_name, _template = resolve_prompt_template(args.target, assign_mode)
+
+    if args.target == "create":
+        validation = validate_create_input(payload)
+        if not validation.get("valid", False):
+            raise CLIError(
+                "create prompt input failed validation",
+                exit_code=INVALID_ARGS_EXIT_CODE,
+                status="validation_error",
+                error_code="invalid_create_prompt_input",
+                command="prompt",
+                details=validation,
+            )
+        request_obj = request_from_create_record(direct_create_record(payload))
+        messages = create_nugget_prompt(
+            request_obj,
+            0,
+            len(request_obj.documents),
+            [],
+            creator_max_nuggets=args.max_nuggets,
+        )
+        inputs = {
+            "query": request_obj.query.text,
+            "candidate_count": len(request_obj.documents),
+            "max_nuggets": args.max_nuggets,
+        }
+        resolved_assign_mode = None
+    elif args.target == "assign":
+        validation = validate_assign_input(payload)
+        if not validation.get("valid", False):
+            raise CLIError(
+                "assign prompt input failed validation",
+                exit_code=INVALID_ARGS_EXIT_CODE,
+                status="validation_error",
+                error_code="invalid_assign_prompt_input",
+                command="prompt",
+                details=validation,
+            )
+        query, context, nuggets = direct_assign_inputs(payload)
+        messages = create_assign_prompt(
+            query,
+            context,
+            nuggets,
+            assigner_mode=assign_mode,
+        )
+        inputs = {
+            "query": query,
+            "context": context,
+            "nugget_count": len(nuggets),
+        }
+        resolved_assign_mode = assign_mode
+    else:
+        query, nuggets = _normalize_score_payload(payload)
+        messages = create_score_prompt(query, nuggets)
+        inputs = {"query": query, "nugget_count": len(nuggets)}
+        resolved_assign_mode = None
+
+    view = build_rendered_prompt_view(
+        args.target,
+        template_name,
+        messages,
+        assign_mode=resolved_assign_mode,
+        inputs=inputs,
+    )
+    response = CommandResponse(
+        command="prompt",
+        mode="inspect",
+        inputs={"target": args.target},
+        resolved={
+            "prompt_command": "render",
+            "target": args.target,
+            "assign_mode": view["assign_mode"],
+            "part": args.part,
+        },
+        artifacts=[make_data_artifact("rendered-prompt", view)],
+    )
+    if args.output == "text":
+        sys.stdout.write(render_rendered_prompt_text(view, part=args.part) + "\n")
+    return response
+
+
 def _run_validate_command(args: argparse.Namespace) -> CommandResponse:
     if args.target == "create":
         if args.input_file is not None:
@@ -1335,6 +1494,8 @@ def _run_command(args: argparse.Namespace) -> CommandResponse:
     if args.command == "view":
         return _run_view_command(args)
     if args.command == "prompt":
+        if args.prompt_command == "render":
+            return _run_prompt_render_command(args)
         return _run_prompt_command(args)
     if args.command == "validate":
         return _run_validate_command(args)

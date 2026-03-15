@@ -113,3 +113,37 @@ def render_prompt_template_text(view: dict[str, Any]) -> str:
     lines.append("[user]")
     lines.append(view["template"]["prefix_user"])
     return "\n".join(lines)
+
+
+def build_rendered_prompt_view(
+    target: str,
+    template_name: str,
+    messages: list[dict[str, str]],
+    *,
+    assign_mode: NuggetAssignMode | None,
+    inputs: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "target": target,
+        "template_name": template_name,
+        "assign_mode": None if assign_mode is None else assign_mode.value,
+        "messages": messages,
+        "inputs": inputs,
+    }
+
+
+def render_rendered_prompt_text(view: dict[str, Any], *, part: str) -> str:
+    lines = ["Nuggetizer Rendered Prompt"]
+    lines.append(f"target: {view['target']}")
+    if view["assign_mode"] is not None:
+        lines.append(f"assign_mode: {view['assign_mode']}")
+    lines.append(f"template_name: {view['template_name']}")
+    for name, value in view["inputs"].items():
+        lines.append(f"{name}: {value}")
+    for message in view["messages"]:
+        if part != "all" and message["role"] != part:
+            continue
+        lines.append("")
+        lines.append(f"[{message['role']}]")
+        lines.append(message["content"])
+    return "\n".join(lines)
