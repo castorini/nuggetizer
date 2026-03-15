@@ -107,7 +107,12 @@ def test_prompt_render_assign_returns_json_prompt(capsys: Any) -> None:
                 {
                     "query": "What is Python used for?",
                     "context": "Python is used for web development.",
-                    "nuggets": [{"text": "Python is used for web development.", "importance": "vital"}],
+                    "nuggets": [
+                        {
+                            "text": "Python is used for web development.",
+                            "importance": "vital",
+                        }
+                    ],
                 }
             ),
             "--output",
