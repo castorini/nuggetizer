@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import pytest
+
 from nuggetizer.prompts.template_loader import format_template, get_template
+
+pytestmark = pytest.mark.core
 
 
 def test_get_template_metadata_reports_creator_template_details() -> None:

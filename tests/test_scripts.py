@@ -6,8 +6,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from nuggetizer.core.types import AssignedScoredNugget, ScoredNugget
 from nuggetizer.models.nuggetizer import Nuggetizer
+
+pytestmark = pytest.mark.core
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]

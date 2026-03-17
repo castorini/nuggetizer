@@ -10,6 +10,8 @@ from nuggetizer.cli.main import main
 from nuggetizer.core.types import AssignedScoredNugget, ScoredNugget, Trace
 from nuggetizer.models.nuggetizer import Nuggetizer
 
+pytestmark = pytest.mark.core
+
 
 def write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
     path.write_text(
@@ -1086,8 +1088,9 @@ def test_view_assign_answers_text_renders_assignments(
 
 
 def test_view_assign_answers_text_color_codes_importance_and_assignment(
-    tmp_path: Path, capsys: Any
+    tmp_path: Path, monkeypatch: Any, capsys: Any
 ) -> None:
+    monkeypatch.delenv("NO_COLOR", raising=False)
     path = tmp_path / "assignments-color.jsonl"
     write_jsonl(
         path,

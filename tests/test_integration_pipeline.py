@@ -4,9 +4,13 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from nuggetizer.cli.main import main
 from nuggetizer.core.types import AssignedScoredNugget, ScoredNugget
 from nuggetizer.models.nuggetizer import Nuggetizer
+
+pytestmark = pytest.mark.integration
 
 
 def write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:

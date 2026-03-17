@@ -264,12 +264,8 @@ Nuggetizer keeps regression coverage in three layers:
 Typical local commands:
 
 ```bash
-uv run pytest -q \
-  tests/test_cli_main.py \
-  tests/test_llm_handlers.py \
-  tests/test_prompt_templates.py \
-  tests/test_scripts.py
-uv run pytest -q tests/test_integration_pipeline.py
+uv run pytest -q -m core tests
+uv run pytest -q -m integration tests
 NUGGETIZER_LIVE_OPENAI_SMOKE=1 uv run pytest tests/test_live_openai_smoke.py
 ```
 

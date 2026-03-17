@@ -43,18 +43,19 @@
 ## CI And Contribution Workflow
 - PR CI (`.github/workflows/pr-format.yml`) runs on PRs to `main`.
 - Test tiers:
-  - `core`: `uv run pytest -q tests/test_cli_main.py tests/test_llm_handlers.py tests/test_prompt_templates.py tests/test_scripts.py`
-  - `integration`: `uv run pytest -q tests/test_integration_pipeline.py`
+  - `core`: `uv run pytest -q -m core tests`
+  - `integration`: `uv run pytest -q -m integration tests`
   - `live`: opt-in smoke tests such as `NUGGETIZER_LIVE_OPENAI_SMOKE=1 uv run pytest tests/test_live_openai_smoke.py`
 - Keep `core` and `integration` coverage offline and deterministic; live-provider checks stay opt-in.
+- Apply the shared pytest markers `core`, `integration`, and `live` at the module level when adding or moving tests.
 
 ## Validation Commands
 - Lint/type:
   - `uv run pre-commit run --all-files`
 - Core tests:
-  - `uv run pytest -q tests/test_cli_main.py tests/test_llm_handlers.py tests/test_prompt_templates.py tests/test_scripts.py`
+  - `uv run pytest -q -m core tests`
 - Integration tests:
-  - `uv run pytest -q tests/test_integration_pipeline.py`
+  - `uv run pytest -q -m integration tests`
 - Live smoke:
   - `NUGGETIZER_LIVE_OPENAI_SMOKE=1 uv run pytest tests/test_live_openai_smoke.py`
 - Quick CLI help checks:

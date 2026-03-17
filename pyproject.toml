@@ -85,3 +85,12 @@ incremental = true
 
 [tool.setuptools.package-data]
 "nuggetizer.prompts.prompt_templates" = ["*.yaml"] 
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "core: deterministic CLI, prompt, and handler regression coverage",
+    "integration: deterministic offline pipeline regression coverage",
+    "live: provider-backed smoke coverage that requires explicit opt-in",
+]
+addopts = "--strict-markers"

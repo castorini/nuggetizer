@@ -28,12 +28,8 @@ Run these commands before opening a pull request:
 
 ```bash
 uv run pre-commit run --all-files
-uv run pytest -q \
-  tests/test_cli_main.py \
-  tests/test_llm_handlers.py \
-  tests/test_prompt_templates.py \
-  tests/test_scripts.py
-uv run pytest -q tests/test_integration_pipeline.py
+uv run pytest -q -m core tests
+uv run pytest -q -m integration tests
 ```
 
 The pre-commit hooks are the canonical lint, format, and type-check entrypoint for this repository. They currently run Ruff and MyPy.
@@ -45,6 +41,7 @@ The pre-commit hooks are the canonical lint, format, and type-check entrypoint f
   - `core`: fast deterministic CLI, prompt, and handler coverage that always runs in PR CI
   - `integration`: deterministic offline pipeline regressions backed by frozen fixtures
   - `live`: provider-backed smoke tests gated behind explicit environment variables
+- Apply the shared pytest markers (`core`, `integration`, `live`) at the module level so CI and local commands stay aligned across Castorini Python repos.
 - Prefer offline, deterministic tests under `tests/`.
 - If you change CLI behavior, request normalization, JSON envelopes, or compatibility shims in `scripts/`, add regression coverage.
 - If a change depends on live model providers, keep the default automated tests offline and explain any manual validation steps in the pull request.
