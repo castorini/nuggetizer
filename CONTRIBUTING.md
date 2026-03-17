@@ -28,7 +28,12 @@ Run these commands before opening a pull request:
 
 ```bash
 uv run pre-commit run --all-files
-uv run pytest
+uv run pytest -q \
+  tests/test_cli_main.py \
+  tests/test_llm_handlers.py \
+  tests/test_prompt_templates.py \
+  tests/test_scripts.py
+uv run pytest -q tests/test_integration_pipeline.py
 ```
 
 The pre-commit hooks are the canonical lint, format, and type-check entrypoint for this repository. They currently run Ruff and MyPy.
@@ -36,6 +41,10 @@ The pre-commit hooks are the canonical lint, format, and type-check entrypoint f
 ## Testing Expectations
 
 - Add or update tests for non-trivial behavior changes.
+- Keep tests in one of these layers:
+  - `core`: fast deterministic CLI, prompt, and handler coverage that always runs in PR CI
+  - `integration`: deterministic offline pipeline regressions backed by frozen fixtures
+  - `live`: provider-backed smoke tests gated behind explicit environment variables
 - Prefer offline, deterministic tests under `tests/`.
 - If you change CLI behavior, request normalization, JSON envelopes, or compatibility shims in `scripts/`, add regression coverage.
 - If a change depends on live model providers, keep the default automated tests offline and explain any manual validation steps in the pull request.
@@ -52,6 +61,8 @@ The pre-commit hooks are the canonical lint, format, and type-check entrypoint f
 - Update `README.md` for any user-facing CLI, install, or environment changes.
 - Update examples when the recommended invocation path changes.
 - Mention new environment variables, model-provider requirements, or optional extras in the pull request description.
+- Add or update a file in `docs/release-notes/` for user-visible changes.
+- If prompt semantics, JSONL schemas, metric definitions, or CLI defaults change, include a migration note in the release note.
 
 ## Pull Request Checklist
 

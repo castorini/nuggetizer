@@ -9,6 +9,11 @@
 A powerful tool for information nugget creation, scoring, and assigning to RAG answers using LLMs.
 Enables the evaluation of fact recall of RAG answers.
 
+## Releases
+
+- Current version: `0.0.6`
+- Release notes: [docs/release-notes/release-notes-v0.0.6.md](docs/release-notes/release-notes-v0.0.6.md)
+
 ## 📟 Installation
 
 ### Install `uv`
@@ -245,6 +250,26 @@ For an opt-in live smoke test that exercises the packaged CLI against a real
 OpenAI-compatible backend, run:
 
 ```bash
+NUGGETIZER_LIVE_OPENAI_SMOKE=1 uv run pytest tests/test_live_openai_smoke.py
+```
+
+## Testing Tiers
+
+Nuggetizer keeps regression coverage in three layers:
+
+- `core`: fast deterministic CLI, prompt, and handler coverage
+- `integration`: deterministic offline `create` -> `assign` -> `metrics` pipeline regressions backed by frozen fixtures
+- `live`: provider-backed smoke tests gated behind explicit environment variables
+
+Typical local commands:
+
+```bash
+uv run pytest -q \
+  tests/test_cli_main.py \
+  tests/test_llm_handlers.py \
+  tests/test_prompt_templates.py \
+  tests/test_scripts.py
+uv run pytest -q tests/test_integration_pipeline.py
 NUGGETIZER_LIVE_OPENAI_SMOKE=1 uv run pytest tests/test_live_openai_smoke.py
 ```
 

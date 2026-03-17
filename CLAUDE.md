@@ -42,13 +42,22 @@
 
 ## CI And Contribution Workflow
 - PR CI (`.github/workflows/pr-format.yml`) runs on PRs to `main`.
-- CI currently validates style/type only via pre-commit (ruff + mypy).
-- No dedicated automated test suite is present; validate behavior using examples/scripts locally.
+- Test tiers:
+  - `core`: `uv run pytest -q tests/test_cli_main.py tests/test_llm_handlers.py tests/test_prompt_templates.py tests/test_scripts.py`
+  - `integration`: `uv run pytest -q tests/test_integration_pipeline.py`
+  - `live`: opt-in smoke tests such as `NUGGETIZER_LIVE_OPENAI_SMOKE=1 uv run pytest tests/test_live_openai_smoke.py`
+- Keep `core` and `integration` coverage offline and deterministic; live-provider checks stay opt-in.
 
 ## Validation Commands
 - Lint/type:
   - `uv run pre-commit run --all-files`
-- Quick smoke checks:
+- Core tests:
+  - `uv run pytest -q tests/test_cli_main.py tests/test_llm_handlers.py tests/test_prompt_templates.py tests/test_scripts.py`
+- Integration tests:
+  - `uv run pytest -q tests/test_integration_pipeline.py`
+- Live smoke:
+  - `NUGGETIZER_LIVE_OPENAI_SMOKE=1 uv run pytest tests/test_live_openai_smoke.py`
+- Quick CLI help checks:
   - `uv run python examples/pipeline_demo.py --help`
   - `uv run python examples/sync_pipeline_demo.py --help`
   - `uv run python scripts/create_nuggets.py --help`
@@ -70,3 +79,4 @@
 ## Versioning
 - Version is defined in `pyproject.toml` (`project.version`) and managed with `bumpver` config.
 - If doing a release bump, update versioned references consistently per bumpver patterns.
+- Keep user-visible changes documented in `docs/release-notes/`, including migration notes for CLI/schema/metric changes.
