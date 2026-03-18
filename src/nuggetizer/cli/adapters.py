@@ -49,9 +49,9 @@ def request_from_create_record(record: dict[str, Any]) -> Request:
     for candidate in record["candidates"]:
         if "judgment" in candidate and candidate["judgment"] <= 0:
             continue
-        documents.append(
-            Document(docid=candidate["docid"], segment=candidate["doc"]["segment"])
-        )
+        doc = candidate["doc"]
+        segment = doc.get("segment") or doc.get("contents", "")
+        documents.append(Document(docid=candidate["docid"], segment=segment))
     return Request(query=query, documents=documents)
 
 

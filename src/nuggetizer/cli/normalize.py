@@ -17,7 +17,11 @@ def direct_create_record(payload: dict[str, Any]) -> dict[str, Any]:
                 if isinstance(candidate, str)
                 else {
                     "docid": candidate.get("docid", f"d{index}"),
-                    "doc": {"segment": candidate["text"]},
+                    "doc": {
+                        "segment": candidate.get("text")
+                        or (candidate.get("doc") or {}).get("segment")
+                        or (candidate.get("doc") or {}).get("contents")
+                    },
                 }
             )
             for index, candidate in enumerate(payload["candidates"])
