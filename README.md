@@ -137,6 +137,16 @@ nuggetizer metrics \
   --output-file metrics.jsonl
 ```
 
+Serve the direct create and assign API:
+
+```bash
+nuggetizer serve --port 8085
+
+curl -X POST http://127.0.0.1:8085/v1/create \
+  -H 'content-type: application/json' \
+  -d '{"query":"q","candidates":["p"]}'
+```
+
 Inspect the CLI contract:
 
 ```bash
@@ -155,6 +165,7 @@ around the packaged CLI, but new automation and documentation should prefer
 
 - Use `--output json` for automation; that is the authoritative machine-readable interface.
 - `nuggetizer doctor --output json` reports command and backend readiness with explicit `ready`, `missing_env`, or `blocked` states.
+- `nuggetizer serve` exposes `GET /healthz`, `POST /v1/create`, and `POST /v1/assign` on port `8085` by default and reuses the same direct-input payload contracts as the packaged CLI.
 - `nuggetizer describe ...` and `nuggetizer schema ...` expose the supported command metadata and payload contracts without running models.
 - `nuggetizer validate ...` is non-mutating and returns a real pass or fail instead of performing any repair work.
 

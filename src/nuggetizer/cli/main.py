@@ -11,9 +11,13 @@ from typing import Any, NoReturn, Sequence, cast
 try:
     import shtab
 except ModuleNotFoundError:  # optional dev dependency
-    shtab = None  # type: ignore[assignment]
+    shtab = None
 
-from nuggetizer.models.nuggetizer import Nuggetizer
+from nuggetizer.api.runtime import (
+    ServerConfig,
+    execute_direct_assign,
+    execute_direct_create,
+)
 from nuggetizer.core.types import Nugget, NuggetAssignMode
 from nuggetizer.prompts import (
     create_assign_prompt,
@@ -24,10 +28,7 @@ from nuggetizer.prompts import (
 from .adapters_common import make_data_artifact, make_file_artifact
 from .config import load_config
 from .adapters import (
-    collect_nonempty_reasoning_traces,
-    collect_reasoning_traces,
     request_from_create_record,
-    serialize_nugget,
 )
 from .introspection import (
     COMMAND_DESCRIPTIONS,
@@ -54,8 +55,6 @@ from .operations import (
     async_run_assign_answers_batch,
     async_run_assign_retrieval_batch,
     async_run_create_batch,
-    build_assign_nuggetizer_kwargs,
-    build_create_nuggetizer_kwargs,
     run_assign_answers_batch,
     run_assign_retrieval_batch,
     run_create_batch,
@@ -78,6 +77,7 @@ KNOWN_COMMANDS = (
     "create",
     "assign",
     "metrics",
+    "serve",
     "view",
     "prompt",
     "describe",
@@ -91,6 +91,7 @@ TOP_LEVEL_EXAMPLES = (
         "nuggetizer assign --input-kind answers --nuggets nuggets.jsonl "
         "--contexts answers.jsonl --output-file assignments.jsonl"
     ),
+    "nuggetizer serve --port 8085",
     "nuggetizer doctor --output json",
 )
 
@@ -356,6 +357,7 @@ def build_parser() -> CLIArgumentParser:
             "  nuggetizer create --input-file pool.jsonl --output-file nuggets.jsonl\n"
             "  nuggetizer assign --input-kind answers --nuggets nuggets.jsonl "
             "--contexts answers.jsonl --output-file assignments.jsonl\n"
+            "  nuggetizer serve --port 8085\n"
             "  nuggetizer prompt show create\n"
             "  nuggetizer doctor --output json"
         ),
@@ -668,6 +670,66 @@ def build_parser() -> CLIArgumentParser:
         help="Write the final JSON envelope to a manifest file.",
     )
 
+    serve_parser = subparsers.add_parser(
+        "serve",
+        help="Start a FastAPI server for direct nugget creation and assignment.",
+        description=(
+            "Start a FastAPI server that exposes Nuggetizer direct create and "
+            "assign operations over HTTP."
+        ),
+    )
+    serve_parser.add_argument("--host", type=str, default="0.0.0.0")
+    serve_parser.add_argument("--port", type=int, default=8085)
+    serve_parser.add_argument(
+        "--model",
+        type=str,
+        default="gpt-4o",
+        help="Default model used for create and assign requests.",
+    )
+    serve_parser.add_argument(
+        "--creator-model", type=str, help="Override the nugget creation model."
+    )
+    serve_parser.add_argument(
+        "--scorer-model", type=str, help="Override the nugget scoring model."
+    )
+    serve_parser.add_argument(
+        "--window-size", type=int, help="Window size for chunked nugget creation."
+    )
+    serve_parser.add_argument(
+        "--max-nuggets", type=int, help="Maximum nuggets to emit per request."
+    )
+    serve_parser.add_argument(
+        "--execution-mode",
+        choices=["sync", "async"],
+        default="sync",
+        help="Execution mode for direct JSON requests.",
+    )
+    serve_parser.add_argument(
+        "--log-level",
+        type=int,
+        default=0,
+        choices=[0, 1, 2],
+        help="Logging verbosity: 0=warnings, 1=info, 2=debug.",
+    )
+    serve_parser.add_argument(
+        "--use-azure-openai",
+        action="store_true",
+        help="Use Azure OpenAI environment settings for OpenAI-compatible requests.",
+    )
+    serve_parser.add_argument(
+        "--use-openrouter",
+        action="store_true",
+        help="Use OpenRouter for OpenAI-compatible requests.",
+    )
+    serve_parser.add_argument(
+        "--reasoning-effort",
+        choices=["none", "minimal", "low", "medium", "high", "xhigh"],
+        help="Reasoning effort for OpenAI-compatible models that support it.",
+    )
+    serve_parser.add_argument("--include-trace", action="store_true")
+    serve_parser.add_argument("--include-reasoning", action="store_true")
+    serve_parser.add_argument("--redact-prompts", action="store_true")
+
     describe_parser = subparsers.add_parser(
         "describe",
         help="Inspect structured metadata for a public Nuggetizer command.",
@@ -896,51 +958,17 @@ def _run_direct_create(args: argparse.Namespace) -> CommandResponse:
             validation=validation,
             metrics={"candidate_count": len(payload["candidates"])},
         )
-    nuggetizer = Nuggetizer(**build_create_nuggetizer_kwargs(args))
-    request_obj = request_from_create_record(direct_create_record(payload))
-    if args.execution_mode == "async":
-        scored_nuggets = asyncio.run(nuggetizer.async_create(request_obj))
-    else:
-        scored_nuggets = nuggetizer.create(request_obj)
-    direct_output = {
-        "query": request_obj.query.text,
-        "nuggets": [
-            serialize_nugget(
-                nugget,
-                include_reasoning=args.include_reasoning,
-                include_trace=args.include_trace,
-                redact_prompts=args.redact_prompts,
-            )
-            for nugget in scored_nuggets
-        ],
-    }
-    if args.include_reasoning:
-        creator_reasoning_traces = collect_nonempty_reasoning_traces(
-            nuggetizer.get_creator_reasoning_traces()
-        )
-        scoring_reasoning_traces = collect_reasoning_traces(scored_nuggets)
-        if creator_reasoning_traces:
-            direct_output["creator_reasoning_traces"] = creator_reasoning_traces
-        if scoring_reasoning_traces:
-            direct_output["scoring_reasoning_traces"] = scoring_reasoning_traces
+    response = execute_direct_create(payload, args=args)
+    direct_output = cast(dict[str, Any], response.artifacts[0]["data"])
     if args.output == "json":
-        return CommandResponse(
-            command="create",
-            inputs={"source": "direct"},
-            resolved={
-                "input_mode": "direct",
-                "execution_mode": args.execution_mode,
-            },
-            artifacts=[make_data_artifact("create-result", direct_output)],
-            metrics={"nugget_count": len(direct_output["nuggets"])},
-        )
+        return response
 
     sys.stdout.write(
         _format_direct_nugget_output(
             cast(list[dict[str, Any]], direct_output["nuggets"]),
             include_reasoning=args.include_reasoning,
             include_assignment=False,
-            query=request_obj.query.text,
+            query=cast(str, direct_output["query"]),
             creator_reasoning_traces=cast(
                 list[str], direct_output.get("creator_reasoning_traces", [])
             ),
@@ -969,42 +997,10 @@ def _run_direct_assign(args: argparse.Namespace) -> CommandResponse:
             validation=validation,
             metrics={"nugget_count": len(payload["nuggets"])},
         )
-    nuggetizer = Nuggetizer(**build_assign_nuggetizer_kwargs(args))
-    query, context, nuggets = direct_assign_inputs(payload)
-    if args.execution_mode == "async":
-        assigned_nuggets = asyncio.run(
-            nuggetizer.async_assign(query, context, nuggets=nuggets)
-        )
-    else:
-        assigned_nuggets = nuggetizer.assign(query, context, nuggets=nuggets)
-    direct_output = {
-        "query": query,
-        "nuggets": [
-            serialize_nugget(
-                nugget,
-                include_reasoning=args.include_reasoning,
-                include_trace=args.include_trace,
-                redact_prompts=args.redact_prompts,
-            )
-            for nugget in assigned_nuggets
-        ],
-    }
-    if args.include_reasoning:
-        reasoning_traces = collect_reasoning_traces(assigned_nuggets)
-        if reasoning_traces:
-            direct_output["reasoning_traces"] = reasoning_traces
+    response = execute_direct_assign(payload, args=args)
+    direct_output = cast(dict[str, Any], response.artifacts[0]["data"])
     if args.output == "json":
-        return CommandResponse(
-            command="assign",
-            inputs={"source": "direct"},
-            resolved={
-                "input_mode": "direct",
-                "assign_mode": "context",
-                "execution_mode": args.execution_mode,
-            },
-            artifacts=[make_data_artifact("assign-result", direct_output)],
-            metrics={"nugget_count": len(direct_output["nuggets"])},
-        )
+        return response
 
     sys.stdout.write(
         _format_direct_nugget_output(
@@ -1058,10 +1054,16 @@ def _run_create_batch_command(args: argparse.Namespace) -> CommandResponse:
     )
     if args.execution_mode == "async":
         response = asyncio.run(
-            async_run_create_batch(compat_args, setup_logging(args.log_level, quiet=getattr(args, "quiet", False)))
+            async_run_create_batch(
+                compat_args,
+                setup_logging(args.log_level, quiet=getattr(args, "quiet", False)),
+            )
         )
     else:
-        response = run_create_batch(compat_args, setup_logging(args.log_level, quiet=getattr(args, "quiet", False)))
+        response = run_create_batch(
+            compat_args,
+            setup_logging(args.log_level, quiet=getattr(args, "quiet", False)),
+        )
     response.inputs = {"input_file": args.input_file}
     response.resolved = {
         "input_mode": "batch",
@@ -1125,12 +1127,14 @@ def _run_assign_batch_command(args: argparse.Namespace) -> CommandResponse:
         if args.execution_mode == "async":
             response = asyncio.run(
                 async_run_assign_answers_batch(
-                    compat_args, setup_logging(args.log_level, quiet=getattr(args, "quiet", False))
+                    compat_args,
+                    setup_logging(args.log_level, quiet=getattr(args, "quiet", False)),
                 )
             )
         else:
             response = run_assign_answers_batch(
-                compat_args, setup_logging(args.log_level, quiet=getattr(args, "quiet", False))
+                compat_args,
+                setup_logging(args.log_level, quiet=getattr(args, "quiet", False)),
             )
     else:
         compat_args = argparse.Namespace(
@@ -1149,12 +1153,14 @@ def _run_assign_batch_command(args: argparse.Namespace) -> CommandResponse:
         if args.execution_mode == "async":
             response = asyncio.run(
                 async_run_assign_retrieval_batch(
-                    compat_args, setup_logging(args.log_level, quiet=getattr(args, "quiet", False))
+                    compat_args,
+                    setup_logging(args.log_level, quiet=getattr(args, "quiet", False)),
                 )
             )
         else:
             response = run_assign_retrieval_batch(
-                compat_args, setup_logging(args.log_level, quiet=getattr(args, "quiet", False))
+                compat_args,
+                setup_logging(args.log_level, quiet=getattr(args, "quiet", False)),
             )
 
     response.command = "assign"
@@ -1214,6 +1220,46 @@ def _run_metrics_command(args: argparse.Namespace) -> CommandResponse:
     )
     _write_manifest(args.manifest_path, response)
     return response
+
+
+def _run_serve_command(args: argparse.Namespace) -> CommandResponse:
+    try:
+        import uvicorn
+        from nuggetizer.api.app import create_app
+    except ModuleNotFoundError as error:
+        raise CLIError(
+            "serve requires FastAPI dependencies; install the `api` extra",
+            exit_code=MISSING_RESOURCE_EXIT_CODE,
+            status="validation_error",
+            error_code="missing_api_dependencies",
+            command="serve",
+            details={"missing_dependencies": ["fastapi", "uvicorn"]},
+        ) from error
+
+    app = create_app(
+        ServerConfig(
+            host=args.host,
+            port=args.port,
+            model=args.model,
+            creator_model=args.creator_model,
+            scorer_model=args.scorer_model,
+            window_size=args.window_size,
+            max_nuggets=args.max_nuggets,
+            execution_mode=args.execution_mode,
+            log_level=args.log_level,
+            use_azure_openai=args.use_azure_openai,
+            use_openrouter=args.use_openrouter,
+            reasoning_effort=args.reasoning_effort,
+            include_trace=args.include_trace,
+            include_reasoning=args.include_reasoning,
+            redact_prompts=args.redact_prompts,
+            quiet=getattr(args, "quiet", False),
+        )
+    )
+    uvicorn.run(app, host=args.host, port=args.port)
+    return CommandResponse(
+        command="serve", resolved={"host": args.host, "port": args.port}
+    )
 
 
 def _run_describe_command(args: argparse.Namespace) -> CommandResponse:
@@ -1505,6 +1551,8 @@ def _run_command(args: argparse.Namespace) -> CommandResponse:
         return _run_direct_assign(args)
     if args.command == "metrics":
         return _run_metrics_command(args)
+    if args.command == "serve":
+        return _run_serve_command(args)
     if args.command == "describe":
         return _run_describe_command(args)
     if args.command == "schema":

@@ -5,6 +5,7 @@ Initial release-note scaffold for the packaged CLI and JSONL pipeline workflow.
 ## Included In This Baseline
 
 - Packaged `nuggetizer` CLI for create, assign, metrics, validation, doctor, prompt inspection, and view commands.
+- FastAPI `nuggetizer serve` command exposing `GET /healthz`, `POST /v1/create`, and `POST /v1/assign` on port `8085` by default.
 - Legacy `scripts/*.py` compatibility wrappers around the packaged CLI.
 - Offline-first contributor workflow built around `uv`.
 

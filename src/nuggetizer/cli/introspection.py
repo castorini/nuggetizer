@@ -67,6 +67,19 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
             "nuggetizer metrics --input-file assignments.jsonl --output-file metrics.jsonl"
         ],
     },
+    "serve": {
+        "summary": "Start a FastAPI server for direct nugget creation and assignment requests.",
+        "examples": [
+            "nuggetizer serve --port 8085",
+            (
+                "curl -X POST http://127.0.0.1:8085/v1/create "
+                "-H 'content-type: application/json' "
+                '-d \'{"query":"q","candidates":["p"]}\''
+            ),
+        ],
+        "routes": ["GET /healthz", "POST /v1/create", "POST /v1/assign"],
+        "inspection_safe": True,
+    },
     "view": {
         "summary": "Inspect Nuggetizer artifact files with a human-readable preview.",
         "examples": [
@@ -273,6 +286,8 @@ def doctor_report() -> dict[str, Any]:
         and os.getenv("AZURE_OPENAI_API_KEY")
     )
     openai_dep_ready = importlib.util.find_spec("openai") is not None
+    fastapi_dep_ready = importlib.util.find_spec("fastapi") is not None
+    uvicorn_dep_ready = importlib.util.find_spec("uvicorn") is not None
 
     def status(
         *,
@@ -334,6 +349,17 @@ def doctor_report() -> dict[str, Any]:
             "validate",
         ]
     }
+    command_readiness["serve"] = status(
+        ready=python_ok and fastapi_dep_ready and uvicorn_dep_ready,
+        missing_deps=[
+            dependency
+            for dependency, available in (
+                ("fastapi", fastapi_dep_ready),
+                ("uvicorn", uvicorn_dep_ready),
+            )
+            if not available
+        ],
+    )
     return {
         "python_version": sys.version.split()[0],
         "python_ok": python_ok,
@@ -346,6 +372,11 @@ def doctor_report() -> dict[str, Any]:
         },
         "backend_readiness": backend_readiness,
         "command_readiness": command_readiness,
+        "optional_dependencies": {
+            "openai": openai_dep_ready,
+            "fastapi": fastapi_dep_ready,
+            "uvicorn": uvicorn_dep_ready,
+        },
         "overall_status": "ready" if python_ok else "blocked",
     }
 

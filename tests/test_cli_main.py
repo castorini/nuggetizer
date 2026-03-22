@@ -679,7 +679,7 @@ def test_missing_command_returns_descriptive_text_error(capsys: Any) -> None:
     captured = capsys.readouterr()
     assert "No command provided." in captured.err
     assert (
-        "create, assign, metrics, view, prompt, describe, schema, doctor, validate"
+        "create, assign, metrics, serve, view, prompt, describe, schema, doctor, validate"
         in captured.err
     )
     assert (
@@ -719,6 +719,7 @@ def test_doctor_returns_json_envelope(capsys: Any) -> None:
     assert "python_version" in output["metrics"]
     assert "backend_readiness" in output["metrics"]
     assert "command_readiness" in output["metrics"]
+    assert "serve" in output["metrics"]["command_readiness"]
 
 
 def test_top_level_help_includes_command_summaries(capsys: Any) -> None:
@@ -730,6 +731,90 @@ def test_top_level_help_includes_command_summaries(capsys: Any) -> None:
     assert "Nuggetizer packaged CLI" in stdout
     assert "create and score nuggets" in stdout.lower()
     assert "inspect an existing nuggetizer artifact" in stdout.lower()
+
+
+def test_serve_command_starts_uvicorn(monkeypatch: Any) -> None:
+    pytest.importorskip("fastapi")
+    seen: dict[str, Any] = {}
+
+    def fake_run(app: Any, host: str, port: int) -> None:
+        seen["app"] = app
+        seen["host"] = host
+        seen["port"] = port
+
+    monkeypatch.setattr("uvicorn.run", fake_run)
+
+    exit_code = main(["serve", "--port", "8085"])
+
+    assert exit_code == 0
+    assert seen["host"] == "0.0.0.0"
+    assert seen["port"] == 8085
+
+
+def test_serve_app_health_create_and_assign(monkeypatch: Any) -> None:
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from nuggetizer.api.app import create_app
+    from nuggetizer.api.runtime import ServerConfig
+
+    def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        return [ScoredNugget(text="nugget", importance="vital")]
+
+    def fake_assign(
+        self: Nuggetizer, query: str, context: str, nuggets: list[Any]
+    ) -> list[AssignedScoredNugget]:
+        del query, context, nuggets
+        return [
+            AssignedScoredNugget(
+                text="nugget",
+                importance="vital",
+                assignment="support",
+            )
+        ]
+
+    monkeypatch.setattr(Nuggetizer, "create", fake_create)
+    monkeypatch.setattr(Nuggetizer, "assign", fake_assign)
+
+    client = TestClient(create_app(ServerConfig(host="127.0.0.1", port=8085)))
+
+    health_response = client.get("/healthz")
+    create_response = client.post(
+        "/v1/create",
+        json={"query": "What is Python used for?", "candidates": ["web"]},
+    )
+    assign_response = client.post(
+        "/v1/assign",
+        json={
+            "query": "What is Python used for?",
+            "context": "Python is used for web development.",
+            "nuggets": [
+                {"text": "Python is used for web development.", "importance": "vital"}
+            ],
+        },
+    )
+
+    assert health_response.status_code == 200
+    assert health_response.json() == {"status": "ok"}
+    assert create_response.status_code == 200
+    assert create_response.json()["artifacts"][0]["name"] == "create-result"
+    assert assign_response.status_code == 200
+    assert assign_response.json()["artifacts"][0]["name"] == "assign-result"
+
+
+def test_serve_app_rejects_invalid_payload() -> None:
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from nuggetizer.api.app import create_app
+    from nuggetizer.api.runtime import ServerConfig
+
+    client = TestClient(create_app(ServerConfig(host="127.0.0.1", port=8085)))
+
+    response = client.post("/v1/create", json={"query": 1})
+
+    assert response.status_code == 400
+    assert response.json()["status"] == "validation_error"
 
 
 def test_validate_create_batch_returns_json_envelope(

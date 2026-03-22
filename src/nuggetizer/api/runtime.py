@@ -1,0 +1,189 @@
+from __future__ import annotations
+
+import argparse
+import asyncio
+from dataclasses import dataclass
+from typing import Any
+
+from nuggetizer.cli.adapters import (
+    collect_nonempty_reasoning_traces,
+    collect_reasoning_traces,
+    request_from_create_record,
+    serialize_nugget,
+)
+from nuggetizer.cli.adapters_common import make_data_artifact
+from nuggetizer.cli.introspection import validate_assign_input, validate_create_input
+from nuggetizer.cli.normalize import direct_assign_inputs, direct_create_record
+from nuggetizer.cli.operations import (
+    build_assign_nuggetizer_kwargs,
+    build_create_nuggetizer_kwargs,
+)
+from nuggetizer.cli.responses import CommandResponse
+from nuggetizer.models.nuggetizer import Nuggetizer
+
+
+@dataclass(frozen=True)
+class ServerConfig:
+    host: str
+    port: int
+    model: str = "gpt-4o"
+    creator_model: str | None = None
+    scorer_model: str | None = None
+    window_size: int | None = None
+    max_nuggets: int | None = None
+    execution_mode: str = "sync"
+    log_level: int = 0
+    use_azure_openai: bool = False
+    use_openrouter: bool = False
+    reasoning_effort: str | None = None
+    include_trace: bool = False
+    include_reasoning: bool = False
+    redact_prompts: bool = False
+    quiet: bool = False
+
+
+def _base_args(config: ServerConfig) -> argparse.Namespace:
+    return argparse.Namespace(
+        model=config.model,
+        creator_model=config.creator_model,
+        scorer_model=config.scorer_model,
+        window_size=config.window_size,
+        max_nuggets=config.max_nuggets,
+        execution_mode=config.execution_mode,
+        log_level=config.log_level,
+        use_azure_openai=config.use_azure_openai,
+        use_openrouter=config.use_openrouter,
+        reasoning_effort=config.reasoning_effort,
+        include_trace=config.include_trace,
+        include_reasoning=config.include_reasoning,
+        redact_prompts=config.redact_prompts,
+        quiet=config.quiet,
+        output="json",
+    )
+
+
+def execute_direct_create(
+    payload: dict[str, Any], *, args: argparse.Namespace
+) -> CommandResponse:
+    validation = validate_create_input(payload)
+    nuggetizer = Nuggetizer(**build_create_nuggetizer_kwargs(args))
+    request_obj = request_from_create_record(direct_create_record(payload))
+    if args.execution_mode == "async":
+        scored_nuggets = asyncio.run(nuggetizer.async_create(request_obj))
+    else:
+        scored_nuggets = nuggetizer.create(request_obj)
+    direct_output: dict[str, Any] = {
+        "query": request_obj.query.text,
+        "nuggets": [
+            serialize_nugget(
+                nugget,
+                include_reasoning=args.include_reasoning,
+                include_trace=args.include_trace,
+                redact_prompts=args.redact_prompts,
+            )
+            for nugget in scored_nuggets
+        ],
+    }
+    if args.include_reasoning:
+        creator_reasoning_traces = collect_nonempty_reasoning_traces(
+            nuggetizer.get_creator_reasoning_traces()
+        )
+        scoring_reasoning_traces = collect_reasoning_traces(scored_nuggets)
+        if creator_reasoning_traces:
+            direct_output["creator_reasoning_traces"] = creator_reasoning_traces
+        if scoring_reasoning_traces:
+            direct_output["scoring_reasoning_traces"] = scoring_reasoning_traces
+    return CommandResponse(
+        command="create",
+        inputs={"source": "direct"},
+        resolved={"input_mode": "direct", "execution_mode": args.execution_mode},
+        validation=validation,
+        artifacts=[make_data_artifact("create-result", direct_output)],
+        metrics={"nugget_count": len(direct_output["nuggets"])},
+    )
+
+
+def execute_direct_assign(
+    payload: dict[str, Any], *, args: argparse.Namespace
+) -> CommandResponse:
+    validation = validate_assign_input(payload)
+    nuggetizer = Nuggetizer(**build_assign_nuggetizer_kwargs(args))
+    query, context, nuggets = direct_assign_inputs(payload)
+    if args.execution_mode == "async":
+        assigned_nuggets = asyncio.run(
+            nuggetizer.async_assign(query, context, nuggets=nuggets)
+        )
+    else:
+        assigned_nuggets = nuggetizer.assign(query, context, nuggets=nuggets)
+    direct_output: dict[str, Any] = {
+        "query": query,
+        "nuggets": [
+            serialize_nugget(
+                nugget,
+                include_reasoning=args.include_reasoning,
+                include_trace=args.include_trace,
+                redact_prompts=args.redact_prompts,
+            )
+            for nugget in assigned_nuggets
+        ],
+    }
+    if args.include_reasoning:
+        reasoning_traces = collect_reasoning_traces(assigned_nuggets)
+        if reasoning_traces:
+            direct_output["reasoning_traces"] = reasoning_traces
+    return CommandResponse(
+        command="assign",
+        inputs={"source": "direct"},
+        resolved={
+            "input_mode": "direct",
+            "assign_mode": "context",
+            "execution_mode": args.execution_mode,
+        },
+        validation=validation,
+        artifacts=[make_data_artifact("assign-result", direct_output)],
+        metrics={"nugget_count": len(direct_output["nuggets"])},
+    )
+
+
+def run_create_request(
+    payload: dict[str, Any], *, config: ServerConfig
+) -> CommandResponse:
+    return execute_direct_create(payload, args=_base_args(config))
+
+
+def run_assign_request(
+    payload: dict[str, Any], *, config: ServerConfig
+) -> CommandResponse:
+    return execute_direct_assign(payload, args=_base_args(config))
+
+
+def validation_error_response(command: str, message: str) -> CommandResponse:
+    return CommandResponse(
+        command=command,
+        status="validation_error",
+        exit_code=5,
+        errors=[
+            {
+                "code": "validation_error",
+                "message": message,
+                "details": {},
+                "retryable": False,
+            }
+        ],
+    )
+
+
+def runtime_error_response(command: str, error: Exception) -> CommandResponse:
+    return CommandResponse(
+        command=command,
+        status="runtime_error",
+        exit_code=6,
+        errors=[
+            {
+                "code": "runtime_error",
+                "message": str(error),
+                "details": {},
+                "retryable": False,
+            }
+        ],
+    )
