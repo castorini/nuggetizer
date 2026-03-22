@@ -5,6 +5,7 @@ import json
 import os
 import sys
 from textwrap import indent
+from typing import TextIO, TypedDict, cast
 
 import pytest
 
@@ -19,14 +20,52 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+class SmokeNuggetRecord(TypedDict):
+    text: object
+    importance: object
+    assignment: object
+
+
+class SmokeArtifactData(TypedDict, total=False):
+    query: object
+    nuggets: list[SmokeNuggetRecord]
+    creator_reasoning_traces: list[object]
+    scoring_reasoning_traces: list[object]
+    reasoning_traces: list[object]
+
+
+class SmokeArtifact(TypedDict):
+    data: SmokeArtifactData
+
+
+class SmokeCommandResult(TypedDict):
+    command: str
+    status: str
+    artifacts: list[SmokeArtifact]
+
+
+def _stdout() -> TextIO:
+    stdout = sys.__stdout__
+    assert stdout is not None
+    return stdout
+
+
+def _trace_list(value: object) -> list[object]:
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    return []
+
+
 def _run_json_command(
     args: list[str], capsys: pytest.CaptureFixture[str]
-) -> dict[str, object]:
+) -> SmokeCommandResult:
     exit_code = main(args)
     assert exit_code == 0
     output = capsys.readouterr().out
     lines = [line for line in output.splitlines() if line.strip()]
-    return json.loads(lines[-1])
+    return cast(SmokeCommandResult, json.loads(lines[-1]))
 
 
 def _unique_nonempty_traces(traces: list[object] | tuple[object, ...]) -> list[str]:
@@ -52,7 +91,7 @@ def _append_reasoning_traces(
         lines.append(f"{label_prefix} {index}: {trace}")
 
 
-def _pretty_print_create(model: str, result: dict[str, object]) -> None:
+def _pretty_print_create(model: str, result: SmokeArtifactData) -> None:
     nuggets = result["nuggets"]
     lines = [
         "Nuggetizer live smoke result",
@@ -70,23 +109,24 @@ def _pretty_print_create(model: str, result: dict[str, object]) -> None:
         )
     _append_reasoning_traces(
         lines,
-        list(result.get("creator_reasoning_traces") or []),
+        _trace_list(result.get("creator_reasoning_traces")),
         label_prefix="creator reasoning trace",
     )
     _append_reasoning_traces(
         lines,
-        list(result.get("scoring_reasoning_traces") or []),
+        _trace_list(result.get("scoring_reasoning_traces")),
         label_prefix="scoring reasoning trace",
     )
-    sys.__stdout__.write("\n".join(lines) + "\n")
-    sys.__stdout__.flush()
+    stdout = _stdout()
+    stdout.write("\n".join(lines) + "\n")
+    stdout.flush()
 
 
 def _pretty_print_assign(
     label: str,
     query: str,
     context: str,
-    nuggets: list[dict[str, object]],
+    nuggets: list[SmokeNuggetRecord],
     *,
     scoring_reasoning_traces: list[object] | tuple[object, ...] = (),
 ) -> None:
@@ -111,8 +151,9 @@ def _pretty_print_assign(
         scoring_reasoning_traces,
         label_prefix="scoring reasoning trace",
     )
-    sys.__stdout__.write("\n".join(lines) + "\n")
-    sys.__stdout__.flush()
+    stdout = _stdout()
+    stdout.write("\n".join(lines) + "\n")
+    stdout.flush()
 
 
 def test_direct_create_and_assign_openai_smoke(
@@ -169,14 +210,13 @@ def test_direct_create_and_assign_openai_smoke(
         nuggetizer.async_assign_batch(
             [query] * len(assignment_cases),
             list(assignment_cases.values()),
-            [scored_nuggets_from_record({"nuggets": nuggets})]
-            * len(assignment_cases),
+            [scored_nuggets_from_record({"nuggets": nuggets})] * len(assignment_cases),
         )
     )
     for (label, context), assigned_batch in zip(
         assignment_cases.items(), assigned_batches, strict=True
     ):
-        assigned_nuggets = [
+        assigned_nuggets: list[SmokeNuggetRecord] = [
             {
                 "text": nugget.text,
                 "importance": nugget.importance,
@@ -227,8 +267,8 @@ def test_direct_create_and_assign_reasoning_openai_smoke(
     assert create_result["status"] == "success"
     created = create_result["artifacts"][0]["data"]
     assert created["nuggets"]
-    creator_traces = created.get("creator_reasoning_traces") or []
-    scoring_traces = created.get("scoring_reasoning_traces") or []
+    creator_traces = _trace_list(created.get("creator_reasoning_traces"))
+    scoring_traces = _trace_list(created.get("scoring_reasoning_traces"))
     assert creator_traces or scoring_traces
     _pretty_print_create(model, created)
 
@@ -267,5 +307,92 @@ def test_direct_create_and_assign_reasoning_openai_smoke(
         query,
         context,
         assigned["nuggets"],
-        scoring_reasoning_traces=list(assigned.get("reasoning_traces") or []),
+        scoring_reasoning_traces=_trace_list(assigned.get("reasoning_traces")),
+    )
+
+
+def test_direct_create_and_assign_reasoning_openrouter_smoke(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    if not os.getenv("OPENROUTER_API_KEY"):
+        pytest.skip("OPENROUTER_API_KEY is required.")
+
+    model = os.getenv(
+        "NUGGETIZER_LIVE_OPENROUTER_REASONING_MODEL", "openrouter/hunter-alpha"
+    )
+    create_result = _run_json_command(
+        [
+            "create",
+            "--model",
+            model,
+            "--use-openrouter",
+            "--execution-mode",
+            "async",
+            "--reasoning-effort",
+            "medium",
+            "--include-reasoning",
+            "--input-json",
+            json.dumps(
+                {
+                    "query": "What is Python used for?",
+                    "candidates": [
+                        (
+                            "Python is widely used for web development, data analysis, "
+                            "automation, scripting, machine learning, artificial intelligence, "
+                            "scientific computing, data visualization, and backend development."
+                        )
+                    ],
+                }
+            ),
+            "--output",
+            "json",
+        ],
+        capsys,
+    )
+    assert create_result["command"] == "create"
+    assert create_result["status"] == "success"
+    created = create_result["artifacts"][0]["data"]
+    assert created["nuggets"]
+    creator_traces = _trace_list(created.get("creator_reasoning_traces"))
+    scoring_traces = _trace_list(created.get("scoring_reasoning_traces"))
+    assert creator_traces or scoring_traces
+    _pretty_print_create(model, created)
+
+    query = str(created["query"])
+    context = "Python is used for web development and data analysis."
+    assign_result = _run_json_command(
+        [
+            "assign",
+            "--model",
+            model,
+            "--use-openrouter",
+            "--execution-mode",
+            "async",
+            "--reasoning-effort",
+            "medium",
+            "--include-reasoning",
+            "--input-json",
+            json.dumps(
+                {
+                    "query": query,
+                    "context": context,
+                    "nuggets": created["nuggets"],
+                }
+            ),
+            "--output",
+            "json",
+        ],
+        capsys,
+    )
+    assert assign_result["command"] == "assign"
+    assert assign_result["status"] == "success"
+    assigned = assign_result["artifacts"][0]["data"]
+    assert assigned["nuggets"]
+    assert assigned.get("reasoning_traces")
+    _pretty_print_assign(
+        "openrouter reasoning",
+        query,
+        context,
+        assigned["nuggets"],
+        scoring_reasoning_traces=_trace_list(assigned.get("reasoning_traces")),
     )

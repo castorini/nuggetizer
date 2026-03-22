@@ -208,9 +208,7 @@ def process_request(
 
 def main() -> None:
     """Run the synchronous end-to-end example."""
-    parser = argparse.ArgumentParser(
-        description="Run the synchronous pipeline demo"
-    )
+    parser = argparse.ArgumentParser(description="Run the synchronous pipeline demo")
     parser.add_argument(
         "--use_azure_openai", action="store_true", help="Use Azure OpenAI"
     )
