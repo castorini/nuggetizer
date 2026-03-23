@@ -313,6 +313,51 @@ def test_direct_create_via_input_json(monkeypatch: Any, capsys: Any) -> None:
     }
 
 
+def test_direct_create_accepts_anserini_style_doc_contents(
+    monkeypatch: Any, capsys: Any
+) -> None:
+    def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        assert request.query.qid == "q0"
+        assert request.documents[0].docid == "96854"
+        assert (
+            request.documents[0].segment
+            == "Python is used for web development and data analysis."
+        )
+        return [
+            ScoredNugget(text="Python is used for web development.", importance="vital")
+        ]
+
+    monkeypatch.setattr(Nuggetizer, "create", fake_create)
+
+    exit_code = main(
+        [
+            "create",
+            "--input-json",
+            json.dumps(
+                {
+                    "query": "What is Python used for?",
+                    "candidates": [
+                        {
+                            "docid": "96854",
+                            "doc": {
+                                "id": "96854",
+                                "contents": "Python is used for web development and data analysis.",
+                            },
+                        }
+                    ],
+                }
+            ),
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["command"] == "create"
+    assert output["artifacts"][0]["name"] == "create-result"
+
+
 def test_direct_create_forwards_openrouter_and_reasoning_effort(
     monkeypatch: Any, capsys: Any
 ) -> None:
