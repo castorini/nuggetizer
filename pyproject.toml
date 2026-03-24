@@ -37,6 +37,7 @@ dependencies = {file = ["requirements.txt"]}
 
 [dependency-groups]
 dev = [
+    "fastapi>=0.115.0",
     "mypy>=1.11.2",
     "pre-commit>=3.8.0",
     "pytest>=8.4.2",
@@ -45,6 +46,7 @@ dev = [
     "types-PyYAML",
     "types-requests",
     "types-tqdm",
+    "uvicorn>=0.30.0",
 ]
 
 [project.urls]
@@ -66,6 +68,13 @@ push = false
     "{version}",
 ]
 
+[tool.ruff]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F"]
+ignore = ["E501"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 include = [
@@ -82,6 +91,7 @@ namespaces = false
 provides = ["nuggetizer"]
 
 [tool.mypy]
+files = ["src", "tests"]
 check_untyped_defs = true
 disallow_untyped_defs = true
 disallow_untyped_calls = false

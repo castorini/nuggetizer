@@ -47,7 +47,12 @@ def main() -> None:
         print("No records found.", file=sys.stderr)
         sys.exit(1)
 
-    score_fields = ["strict_vital_score", "strict_all_score", "vital_score", "all_score"]
+    score_fields = [
+        "strict_vital_score",
+        "strict_all_score",
+        "vital_score",
+        "all_score",
+    ]
 
     # Header
     print(f"{'qid':<12}", end="")

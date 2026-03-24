@@ -11,4 +11,6 @@ repos:
     rev: v1.11.2
     hooks:
       - id: mypy
-        additional_dependencies: [types-requests, types-tqdm, types-PyYAML, tiktoken, openai, python-dotenv, typing-extensions]
+        pass_filenames: false
+        args: [src, tests]
+        additional_dependencies: [fastapi, openai, pytest, python-dotenv, shtab, tiktoken, types-PyYAML, types-requests, types-tqdm, typing-extensions, uvicorn]
