@@ -21,12 +21,20 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
                 '\'{"query":"What is Python used for?","candidates":["Python is used for web development."]}\' '
                 "--output json"
             ),
+            (
+                'curl -s "http://127.0.0.1:8081/v1/msmarco-v1-passage/search?query=q" '
+                "| curl -s -X POST http://127.0.0.1:8085/v1/create "
+                '-H "content-type: application/json" --data-binary @- | jq'
+            ),
         ],
         "direct_input": {
             "ids_optional": True,
             "shape": {
-                "query": "string",
-                "candidates": ["string | {text: string, docid?: string}"],
+                "query": "string | {text: string, qid?: string}",
+                "candidates": [
+                    "string | {text: string, docid?: string} | "
+                    "{doc: string | {segment: string} | {contents: string}, docid?: string}"
+                ],
             },
         },
         "batch_input": "JSONL records with query.qid/query.text and candidates[].doc.segment",
@@ -75,6 +83,11 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
                 "curl -X POST http://127.0.0.1:8085/v1/create "
                 "-H 'content-type: application/json' "
                 '-d \'{"query":"q","candidates":["p"]}\''
+            ),
+            (
+                'curl -s "http://127.0.0.1:8081/v1/msmarco-v1-passage/search?query=q" '
+                "| curl -s -X POST http://127.0.0.1:8085/v1/create "
+                '-H "content-type: application/json" --data-binary @- | jq'
             ),
         ],
         "routes": ["GET /healthz", "POST /v1/create", "POST /v1/assign"],
@@ -130,7 +143,19 @@ SCHEMAS: dict[str, dict[str, Any]] = {
         "type": "object",
         "required": ["query", "candidates"],
         "properties": {
-            "query": {"type": "string"},
+            "query": {
+                "oneOf": [
+                    {"type": "string"},
+                    {
+                        "type": "object",
+                        "required": ["text"],
+                        "properties": {
+                            "qid": {"type": "string"},
+                            "text": {"type": "string"},
+                        },
+                    },
+                ]
+            },
             "candidates": {
                 "type": "array",
                 "items": {
@@ -142,6 +167,25 @@ SCHEMAS: dict[str, dict[str, Any]] = {
                             "properties": {
                                 "text": {"type": "string"},
                                 "docid": {"type": "string"},
+                            },
+                        },
+                        {
+                            "type": "object",
+                            "required": ["doc"],
+                            "properties": {
+                                "docid": {"type": "string"},
+                                "doc": {
+                                    "oneOf": [
+                                        {"type": "string"},
+                                        {
+                                            "type": "object",
+                                            "properties": {
+                                                "segment": {"type": "string"},
+                                                "contents": {"type": "string"},
+                                            },
+                                        },
+                                    ]
+                                },
                             },
                         },
                     ]

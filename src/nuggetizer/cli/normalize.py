@@ -9,8 +9,23 @@ from .adapters import scored_nuggets_from_record
 
 def direct_create_record(payload: dict[str, Any]) -> dict[str, Any]:
     """Normalize direct create input into the batch-like adapter shape."""
+    query = payload["query"]
+    query_text = (
+        query
+        if isinstance(query, str)
+        else query["text"]
+        if isinstance(query, dict) and isinstance(query.get("text"), str)
+        else None
+    )
+    if query_text is None:
+        raise ValueError(
+            "direct create input requires `query` as a string or object with `text`"
+        )
     return {
-        "query": {"qid": "q0", "text": payload["query"]},
+        "query": {
+            "qid": "q0" if isinstance(query, str) else str(query.get("qid", "q0")),
+            "text": query_text,
+        },
         "candidates": [
             (
                 {"docid": f"d{index}", "doc": {"segment": candidate}}
@@ -19,6 +34,11 @@ def direct_create_record(payload: dict[str, Any]) -> dict[str, Any]:
                     "docid": candidate.get("docid", f"d{index}"),
                     "doc": {
                         "segment": candidate.get("text")
+                        or (
+                            candidate.get("doc")
+                            if isinstance(candidate.get("doc"), str)
+                            else None
+                        )
                         or (candidate.get("doc") or {}).get("segment")
                         or (candidate.get("doc") or {}).get("contents")
                     },

@@ -6,6 +6,7 @@ Initial release-note scaffold for the packaged CLI and JSONL pipeline workflow.
 
 - Packaged `nuggetizer` CLI for create, assign, metrics, validation, doctor, prompt inspection, and view commands.
 - FastAPI `nuggetizer serve` command exposing `GET /healthz`, `POST /v1/create`, and `POST /v1/assign` on port `8085` by default.
+- Direct `create` input now also accepts Anserini REST payloads with `query.text` plus candidates whose `doc` is either a plain string or an object containing `contents`, so Anserini search results can be piped directly into `POST /v1/create` without a `jq` reshape step.
 - Legacy `scripts/*.py` compatibility wrappers around the packaged CLI.
 - Offline-first contributor workflow built around `uv`.
 

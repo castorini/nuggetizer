@@ -358,6 +358,52 @@ def test_direct_create_accepts_anserini_style_doc_contents(
     assert output["artifacts"][0]["name"] == "create-result"
 
 
+def test_direct_create_accepts_anserini_rest_payload(
+    monkeypatch: Any, capsys: Any
+) -> None:
+    def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        assert request.query.qid == "q0"
+        assert request.query.text == "What is Python used for?"
+        assert request.documents[0].docid == "1737459"
+        assert (
+            request.documents[0].segment == "Python is widely used for web development."
+        )
+        return [
+            ScoredNugget(text="Python is used for web development.", importance="vital")
+        ]
+
+    monkeypatch.setattr(Nuggetizer, "create", fake_create)
+
+    exit_code = main(
+        [
+            "create",
+            "--input-json",
+            json.dumps(
+                {
+                    "api": "v1",
+                    "index": "msmarco-v1-passage",
+                    "query": {"text": "What is Python used for?"},
+                    "candidates": [
+                        {
+                            "docid": "1737459",
+                            "score": 10.58,
+                            "rank": 1,
+                            "doc": "Python is widely used for web development.",
+                        }
+                    ],
+                }
+            ),
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["command"] == "create"
+    assert output["artifacts"][0]["name"] == "create-result"
+
+
 def test_direct_create_forwards_openrouter_and_reasoning_effort(
     monkeypatch: Any, capsys: Any
 ) -> None:
@@ -826,7 +872,19 @@ def test_serve_app_health_create_and_assign(monkeypatch: Any) -> None:
     health_response = client.get("/healthz")
     create_response = client.post(
         "/v1/create",
-        json={"query": "What is Python used for?", "candidates": ["web"]},
+        json={
+            "api": "v1",
+            "index": "msmarco-v1-passage",
+            "query": {"text": "What is Python used for?"},
+            "candidates": [
+                {
+                    "docid": "d0",
+                    "score": 1.0,
+                    "rank": 1,
+                    "doc": "web",
+                }
+            ],
+        },
     )
     assign_response = client.post(
         "/v1/assign",
