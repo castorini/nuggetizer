@@ -36,7 +36,7 @@
   - Ruff (`ruff-check --fix`, `ruff-format`)
   - MyPy (strict-ish config in `pyproject.toml`)
 - Run before committing:
-  - `pre-commit run --all-files`
+  - `uv run pre-commit run --all-files`
 - Type hints are expected for new/changed code (`disallow_untyped_defs = true`).
 - Preserve dataclass and Enum-based type contracts in `core/types.py`.
 
