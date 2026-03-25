@@ -2,8 +2,6 @@
 Prompts for nugget assignment
 """
 
-from typing import Dict, List
-
 from ..core.types import NuggetAssignMode, ScoredNugget
 from .template_loader import format_template
 
@@ -11,9 +9,9 @@ from .template_loader import format_template
 def create_assign_prompt(
     query: str,
     context: str,
-    nuggets: List[ScoredNugget],
+    nuggets: list[ScoredNugget],
     assigner_mode: NuggetAssignMode = NuggetAssignMode.SUPPORT_GRADE_3,
-) -> List[Dict[str, str]]:
+) -> list[dict[str, str]]:
     """
     Creates a prompt for nugget assignment using YAML template.
     """

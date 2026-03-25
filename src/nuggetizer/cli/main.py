@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import asyncio
 import argparse
+import asyncio
 import importlib.metadata
 import json
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, NoReturn, Sequence, cast
+from typing import Any, NoReturn, cast
 
 from nuggetizer.api.runtime import (
     ServerConfig,
@@ -20,11 +21,11 @@ from nuggetizer.prompts import (
     create_score_prompt,
 )
 
-from .adapters_common import make_data_artifact, make_file_artifact
-from .config import load_config
 from .adapters import (
     request_from_create_record,
 )
+from .adapters_common import make_data_artifact, make_file_artifact
+from .config import load_config
 from .introspection import (
     COMMAND_DESCRIPTIONS,
     SCHEMAS,
@@ -37,15 +38,6 @@ from .introspection import (
 from .io import read_jsonl
 from .logging_utils import setup_logging
 from .normalize import direct_assign_inputs, direct_create_record
-from .prompt_view import (
-    build_prompt_template_view,
-    build_rendered_prompt_view,
-    list_prompt_templates,
-    render_prompt_catalog_text,
-    render_rendered_prompt_text,
-    render_prompt_template_text,
-    resolve_prompt_template,
-)
 from .operations import (
     async_run_assign_answers_batch,
     async_run_assign_retrieval_batch,
@@ -54,6 +46,15 @@ from .operations import (
     run_assign_retrieval_batch,
     run_create_batch,
     run_metrics,
+)
+from .prompt_view import (
+    build_prompt_template_view,
+    build_rendered_prompt_view,
+    list_prompt_templates,
+    render_prompt_catalog_text,
+    render_prompt_template_text,
+    render_rendered_prompt_text,
+    resolve_prompt_template,
 )
 from .responses import CommandResponse
 from .view import (
@@ -1228,6 +1229,7 @@ def _run_metrics_command(args: argparse.Namespace) -> CommandResponse:
 def _run_serve_command(args: argparse.Namespace) -> CommandResponse:
     try:
         import uvicorn
+
         from nuggetizer.api.app import create_app
     except ModuleNotFoundError as error:
         raise CLIError(

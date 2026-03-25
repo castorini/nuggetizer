@@ -1,12 +1,11 @@
 import ast
+import asyncio
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal
 
-import asyncio
-
-from ..core.base import BaseNuggetizer
 from ..core.async_llm import AsyncLLMHandler
+from ..core.base import BaseNuggetizer
 from ..core.llm import LLMHandler
 from ..core.types import (
     AssignedScoredNugget,
@@ -27,23 +26,23 @@ MAX_TRIALS = 500
 class Nuggetizer(BaseNuggetizer):
     def __init__(
         self,
-        model: Optional[str] = None,
-        creator_model: Optional[str] = "gpt-4o",
-        scorer_model: Optional[str] = "gpt-4o",
-        assigner_model: Optional[str] = "gpt-4o",
-        api_keys: Optional[str] = None,
+        model: str | None = None,
+        creator_model: str | None = "gpt-4o",
+        scorer_model: str | None = "gpt-4o",
+        assigner_model: str | None = "gpt-4o",
+        api_keys: str | None = None,
         use_openrouter: bool = False,
         use_vllm: bool = False,
-        openrouter_api_key: Optional[str] = None,
+        openrouter_api_key: str | None = None,
         vllm_port: int = 8000,
         creator_mode: NuggetMode = NuggetMode.ATOMIC,
         scorer_mode: NuggetScoreMode = NuggetScoreMode.VITAL_OKAY,
         assigner_mode: NuggetAssignMode = NuggetAssignMode.SUPPORT_GRADE_3,
-        window_size: Optional[int] = None,
+        window_size: int | None = None,
         creator_window_size: int = 10,
         scorer_window_size: int = 10,
         assigner_window_size: int = 10,
-        max_nuggets: Optional[int] = None,
+        max_nuggets: int | None = None,
         creator_max_nuggets: int = 30,
         scorer_max_nuggets: int = 30,
         log_level: int = 0,
@@ -99,9 +98,9 @@ class Nuggetizer(BaseNuggetizer):
         self.scorer_llm = LLMHandler(self.scorer_model, **self._llm_config)
         self.assigner_llm = LLMHandler(self.assigner_model, **self._llm_config)
 
-        self.creator_llm_async: Optional[AsyncLLMHandler] = None
-        self.scorer_llm_async: Optional[AsyncLLMHandler] = None
-        self.assigner_llm_async: Optional[AsyncLLMHandler] = None
+        self.creator_llm_async: AsyncLLMHandler | None = None
+        self.scorer_llm_async: AsyncLLMHandler | None = None
+        self.assigner_llm_async: AsyncLLMHandler | None = None
 
         # Initialize max nuggets
         if max_nuggets is not None:
@@ -120,12 +119,12 @@ class Nuggetizer(BaseNuggetizer):
             self.logger.setLevel(logging.DEBUG)
 
         # Store creator reasoning for printing and history-aware serialization
-        self.creator_reasoning: Optional[str] = None
-        self.creator_reasoning_traces: List[str] = []
+        self.creator_reasoning: str | None = None
+        self.creator_reasoning_traces: list[str] = []
 
     def _get_nugget_prompt_content(
-        self, request: Request, start: int, end: int, nuggets: List[str]
-    ) -> List[Dict[str, str]]:
+        self, request: Request, start: int, end: int, nuggets: list[str]
+    ) -> list[dict[str, str]]:
         """Get the prompt content for nugget creation."""
         return create_nugget_prompt(
             request, start, end, nuggets, self.creator_max_nuggets
@@ -135,12 +134,12 @@ class Nuggetizer(BaseNuggetizer):
         self,
         component: Literal["creator", "scorer", "assigner"],
         model: str,
-        params: Dict,
-        messages: List[Dict[str, str]],
-        usage: Optional[Dict] = None,
-        raw_output: Optional[str] = None,
-        window_start: Optional[int] = None,
-        window_end: Optional[int] = None,
+        params: dict,
+        messages: list[dict[str, str]],
+        usage: dict | None = None,
+        raw_output: str | None = None,
+        window_start: int | None = None,
+        window_end: int | None = None,
     ) -> Trace:
         """Create a Trace object with the given parameters."""
         return Trace(
@@ -169,11 +168,11 @@ class Nuggetizer(BaseNuggetizer):
                 self.assigner_model, **self._llm_config
             )
 
-    def create(self, request: Request) -> List[ScoredNugget]:
+    def create(self, request: Request) -> list[ScoredNugget]:
         """Create and score nuggets from the request documents."""
         self.creator_reasoning = None
         self.creator_reasoning_traces = []
-        current_nuggets: List[str] = []
+        current_nuggets: list[str] = []
 
         start = 0
         while start < len(request.documents):
@@ -288,8 +287,8 @@ class Nuggetizer(BaseNuggetizer):
                     scores = ast.literal_eval(cleaned_response)
 
                     # Create ScoredNugget objects with trace information
-                    for i, (nugget_text, score) in enumerate(
-                        zip(current_nuggets[start:end], scores)
+                    for _i, (nugget_text, score) in enumerate(
+                        zip(current_nuggets[start:end], scores, strict=False)
                     ):
                         reasoning = reasoning_content if self.store_reasoning else None
                         trace = None
@@ -356,14 +355,14 @@ class Nuggetizer(BaseNuggetizer):
 
         return scored_nuggets
 
-    async def async_create(self, request: Request) -> List[ScoredNugget]:
+    async def async_create(self, request: Request) -> list[ScoredNugget]:
         """Async create and score nuggets from the request documents."""
         self._ensure_async_llm()
         assert self.creator_llm_async is not None
         assert self.scorer_llm_async is not None
         self.creator_reasoning = None
         self.creator_reasoning_traces = []
-        current_nuggets: List[str] = []
+        current_nuggets: list[str] = []
 
         start = 0
         while start < len(request.documents):
@@ -480,7 +479,9 @@ class Nuggetizer(BaseNuggetizer):
 
                     scores = ast.literal_eval(cleaned_response)
 
-                    for nugget_text, score in zip(current_nuggets[start:end], scores):
+                    for nugget_text, score in zip(
+                        current_nuggets[start:end], scores, strict=False
+                    ):
                         reasoning = reasoning_content if self.store_reasoning else None
                         trace = None
 
@@ -546,8 +547,8 @@ class Nuggetizer(BaseNuggetizer):
         return scored_nuggets
 
     def assign(
-        self, query: str, context: str, nuggets: List[ScoredNugget]
-    ) -> List[AssignedScoredNugget]:
+        self, query: str, context: str, nuggets: list[ScoredNugget]
+    ) -> list[AssignedScoredNugget]:
         """Assign scored nuggets to the given context."""
         assigned_nuggets = []
 
@@ -604,7 +605,9 @@ class Nuggetizer(BaseNuggetizer):
 
                     # Create AssignedScoredNugget objects with trace
                     # information
-                    for nugget, assignment in zip(window_nuggets, assignments):
+                    for nugget, assignment in zip(
+                        window_nuggets, assignments, strict=False
+                    ):
                         reasoning = reasoning_content if self.store_reasoning else None
                         trace = None
 
@@ -675,8 +678,8 @@ class Nuggetizer(BaseNuggetizer):
         return assigned_nuggets
 
     async def async_assign(
-        self, query: str, context: str, nuggets: List[ScoredNugget]
-    ) -> List[AssignedScoredNugget]:
+        self, query: str, context: str, nuggets: list[ScoredNugget]
+    ) -> list[AssignedScoredNugget]:
         """Async assign scored nuggets to the given context."""
         self._ensure_async_llm()
         assert self.assigner_llm_async is not None
@@ -738,7 +741,9 @@ class Nuggetizer(BaseNuggetizer):
                     )
                     assignments = ast.literal_eval(response)
 
-                    for nugget, assignment in zip(window_nuggets, assignments):
+                    for nugget, assignment in zip(
+                        window_nuggets, assignments, strict=False
+                    ):
                         reasoning = reasoning_content if self.store_reasoning else None
                         trace = None
 
@@ -808,31 +813,31 @@ class Nuggetizer(BaseNuggetizer):
 
         return assigned_nuggets
 
-    def get_creator_reasoning(self) -> Optional[str]:
+    def get_creator_reasoning(self) -> str | None:
         """Get the reasoning content from the creator component."""
         return self.creator_reasoning
 
-    def get_creator_reasoning_traces(self) -> List[str]:
+    def get_creator_reasoning_traces(self) -> list[str]:
         """Get the ordered creator reasoning history for the current create call."""
         return list(self.creator_reasoning_traces)
 
-    def create_batch(self, requests: List[Request]) -> List[List[ScoredNugget]]:
+    def create_batch(self, requests: list[Request]) -> list[list[ScoredNugget]]:
         """Create nuggets for multiple requests."""
         return [self.create(request) for request in requests]
 
     async def async_create_batch(
-        self, requests: List[Request]
-    ) -> List[List[ScoredNugget]]:
+        self, requests: list[Request]
+    ) -> list[list[ScoredNugget]]:
         """Async create nuggets for multiple requests."""
         tasks = [self.async_create(request) for request in requests]
         return await asyncio.gather(*tasks)
 
     def assign_batch(
         self,
-        queries: List[str],
-        contexts: List[str],
-        nuggets_list: List[List[ScoredNugget]],
-    ) -> List[List[AssignedScoredNugget]]:
+        queries: list[str],
+        contexts: list[str],
+        nuggets_list: list[list[ScoredNugget]],
+    ) -> list[list[AssignedScoredNugget]]:
         """Assign nuggets for multiple query-context pairs."""
         if len(queries) != len(contexts) or len(queries) != len(nuggets_list):
             raise ValueError(
@@ -841,15 +846,17 @@ class Nuggetizer(BaseNuggetizer):
 
         return [
             self.assign(query, context, nuggets)
-            for query, context, nuggets in zip(queries, contexts, nuggets_list)
+            for query, context, nuggets in zip(
+                queries, contexts, nuggets_list, strict=False
+            )
         ]
 
     async def async_assign_batch(
         self,
-        queries: List[str],
-        contexts: List[str],
-        nuggets_list: List[List[ScoredNugget]],
-    ) -> List[List[AssignedScoredNugget]]:
+        queries: list[str],
+        contexts: list[str],
+        nuggets_list: list[list[ScoredNugget]],
+    ) -> list[list[AssignedScoredNugget]]:
         """Async assign nuggets for multiple query-context pairs."""
         if len(queries) != len(contexts) or len(queries) != len(nuggets_list):
             raise ValueError(
@@ -858,6 +865,8 @@ class Nuggetizer(BaseNuggetizer):
 
         tasks = [
             self.async_assign(query, context, nuggets)
-            for query, context, nuggets in zip(queries, contexts, nuggets_list)
+            for query, context, nuggets in zip(
+                queries, contexts, nuggets_list, strict=False
+            )
         ]
         return await asyncio.gather(*tasks)

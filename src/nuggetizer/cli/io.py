@@ -8,7 +8,7 @@ from typing import Any
 def read_jsonl(file_path: str) -> list[dict[str, Any]]:
     """Read a JSONL file into a list of dictionaries."""
     data: list[dict[str, Any]] = []
-    with open(file_path, "r", encoding="utf-8") as file_obj:
+    with open(file_path, encoding="utf-8") as file_obj:
         for line in file_obj:
             data.append(json.loads(line))
     return data
@@ -29,7 +29,7 @@ def get_processed_values(output_file: str, *keys: str) -> set[Any]:
     """Read the output file and return processed key values or tuples."""
     processed_values: set[Any] = set()
     try:
-        with open(output_file, "r", encoding="utf-8") as file_obj:
+        with open(output_file, encoding="utf-8") as file_obj:
             for line in file_obj:
                 try:
                     record = json.loads(line)

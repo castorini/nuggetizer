@@ -1,15 +1,14 @@
 import os
-from typing import Dict, Optional
 
 from dotenv import load_dotenv
 
 
-def get_openai_api_key() -> Optional[str]:
+def get_openai_api_key() -> str | None:
     load_dotenv(dotenv_path=".env")
     return os.getenv("OPENAI_API_KEY") or None
 
 
-def get_azure_openai_args() -> Dict[str, Optional[str]]:
+def get_azure_openai_args() -> dict[str, str | None]:
     load_dotenv(dotenv_path=".env")
     azure_args = {
         "api_type": "azure",
@@ -29,23 +28,23 @@ def get_azure_openai_args() -> Dict[str, Optional[str]]:
         return azure_args
 
 
-def get_cohere_api_key() -> Optional[str]:
+def get_cohere_api_key() -> str | None:
     load_dotenv(dotenv_path=".env.local")
     co_api_key = os.getenv("CO_API_KEY")
     return co_api_key
 
 
-def get_anyscale_api_key() -> Optional[str]:
+def get_anyscale_api_key() -> str | None:
     load_dotenv(dotenv_path=".env.local")
     anyscale_api_key = os.getenv("ANYSCALE_API_KEY")
     return anyscale_api_key
 
 
-def get_openrouter_api_key() -> Optional[str]:
+def get_openrouter_api_key() -> str | None:
     load_dotenv(dotenv_path=".env")
     return os.getenv("OPENROUTER_API_KEY") or None
 
 
-def get_vllm_api_key() -> Optional[str]:
+def get_vllm_api_key() -> str | None:
     """vLLM doesn't require authentication for local use, but we return a placeholder."""
     return "EMPTY"

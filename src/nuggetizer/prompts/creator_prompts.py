@@ -2,8 +2,6 @@
 Prompts for nugget creation
 """
 
-from typing import Dict, List
-
 from ..core.types import Request
 from .template_loader import format_template
 
@@ -12,9 +10,9 @@ def create_nugget_prompt(
     request: Request,
     start: int,
     end: int,
-    nuggets: List[str],
+    nuggets: list[str],
     creator_max_nuggets: int = 30,
-) -> List[Dict[str, str]]:
+) -> list[dict[str, str]]:
     """
     Creates a prompt for nugget creation using YAML template.
     """

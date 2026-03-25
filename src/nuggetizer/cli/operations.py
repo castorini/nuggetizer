@@ -4,6 +4,8 @@ import logging
 import sys
 from typing import Any
 
+from tqdm import tqdm
+
 from nuggetizer.core.metrics import calculate_global_metrics
 from nuggetizer.models.nuggetizer import Nuggetizer
 
@@ -17,7 +19,6 @@ from .adapters import (
 )
 from .io import append_jsonl_record, get_processed_values, get_run_id, read_jsonl
 from .responses import CommandResponse
-from tqdm import tqdm
 
 
 def _disable_progress(args: object) -> bool:

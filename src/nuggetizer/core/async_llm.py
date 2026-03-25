@@ -1,5 +1,5 @@
 import time
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, cast
 
 import tiktoken
 from openai import AsyncAzureOpenAI, AsyncOpenAI
@@ -25,17 +25,17 @@ class AsyncLLMHandler:
     def __init__(
         self,
         model: str,
-        api_keys: Optional[Union[str, List[str]]] = None,
+        api_keys: str | list[str] | None = None,
         context_size: int = 8192,
-        api_type: Optional[str] = None,
-        api_base: Optional[str] = None,
-        api_version: Optional[str] = None,
+        api_type: str | None = None,
+        api_base: str | None = None,
+        api_version: str | None = None,
         use_azure_openai: bool = False,
         use_openrouter: bool = False,
         use_vllm: bool = False,
-        openrouter_api_key: Optional[str] = None,
+        openrouter_api_key: str | None = None,
         vllm_port: int = 8000,
-        reasoning_effort: Optional[str] = None,
+        reasoning_effort: str | None = None,
     ):
         self.model = model
         self.context_size = context_size
@@ -113,7 +113,7 @@ class AsyncLLMHandler:
 
     def _initialize_client(
         self, api_type: str, api_base: str | None, api_version: str | None
-    ) -> Union[AsyncAzureOpenAI, AsyncOpenAI]:
+    ) -> AsyncAzureOpenAI | AsyncOpenAI:
         if api_type == "azure" and all([api_base, api_version]):
             assert api_base is not None
             return AsyncAzureOpenAI(
@@ -131,7 +131,7 @@ class AsyncLLMHandler:
         else:
             raise ValueError(f"Invalid API type: {api_type}")
 
-    def _build_reasoning_params(self) -> Dict[str, Any]:
+    def _build_reasoning_params(self) -> dict[str, Any]:
         """Build provider-specific reasoning request parameters."""
         if self.reasoning_effort is None:
             return {}
@@ -161,8 +161,8 @@ class AsyncLLMHandler:
 
     @staticmethod
     def _normalize_messages(
-        messages: List[Dict[str, str]], model: str
-    ) -> List[Dict[str, str]]:
+        messages: list[dict[str, str]], model: str
+    ) -> list[dict[str, str]]:
         if ("o1" in model or "o3" in model or "o4" in model) and len(messages) >= 2:
             normalized_messages = [message.copy() for message in messages[1:]]
             normalized_messages[0]["content"] = (
@@ -173,8 +173,8 @@ class AsyncLLMHandler:
 
     @classmethod
     def _build_responses_input(
-        cls, messages: List[Dict[str, str]], model: str
-    ) -> List[Dict[str, Any]]:
+        cls, messages: list[dict[str, str]], model: str
+    ) -> list[dict[str, Any]]:
         normalized_messages = cls._normalize_messages(messages, model)
         return [
             {
@@ -192,7 +192,7 @@ class AsyncLLMHandler:
 
     def _extract_responses_text_and_reasoning(
         self, response: Any
-    ) -> Tuple[str, Optional[str]]:
+    ) -> tuple[str, str | None]:
         text = ""
         if hasattr(response, "output_text") and response.output_text:
             text = str(response.output_text)
@@ -217,18 +217,18 @@ class AsyncLLMHandler:
                         if content_text:
                             text = str(content_text)
 
-        reasoning_parts: List[str] = []
+        reasoning_parts: list[str] = []
         for item in getattr(response, "output", []):
             item_type = getattr(item, "type", None)
             if item_type is None and isinstance(item, dict):
                 item_type = item.get("type")
             if item_type != "reasoning":
                 continue
-            direct_parts: List[str] = []
+            direct_parts: list[str] = []
             summaries = getattr(item, "summary", None)
             if summaries is None and isinstance(item, dict):
                 summaries = item.get("summary", [])
-            summary_parts: List[str] = []
+            summary_parts: list[str] = []
             for summary in summaries or []:
                 if isinstance(summary, str):
                     summary_parts.append(summary)
@@ -276,7 +276,7 @@ class AsyncLLMHandler:
         return text, reasoning
 
     @staticmethod
-    def _extract_reasoning_content(message: Any) -> Optional[str]:
+    def _extract_reasoning_content(message: Any) -> str | None:
         """Extract reasoning text from common OpenAI-compatible response shapes."""
         if hasattr(message, "reasoning") and message.reasoning:
             return str(message.reasoning)
@@ -296,8 +296,8 @@ class AsyncLLMHandler:
         return None
 
     async def run(
-        self, messages: List[Dict[str, str]], temperature: float = 0
-    ) -> Tuple[str, int, Optional[Dict[str, Any]], Optional[str]]:
+        self, messages: list[dict[str, str]], temperature: float = 0
+    ) -> tuple[str, int, dict[str, Any] | None, str | None]:
         """
         Run async LLM inference and return content, token count, usage metadata, and reasoning.
 
@@ -346,7 +346,7 @@ class AsyncLLMHandler:
                             "total_tokens": getattr(usage, "total_tokens", None),
                         }
                 else:
-                    completion_params: Dict[str, Any] = {
+                    completion_params: dict[str, Any] = {
                         "model": self.model,
                         "messages": normalized_messages,
                         "temperature": temperature,

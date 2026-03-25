@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import asyncio
 from types import SimpleNamespace
-from typing import Any
-from typing import cast
+from typing import Any, cast
 
 import pytest
+from openai import AsyncOpenAI, OpenAI
 
 from nuggetizer.core.async_llm import AsyncLLMHandler
 from nuggetizer.core.llm import LLMHandler
-from openai import AsyncOpenAI, OpenAI
 
 pytestmark = pytest.mark.core
 

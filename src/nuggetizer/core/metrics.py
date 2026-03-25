@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from statistics import mean
-from typing import Dict, List
 
 
 @dataclass
@@ -12,7 +11,7 @@ class NuggetMetrics:
     all_score: float
 
 
-def calculate_nugget_scores(qid: str, nuggets: List[Dict]) -> NuggetMetrics:
+def calculate_nugget_scores(qid: str, nuggets: list[dict]) -> NuggetMetrics:
     """Calculate various nugget scores for a single response."""
     vital_nuggets = [n for n in nuggets if n["importance"] == "vital"]
     all_nuggets = nuggets
@@ -48,7 +47,7 @@ def calculate_nugget_scores(qid: str, nuggets: List[Dict]) -> NuggetMetrics:
     )
 
 
-def calculate_global_metrics(records: List[Dict]) -> Dict[str, float | str]:
+def calculate_global_metrics(records: list[dict]) -> dict[str, float | str]:
     """Calculate global mean metrics across all responses."""
     metrics_list = [
         calculate_nugget_scores(record["qid"], record["nuggets"]) for record in records

@@ -72,7 +72,7 @@ push = false
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F"]
+select = ["E", "F", "I", "UP", "B"]
 ignore = ["E501"]
 
 [tool.setuptools.packages.find]
@@ -105,7 +105,7 @@ cache_dir = ".mypy_cache"
 incremental = true
 
 [tool.setuptools.package-data]
-"nuggetizer.prompts.prompt_templates" = ["*.yaml"] 
+"nuggetizer.prompts.prompt_templates" = ["*.yaml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

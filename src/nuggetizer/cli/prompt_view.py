@@ -5,7 +5,6 @@ from typing import Any
 from nuggetizer.core.types import NuggetAssignMode
 from nuggetizer.prompts.template_loader import PromptTemplate, get_template
 
-
 PROMPT_TARGETS = {
     "create": "creator_template",
     "score": "scorer_template",

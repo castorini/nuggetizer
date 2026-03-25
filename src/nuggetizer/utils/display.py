@@ -1,17 +1,18 @@
 """Display utilities for pretty printing nuggets and assignments."""
 
-from typing import Sequence, Union
+from collections.abc import Sequence
+
 from nuggetizer.core.types import (
-    Nugget,
-    ScoredNugget,
     AssignedNugget,
     AssignedScoredNugget,
     Document,
+    Nugget,
+    ScoredNugget,
 )
 
 
 def print_nuggets(
-    nuggets: Sequence[Union[Nugget, ScoredNugget]],
+    nuggets: Sequence[Nugget | ScoredNugget],
     numbered: bool = True,
     show_importance: bool = True,
 ) -> None:
@@ -37,7 +38,7 @@ def print_nuggets(
 
 def print_assigned_nuggets(
     document: Document,
-    assigned_nuggets: Sequence[Union[AssignedNugget, AssignedScoredNugget]],
+    assigned_nuggets: Sequence[AssignedNugget | AssignedScoredNugget],
     show_importance: bool = True,
 ) -> None:
     """Pretty print assigned nuggets for a document.

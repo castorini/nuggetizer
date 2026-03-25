@@ -8,7 +8,6 @@ from typing import Any
 
 from .io import read_jsonl
 
-
 COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
     "create": {
         "summary": "Create and score nuggets from either batch JSONL or direct JSON input.",

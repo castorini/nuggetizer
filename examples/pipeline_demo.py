@@ -3,10 +3,10 @@ import argparse
 import asyncio
 import time
 
-from nuggetizer.core.types import Query, Document, Request
-from nuggetizer.models.nuggetizer import Nuggetizer
 from nuggetizer.core.metrics import calculate_nugget_scores
-from nuggetizer.utils.display import print_nuggets, print_assigned_nuggets
+from nuggetizer.core.types import Document, Query, Request
+from nuggetizer.models.nuggetizer import Nuggetizer
+from nuggetizer.utils.display import print_assigned_nuggets, print_nuggets
 
 
 def create_sample_request() -> Request:
@@ -169,7 +169,9 @@ async def process_request(
     print(f"\nAssignment completed in {assign_time:.2f}s")
 
     # Process results
-    for doc, assigned_nuggets in zip(request.documents, assigned_nuggets_list):
+    for doc, assigned_nuggets in zip(
+        request.documents, assigned_nuggets_list, strict=False
+    ):
         print_assigned_nuggets(doc, assigned_nuggets)
 
         # Calculate metrics for this document

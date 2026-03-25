@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Literal
 
 
 class NuggetMode(Enum):
@@ -30,13 +30,13 @@ class Query:
 class Document:
     docid: str
     segment: str
-    title: Optional[str] = None
+    title: str | None = None
 
 
 @dataclass
 class Request:
     query: Query
-    documents: List[Document]
+    documents: list[Document]
 
 
 @dataclass
@@ -46,19 +46,19 @@ class Trace:
     # Which stage produced this artifact
     component: Literal["creator", "scorer", "assigner"]
     # LLM plumbing
-    model: Optional[str] = None
+    model: str | None = None
     # e.g., {"temperature": 0.0}
-    params: Dict[str, Any] = field(default_factory=dict)
+    params: dict[str, Any] = field(default_factory=dict)
     # The messages we sent to the LLM (or the prompt content)
-    messages: Optional[List[Dict[str, str]]] = None
+    messages: list[dict[str, str]] | None = None
     # Usage and outputs
-    usage: Optional[Dict[str, Any]] = None  # e.g., tokens, cost
-    raw_output: Optional[str] = None  # raw text as returned
+    usage: dict[str, Any] | None = None  # e.g., tokens, cost
+    raw_output: str | None = None  # raw text as returned
     # Helpful for debugging batched calls
-    window_start: Optional[int] = None
-    window_end: Optional[int] = None
+    window_start: int | None = None
+    window_end: int | None = None
     # When the call happened (optional)
-    timestamp_utc: Optional[str] = None  # ISO8601 string
+    timestamp_utc: str | None = None  # ISO8601 string
 
 
 @dataclass
@@ -67,8 +67,8 @@ class BaseNugget:
 
     text: str
     # Optional metadata
-    reasoning: Optional[str] = None
-    trace: Optional[Trace] = None
+    reasoning: str | None = None
+    trace: Trace | None = None
 
 
 @dataclass

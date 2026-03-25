@@ -13,7 +13,6 @@ from nuggetizer.cli.adapters import scored_nuggets_from_record
 from nuggetizer.cli.main import main
 from nuggetizer.models.nuggetizer import Nuggetizer
 
-
 pytestmark = pytest.mark.skipif(
     os.getenv("NUGGETIZER_LIVE_OPENAI_SMOKE") != "1",
     reason="Set NUGGETIZER_LIVE_OPENAI_SMOKE=1 to run live OpenAI smoke tests.",
