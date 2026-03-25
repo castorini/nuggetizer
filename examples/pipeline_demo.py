@@ -170,7 +170,7 @@ async def process_request(
 
     # Process results
     for doc, assigned_nuggets in zip(
-        request.documents, assigned_nuggets_list, strict=False
+        request.documents, assigned_nuggets_list, strict=True
     ):
         print_assigned_nuggets(doc, assigned_nuggets)
 

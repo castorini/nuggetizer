@@ -288,7 +288,7 @@ class Nuggetizer(BaseNuggetizer):
 
                     # Create ScoredNugget objects with trace information
                     for _i, (nugget_text, score) in enumerate(
-                        zip(current_nuggets[start:end], scores, strict=False)
+                        zip(current_nuggets[start:end], scores, strict=True)
                     ):
                         reasoning = reasoning_content if self.store_reasoning else None
                         trace = None
@@ -480,7 +480,7 @@ class Nuggetizer(BaseNuggetizer):
                     scores = ast.literal_eval(cleaned_response)
 
                     for nugget_text, score in zip(
-                        current_nuggets[start:end], scores, strict=False
+                        current_nuggets[start:end], scores, strict=True
                     ):
                         reasoning = reasoning_content if self.store_reasoning else None
                         trace = None
@@ -606,7 +606,7 @@ class Nuggetizer(BaseNuggetizer):
                     # Create AssignedScoredNugget objects with trace
                     # information
                     for nugget, assignment in zip(
-                        window_nuggets, assignments, strict=False
+                        window_nuggets, assignments, strict=True
                     ):
                         reasoning = reasoning_content if self.store_reasoning else None
                         trace = None
@@ -742,7 +742,7 @@ class Nuggetizer(BaseNuggetizer):
                     assignments = ast.literal_eval(response)
 
                     for nugget, assignment in zip(
-                        window_nuggets, assignments, strict=False
+                        window_nuggets, assignments, strict=True
                     ):
                         reasoning = reasoning_content if self.store_reasoning else None
                         trace = None
@@ -847,7 +847,7 @@ class Nuggetizer(BaseNuggetizer):
         return [
             self.assign(query, context, nuggets)
             for query, context, nuggets in zip(
-                queries, contexts, nuggets_list, strict=False
+                queries, contexts, nuggets_list, strict=True
             )
         ]
 
@@ -866,7 +866,7 @@ class Nuggetizer(BaseNuggetizer):
         tasks = [
             self.async_assign(query, context, nuggets)
             for query, context, nuggets in zip(
-                queries, contexts, nuggets_list, strict=False
+                queries, contexts, nuggets_list, strict=True
             )
         ]
         return await asyncio.gather(*tasks)
