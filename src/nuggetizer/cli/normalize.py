@@ -7,8 +7,43 @@ from nuggetizer.core.types import ScoredNugget
 from .adapters import scored_nuggets_from_record
 
 
+def _unwrap_castorini_envelope(payload: dict[str, Any]) -> dict[str, Any]:
+    schema_version = payload.get("schema_version")
+    artifacts = payload.get("artifacts")
+    if schema_version != "castorini.cli.v1" or not isinstance(artifacts, list):
+        return payload
+
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            continue
+        artifact_payload = artifact.get("data", artifact.get("value"))
+        if (
+            isinstance(artifact_payload, dict)
+            and {
+                "query",
+                "candidates",
+            }
+            <= artifact_payload.keys()
+        ):
+            return artifact_payload
+        if isinstance(artifact_payload, list):
+            if len(artifact_payload) != 1:
+                raise ValueError(
+                    "direct create envelope input requires exactly one record"
+                )
+            record = artifact_payload[0]
+            if isinstance(record, dict) and {"query", "candidates"} <= record.keys():
+                return record
+
+    raise ValueError(
+        "direct create envelope input must contain a single artifact record "
+        "with query and candidates"
+    )
+
+
 def direct_create_record(payload: dict[str, Any]) -> dict[str, Any]:
     """Normalize direct create input into the batch-like adapter shape."""
+    payload = _unwrap_castorini_envelope(payload)
     query = payload["query"]
     query_text = (
         query

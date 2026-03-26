@@ -920,6 +920,51 @@ def test_serve_app_rejects_invalid_payload() -> None:
     assert response.json()["status"] == "validation_error"
 
 
+def test_serve_app_create_accepts_rank_llm_envelope(monkeypatch: Any) -> None:
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from nuggetizer.api.app import create_app
+    from nuggetizer.api.runtime import ServerConfig
+
+    def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        del request
+        return [ScoredNugget(text="nugget", importance="vital")]
+
+    monkeypatch.setattr(Nuggetizer, "create", fake_create)
+
+    client = TestClient(create_app(ServerConfig(host="127.0.0.1", port=8085)))
+    response = client.post(
+        "/v1/create",
+        json={
+            "schema_version": "castorini.cli.v1",
+            "repo": "rank_llm",
+            "command": "rerank",
+            "artifacts": [
+                {
+                    "name": "rerank-results",
+                    "kind": "data",
+                    "value": [
+                        {
+                            "query": {"text": "What is Python used for?", "qid": ""},
+                            "candidates": [
+                                {
+                                    "docid": "d0",
+                                    "score": 1.0,
+                                    "doc": {"contents": "web"},
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["artifacts"][0]["name"] == "create-result"
+
+
 def test_validate_create_batch_returns_json_envelope(
     tmp_path: Path, capsys: Any
 ) -> None:

@@ -25,6 +25,13 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
                 "| curl -s -X POST http://127.0.0.1:8085/v1/create "
                 '-H "content-type: application/json" --data-binary @- | jq'
             ),
+            (
+                'curl -s "http://127.0.0.1:8081/v1/msmarco-v1-passage/search?query=q" '
+                "| curl -s -X POST http://127.0.0.1:8082/v1/rerank "
+                '-H "content-type: application/json" --data-binary @- '
+                "| curl -s -X POST http://127.0.0.1:8085/v1/create "
+                '-H "content-type: application/json" --data-binary @- | jq'
+            ),
         ],
         "direct_input": {
             "ids_optional": True,
@@ -85,6 +92,13 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
             ),
             (
                 'curl -s "http://127.0.0.1:8081/v1/msmarco-v1-passage/search?query=q" '
+                "| curl -s -X POST http://127.0.0.1:8085/v1/create "
+                '-H "content-type: application/json" --data-binary @- | jq'
+            ),
+            (
+                'curl -s "http://127.0.0.1:8081/v1/msmarco-v1-passage/search?query=q" '
+                "| curl -s -X POST http://127.0.0.1:8082/v1/rerank "
+                '-H "content-type: application/json" --data-binary @- '
                 "| curl -s -X POST http://127.0.0.1:8085/v1/create "
                 '-H "content-type: application/json" --data-binary @- | jq'
             ),
@@ -426,11 +440,10 @@ def doctor_report() -> dict[str, Any]:
 
 def validate_create_input(payload: dict[str, Any]) -> dict[str, Any]:
     """Validate a direct create payload."""
-    return {
-        "valid": isinstance(payload.get("query"), str)
-        and isinstance(payload.get("candidates"), list),
-        "record_count": 1,
-    }
+    from .normalize import direct_create_record
+
+    direct_create_record(payload)
+    return {"valid": True, "record_count": 1}
 
 
 def validate_assign_input(payload: dict[str, Any]) -> dict[str, Any]:
