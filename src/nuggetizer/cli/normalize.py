@@ -7,9 +7,9 @@ from nuggetizer.core.types import ScoredNugget
 from .adapters import scored_nuggets_from_record
 
 
-def _unwrap_single_artifact_record(
+def _unwrap_artifact_payload(
     payload: dict[str, Any], *, artifact_name: str, record_name: str
-) -> dict[str, Any]:
+) -> Any:
     schema_version = payload.get("schema_version")
     artifacts = payload.get("artifacts")
     if schema_version != "castorini.cli.v1" or not isinstance(artifacts, list):
@@ -29,7 +29,17 @@ def _unwrap_single_artifact_record(
             f"{record_name} envelope must contain artifact `{artifact_name}`"
         )
 
-    artifact_payload = matched_artifact.get("data", matched_artifact.get("value"))
+    return matched_artifact.get("data", matched_artifact.get("value"))
+
+
+def _unwrap_single_artifact_record(
+    payload: dict[str, Any], *, artifact_name: str, record_name: str
+) -> dict[str, Any]:
+    artifact_payload = _unwrap_artifact_payload(
+        payload,
+        artifact_name=artifact_name,
+        record_name=record_name,
+    )
     if isinstance(artifact_payload, dict):
         return artifact_payload
     if isinstance(artifact_payload, list):
@@ -42,6 +52,25 @@ def _unwrap_single_artifact_record(
     raise ValueError(
         f"{record_name} envelope artifact `{artifact_name}` must contain a record object"
     )
+
+
+def _unwrap_artifact_records(
+    payload: dict[str, Any], *, artifact_name: str, record_name: str
+) -> list[dict[str, Any]]:
+    artifact_payload = _unwrap_artifact_payload(
+        payload,
+        artifact_name=artifact_name,
+        record_name=record_name,
+    )
+    if not isinstance(artifact_payload, list) or not artifact_payload:
+        raise ValueError(
+            f"{record_name} envelope artifact `{artifact_name}` must contain a record list"
+        )
+    if not all(isinstance(record, dict) for record in artifact_payload):
+        raise ValueError(
+            f"{record_name} envelope artifact `{artifact_name}` must contain record objects"
+        )
+    return list(artifact_payload)
 
 
 def unwrap_generation_record(payload: dict[str, Any]) -> dict[str, Any]:
@@ -74,6 +103,44 @@ def _answer_record_to_query_context(answer_record: dict[str, Any]) -> tuple[str,
             "answer record `answer` entries must contain string `text` fields"
         ) from error
     return topic, context
+
+
+def _answer_record_to_assignment_input(
+    answer_record: dict[str, Any], nugget_record: dict[str, Any]
+) -> dict[str, Any]:
+    query, context = _answer_record_to_query_context(answer_record)
+    topic_id = answer_record.get("topic_id")
+    qid = nugget_record.get("qid")
+    if not isinstance(topic_id, str):
+        raise ValueError("answer record must contain `topic_id` as a string")
+    if not isinstance(qid, str):
+        raise ValueError("nugget record must contain `qid` as a string")
+    if topic_id != qid:
+        raise ValueError("answer record `topic_id` must match nugget record `qid`")
+
+    response_length = answer_record.get("response_length", 0)
+    if not isinstance(response_length, int):
+        raise ValueError("answer record `response_length` must be an integer")
+
+    run_id = answer_record.get("run_id", "direct-assign")
+    if not isinstance(run_id, str):
+        raise ValueError("answer record `run_id` must be a string when provided")
+
+    answer = answer_record.get("answer")
+    if not isinstance(answer, list):
+        raise ValueError("answer record must contain `answer` as a list")
+
+    return {
+        "query": query,
+        "qid": qid,
+        "context": context,
+        "answer_text": context,
+        "response_length": response_length,
+        "run_id": run_id,
+        "answer_record": answer_record,
+        "nugget_record": nugget_record,
+        "nuggets": scored_nuggets_from_record(nugget_record),
+    }
 
 
 def _unwrap_castorini_envelope(payload: dict[str, Any]) -> dict[str, Any]:
@@ -184,3 +251,36 @@ def direct_assign_inputs(
         "`answer_record`/`nugget_record`, or "
         "`answer_envelope`/`nugget_envelope`"
     )
+
+
+def joined_assign_batch_records(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """Normalize batch joined assign input into execution-ready records."""
+    if all(key in payload for key in ["answer_records", "nugget_record"]):
+        answer_records = payload["answer_records"]
+        nugget_record = payload["nugget_record"]
+    elif all(key in payload for key in ["answers_envelope", "nugget_envelope"]):
+        answer_records = _unwrap_artifact_records(
+            payload["answers_envelope"],
+            artifact_name="generation-results",
+            record_name="generation record",
+        )
+        nugget_record = unwrap_nugget_record(payload["nugget_envelope"])
+    else:
+        raise ValueError(
+            "batch joined assign input requires either `answer_records`/"
+            "`nugget_record` or `answers_envelope`/`nugget_envelope`"
+        )
+
+    if not isinstance(answer_records, list) or not answer_records:
+        raise ValueError(
+            "batch joined assign input requires `answer_records` as a non-empty list"
+        )
+    if not isinstance(nugget_record, dict):
+        raise ValueError(
+            "batch joined assign input requires `nugget_record` as an object"
+        )
+
+    return [
+        _answer_record_to_assignment_input(answer_record, nugget_record)
+        for answer_record in answer_records
+    ]
