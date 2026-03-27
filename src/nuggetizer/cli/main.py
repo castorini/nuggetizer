@@ -37,7 +37,11 @@ from .introspection import (
 )
 from .io import read_jsonl
 from .logging_utils import setup_logging
-from .normalize import direct_assign_inputs, direct_create_record
+from .normalize import (
+    direct_assign_inputs,
+    direct_create_record,
+    joined_assign_batch_records,
+)
 from .operations import (
     async_run_assign_answers_batch,
     async_run_assign_retrieval_batch,
@@ -988,7 +992,14 @@ def _run_direct_create(args: argparse.Namespace) -> CommandResponse:
 def _run_direct_assign(args: argparse.Namespace) -> CommandResponse:
     payload = _read_direct_payload(args)
     validation = validate_assign_input(payload)
-    _query, _context, nuggets = direct_assign_inputs(payload)
+    nuggets: list[Any]
+    if all(key in payload for key in ["answer_records", "nugget_record"]) or all(
+        key in payload for key in ["answers_envelope", "nugget_envelope"]
+    ):
+        batch_records = joined_assign_batch_records(payload)
+        nuggets = cast(list[Any], batch_records[0]["nuggets"])
+    else:
+        _query, _context, nuggets = direct_assign_inputs(payload)
     if args.validate_only or args.dry_run:
         return CommandResponse(
             command="assign",
@@ -1000,20 +1011,33 @@ def _run_direct_assign(args: argparse.Namespace) -> CommandResponse:
                 "execution_mode": args.execution_mode,
             },
             validation=validation,
-            metrics={"nugget_count": len(nuggets)},
+            metrics={
+                "record_count": validation["record_count"],
+                "nugget_count": len(nuggets),
+            },
         )
     response = execute_direct_assign(payload, args=args)
-    direct_output = cast(dict[str, Any], response.artifacts[0]["data"])
+    direct_output = response.artifacts[0]["data"]
     if args.output == "json":
         return response
 
+    if isinstance(direct_output, list):
+        sys.stdout.write(
+            "\n".join(
+                json.dumps(record, ensure_ascii=False) for record in direct_output
+            )
+            + "\n"
+        )
+        return CommandResponse(command="assign")
+
     sys.stdout.write(
         _format_direct_nugget_output(
-            cast(list[dict[str, Any]], direct_output["nuggets"]),
+            cast(list[dict[str, Any]], cast(dict[str, Any], direct_output)["nuggets"]),
             include_reasoning=args.include_reasoning,
             include_assignment=True,
             scoring_reasoning_traces=cast(
-                list[str], direct_output.get("reasoning_traces", [])
+                list[str],
+                cast(dict[str, Any], direct_output).get("reasoning_traces", []),
             ),
         )
         + "\n"

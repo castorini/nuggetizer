@@ -448,9 +448,13 @@ def validate_create_input(payload: dict[str, Any]) -> dict[str, Any]:
 
 def validate_assign_input(payload: dict[str, Any]) -> dict[str, Any]:
     """Validate a direct assign payload."""
-    from .normalize import direct_assign_inputs
+    from .normalize import direct_assign_inputs, joined_assign_batch_records
 
-    direct_assign_inputs(payload)
+    try:
+        direct_assign_inputs(payload)
+    except ValueError:
+        batch_records = joined_assign_batch_records(payload)
+        return {"valid": True, "record_count": len(batch_records)}
     return {"valid": True, "record_count": 1}
 
 

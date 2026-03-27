@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from nuggetizer.cli.adapters import (
+    assign_answer_output_record,
     collect_nonempty_reasoning_traces,
     collect_reasoning_traces,
     request_from_create_record,
@@ -13,7 +14,11 @@ from nuggetizer.cli.adapters import (
 )
 from nuggetizer.cli.adapters_common import make_data_artifact
 from nuggetizer.cli.introspection import validate_assign_input, validate_create_input
-from nuggetizer.cli.normalize import direct_assign_inputs, direct_create_record
+from nuggetizer.cli.normalize import (
+    direct_assign_inputs,
+    direct_create_record,
+    joined_assign_batch_records,
+)
 from nuggetizer.cli.operations import (
     build_assign_nuggetizer_kwargs,
     build_create_nuggetizer_kwargs,
@@ -108,6 +113,45 @@ def execute_direct_assign(
 ) -> CommandResponse:
     validation = validate_assign_input(payload)
     nuggetizer = Nuggetizer(**build_assign_nuggetizer_kwargs(args))
+    if all(key in payload for key in ["answer_records", "nugget_record"]) or all(
+        key in payload for key in ["answers_envelope", "nugget_envelope"]
+    ):
+        batch_records = joined_assign_batch_records(payload)
+        batch_output: list[dict[str, Any]] = []
+        for batch_record in batch_records:
+            query = batch_record["query"]
+            context = batch_record["context"]
+            nuggets = batch_record["nuggets"]
+            if args.execution_mode == "async":
+                assigned_nuggets = asyncio.run(
+                    nuggetizer.async_assign(query, context, nuggets=nuggets)
+                )
+            else:
+                assigned_nuggets = nuggetizer.assign(query, context, nuggets=nuggets)
+            batch_output.append(
+                assign_answer_output_record(
+                    batch_record["answer_record"],
+                    batch_record["nugget_record"],
+                    batch_record["run_id"],
+                    assigned_nuggets,
+                    include_reasoning=args.include_reasoning,
+                    include_trace=args.include_trace,
+                    redact_prompts=args.redact_prompts,
+                )
+            )
+        return CommandResponse(
+            command="assign",
+            inputs={"source": "direct"},
+            resolved={
+                "input_mode": "direct",
+                "assign_mode": "context",
+                "execution_mode": args.execution_mode,
+            },
+            validation=validation,
+            artifacts=[make_data_artifact("assign-result", batch_output)],
+            metrics={"record_count": len(batch_output)},
+        )
+
     query, context, nuggets = direct_assign_inputs(payload)
     if args.execution_mode == "async":
         assigned_nuggets = asyncio.run(

@@ -702,6 +702,97 @@ def test_direct_assign_via_joined_envelope_input_json(
     assert output["artifacts"][0]["data"]["query"] == "What is Python used for?"
 
 
+def test_direct_assign_via_joined_batch_input_json_supports_metrics(
+    tmp_path: Path, monkeypatch: Any, capsys: Any
+) -> None:
+    def fake_assign(
+        self: Nuggetizer, query: str, context: str, nuggets: list[ScoredNugget]
+    ) -> list[AssignedScoredNugget]:
+        del self, query, context
+        return [
+            AssignedScoredNugget(
+                text=nuggets[0].text,
+                importance=nuggets[0].importance,
+                assignment="support",
+            )
+        ]
+
+    monkeypatch.setattr(Nuggetizer, "assign", fake_assign)
+
+    exit_code = main(
+        [
+            "assign",
+            "--input-json",
+            json.dumps(
+                {
+                    "answer_records": [
+                        {
+                            "run_id": "demo-run",
+                            "topic_id": "q1",
+                            "topic": "What is Python used for?",
+                            "response_length": 10,
+                            "answer": [
+                                {"text": "Python is commonly used for web development."}
+                            ],
+                        },
+                        {
+                            "topic_id": "q1",
+                            "topic": "What is Python used for?",
+                            "response_length": 8,
+                            "answer": [{"text": "Python is also used for automation."}],
+                        },
+                    ],
+                    "nugget_record": {
+                        "query": "What is Python used for?",
+                        "qid": "q1",
+                        "nuggets": [
+                            {
+                                "text": "Python is used for web development.",
+                                "importance": "vital",
+                            }
+                        ],
+                    },
+                }
+            ),
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    records = output["artifacts"][0]["data"]
+    assert len(records) == 2
+    assert records[0]["qid"] == "q1"
+    assert records[0]["answer_text"] == "Python is commonly used for web development."
+    assert records[0]["response_length"] == 10
+    assert records[0]["run_id"] == "demo-run"
+    assert records[1]["run_id"] == "direct-assign"
+
+    assignments_path = tmp_path / "assignments.jsonl"
+    metrics_path = tmp_path / "metrics.jsonl"
+    write_jsonl(assignments_path, records)
+
+    metrics_exit_code = main(
+        [
+            "metrics",
+            "--input-file",
+            str(assignments_path),
+            "--output-file",
+            str(metrics_path),
+            "--output",
+            "json",
+        ]
+    )
+
+    assert metrics_exit_code == 0
+    metrics_output = json.loads(capsys.readouterr().out)
+    metric_records = read_jsonl(metrics_path)
+    assert metric_records[0]["qid"] == "q1"
+    assert metric_records[1]["qid"] == "q1"
+    assert metrics_output["metrics"]["global_metrics"]["qid"] == "all"
+
+
 def test_direct_assign_text_output_prints_unique_reasoning_traces(
     monkeypatch: Any, capsys: Any
 ) -> None:
