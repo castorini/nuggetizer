@@ -69,6 +69,22 @@ nuggetizer assign \
   --output json
 ```
 
+Assign by joining a single answer artifact with a nugget pool artifact:
+
+```bash
+nuggetizer assign \
+  --input-json '{"answer_record":{"topic_id":"q1","topic":"What is Python used for?","response_length":10,"answer":[{"text":"Python is used for web development."}]},"nugget_record":{"query":"What is Python used for?","qid":"q1","nuggets":[{"text":"Python is used for web development.","importance":"vital"}]}}' \
+  --output json
+```
+
+Assign one nugget pool against multiple answer records:
+
+```bash
+nuggetizer assign \
+  --input-json '{"answer_records":[{"run_id":"demo-run","topic_id":"q1","topic":"What is Python used for?","response_length":10,"answer":[{"text":"Python is used for web development."}]},{"topic_id":"q1","topic":"What is Python used for?","response_length":8,"answer":[{"text":"Python is also used for automation."}]}],"nugget_record":{"query":"What is Python used for?","qid":"q1","nuggets":[{"text":"Python is used for web development.","importance":"vital"}]}}' \
+  --output json
+```
+
 Direct mode synthesizes internal positional IDs only when internal helpers need
 them. Callers do not need to provide `qid` or `docid`.
 

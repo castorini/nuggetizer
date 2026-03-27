@@ -8,6 +8,7 @@ Initial release-note scaffold for the packaged CLI and JSONL pipeline workflow.
 - FastAPI `nuggetizer serve` command exposing `GET /healthz`, `POST /v1/create`, and `POST /v1/assign` on port `8085` by default.
 - Direct `create` input now also accepts Anserini REST payloads with `query.text` plus candidates whose `doc` is either a plain string or an object containing `contents`, so Anserini search results can be piped directly into `POST /v1/create` without a `jq` reshape step.
 - Direct `create` input now also accepts single-record `castorini.cli.v1` envelopes from upstream tools such as `rank_llm`, so `search | rerank | create` can be piped through `POST /v1/create` without unwrapping `.artifacts[0].value[0]` first.
+- Direct `assign` input now also accepts join-oriented payloads built from `ragnarok generate` answers and `nuggetizer create` nugget pools, including `{answer_record, nugget_record}`, `{answer_records, nugget_record}`, and the equivalent `castorini.cli.v1` envelope forms.
 - Legacy `scripts/*.py` compatibility wrappers around the packaged CLI.
 - Offline-first contributor workflow built around `uv`.
 

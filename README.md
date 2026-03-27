@@ -129,6 +129,22 @@ nuggetizer assign \
   --output json
 ```
 
+Assign nuggets by joining one generated answer record with one nugget pool:
+
+```bash
+nuggetizer assign \
+  --input-json '{"answer_record":{"topic_id":"q1","topic":"What is Python used for?","response_length":10,"answer":[{"text":"Python is used for web development."}]},"nugget_record":{"query":"What is Python used for?","qid":"q1","nuggets":[{"text":"Python is used for web development.","importance":"vital"}]}}' \
+  --output json
+```
+
+Assign one nugget pool against multiple generated answers:
+
+```bash
+nuggetizer assign \
+  --input-json '{"answer_records":[{"run_id":"demo-run","topic_id":"q1","topic":"What is Python used for?","response_length":10,"answer":[{"text":"Python is used for web development."}]},{"topic_id":"q1","topic":"What is Python used for?","response_length":8,"answer":[{"text":"Python is also used for automation."}]}],"nugget_record":{"query":"What is Python used for?","qid":"q1","nuggets":[{"text":"Python is used for web development.","importance":"vital"}]}}' \
+  --output json
+```
+
 Calculate metrics:
 
 ```bash
@@ -172,6 +188,7 @@ around the packaged CLI, but new automation and documentation should prefer
 - Use `--output json` for automation; that is the authoritative machine-readable interface.
 - `nuggetizer doctor --output json` reports command and backend readiness with explicit `ready`, `missing_env`, or `blocked` states.
 - `nuggetizer serve` exposes `GET /healthz`, `POST /v1/create`, and `POST /v1/assign` on port `8085` by default and reuses the same direct-input payload contracts as the packaged CLI.
+- `POST /v1/assign` accepts direct `{query, context, nuggets}` payloads plus join-oriented payloads built from `ragnarok generate` records or envelopes and `nuggetizer create` records or envelopes.
 - `nuggetizer describe ...` and `nuggetizer schema ...` expose the supported command metadata and payload contracts without running models.
 - `nuggetizer validate ...` is non-mutating and returns a real pass or fail instead of performing any repair work.
 

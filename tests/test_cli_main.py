@@ -1011,6 +1011,10 @@ def test_describe_assign_returns_json_envelope(capsys: Any) -> None:
         "answers",
         "retrieval",
     ]
+    assert (
+        output["artifacts"][0]["data"]["direct_input"]["shapes"][2]["name"]
+        == "joined-single-envelopes"
+    )
 
 
 def test_schema_assign_output_answers_returns_json_envelope(capsys: Any) -> None:
@@ -1020,6 +1024,23 @@ def test_schema_assign_output_answers_returns_json_envelope(capsys: Any) -> None
     output = json.loads(capsys.readouterr().out)
     assert output["command"] == "schema"
     assert "run_id" in output["artifacts"][0]["data"]["required"]
+
+
+def test_schema_assign_direct_input_includes_joined_batch_forms(capsys: Any) -> None:
+    exit_code = main(["schema", "assign-direct-input", "--output", "json"])
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["command"] == "schema"
+    one_of = output["artifacts"][0]["data"]["oneOf"]
+    assert any(
+        set(option["required"]) == {"answer_records", "nugget_record"}
+        for option in one_of
+    )
+    assert any(
+        set(option["required"]) == {"answers_envelope", "nugget_envelope"}
+        for option in one_of
+    )
 
 
 def test_doctor_returns_json_envelope(capsys: Any) -> None:

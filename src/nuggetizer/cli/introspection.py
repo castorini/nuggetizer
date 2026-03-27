@@ -59,14 +59,57 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
                 '\'{"query":"What is Python used for?","context":"Python is used for web development.","nuggets":[{"text":"Python is used for web development.","importance":"vital"}]}\' '
                 "--output json"
             ),
+            (
+                "nuggetizer assign --input-json "
+                '\'{"answer_record":{"topic_id":"q1","topic":"What is Python used for?","answer":[{"text":"Python is used for web development."}]},"nugget_record":{"query":"What is Python used for?","qid":"q1","nuggets":[{"text":"Python is used for web development.","importance":"vital"}]}}\' '
+                "--output json"
+            ),
+            (
+                "nuggetizer assign --input-json "
+                '\'{"answer_records":[{"run_id":"demo-run","topic_id":"q1","topic":"What is Python used for?","response_length":10,"answer":[{"text":"Python is used for web development."}]},{"topic_id":"q1","topic":"What is Python used for?","response_length":8,"answer":[{"text":"Python is also used for automation."}]}],"nugget_record":{"query":"What is Python used for?","qid":"q1","nuggets":[{"text":"Python is used for web development.","importance":"vital"}]}}\' '
+                "--output json"
+            ),
         ],
         "direct_input": {
             "ids_optional": True,
-            "shape": {
-                "query": "string",
-                "context": "string",
-                "nuggets": [{"text": "string", "importance": "string"}],
-            },
+            "shapes": [
+                {
+                    "name": "context",
+                    "shape": {
+                        "query": "string",
+                        "context": "string",
+                        "nuggets": [{"text": "string", "importance": "string"}],
+                    },
+                },
+                {
+                    "name": "joined-single-records",
+                    "shape": {
+                        "answer_record": "ragnarok generation record",
+                        "nugget_record": "nuggetizer create record",
+                    },
+                },
+                {
+                    "name": "joined-single-envelopes",
+                    "shape": {
+                        "answer_envelope": "castorini.cli.v1 ragnarok generate envelope",
+                        "nugget_envelope": "castorini.cli.v1 nuggetizer create envelope",
+                    },
+                },
+                {
+                    "name": "joined-batch-records",
+                    "shape": {
+                        "answer_records": ["ragnarok generation record"],
+                        "nugget_record": "nuggetizer create record",
+                    },
+                },
+                {
+                    "name": "joined-batch-envelopes",
+                    "shape": {
+                        "answers_envelope": "castorini.cli.v1 ragnarok generate envelope",
+                        "nugget_envelope": "castorini.cli.v1 nuggetizer create envelope",
+                    },
+                },
+            ],
         },
         "batch_input_kinds": ["answers", "retrieval"],
         "script_wrappers": [
@@ -232,11 +275,86 @@ SCHEMAS: dict[str, dict[str, Any]] = {
     },
     "assign-direct-input": {
         "type": "object",
-        "required": ["query", "context", "nuggets"],
-        "properties": {
-            "query": {"type": "string"},
-            "context": {"type": "string"},
-            "nuggets": {"type": "array"},
+        "oneOf": [
+            {
+                "required": ["query", "context", "nuggets"],
+                "properties": {
+                    "query": {"type": "string"},
+                    "context": {"type": "string"},
+                    "nuggets": {"type": "array"},
+                },
+            },
+            {
+                "required": ["answer_record", "nugget_record"],
+                "properties": {
+                    "answer_record": {"$ref": "#/$defs/assign-contexts-answers-input"},
+                    "nugget_record": {"$ref": "#/$defs/create-output"},
+                },
+            },
+            {
+                "required": ["answer_envelope", "nugget_envelope"],
+                "properties": {
+                    "answer_envelope": {"$ref": "#/$defs/cli-envelope"},
+                    "nugget_envelope": {"$ref": "#/$defs/cli-envelope"},
+                },
+            },
+            {
+                "required": ["answer_records", "nugget_record"],
+                "properties": {
+                    "answer_records": {
+                        "type": "array",
+                        "items": {"$ref": "#/$defs/assign-contexts-answers-input"},
+                    },
+                    "nugget_record": {"$ref": "#/$defs/create-output"},
+                },
+            },
+            {
+                "required": ["answers_envelope", "nugget_envelope"],
+                "properties": {
+                    "answers_envelope": {"$ref": "#/$defs/cli-envelope"},
+                    "nugget_envelope": {"$ref": "#/$defs/cli-envelope"},
+                },
+            },
+        ],
+        "$defs": {
+            "assign-contexts-answers-input": {
+                "type": "object",
+                "required": ["topic_id", "answer"],
+                "properties": {
+                    "topic_id": {"type": "string"},
+                    "topic": {"type": "string"},
+                    "response_length": {"type": "integer"},
+                    "run_id": {"type": "string"},
+                    "answer": {"type": "array"},
+                },
+            },
+            "create-output": {
+                "type": "object",
+                "required": ["query", "qid", "nuggets"],
+                "properties": {
+                    "query": {"type": "string"},
+                    "qid": {"type": "string"},
+                    "nuggets": {"type": "array"},
+                },
+            },
+            "cli-envelope": {
+                "type": "object",
+                "required": [
+                    "schema_version",
+                    "repo",
+                    "command",
+                    "mode",
+                    "status",
+                    "exit_code",
+                    "inputs",
+                    "resolved",
+                    "artifacts",
+                    "validation",
+                    "metrics",
+                    "warnings",
+                    "errors",
+                ],
+            },
         },
     },
     "assign-contexts-answers-input": {
