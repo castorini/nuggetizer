@@ -7,6 +7,59 @@ from nuggetizer.core.types import ScoredNugget
 from .adapters import scored_nuggets_from_record
 
 
+def _unwrap_single_artifact_record(
+    payload: dict[str, Any], *, artifact_name: str, record_name: str
+) -> dict[str, Any]:
+    schema_version = payload.get("schema_version")
+    artifacts = payload.get("artifacts")
+    if schema_version != "castorini.cli.v1" or not isinstance(artifacts, list):
+        raise ValueError(f"{record_name} input must be a castorini.cli.v1 envelope")
+
+    matched_artifact: dict[str, Any] | None = None
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            continue
+        if artifact.get("name") != artifact_name:
+            continue
+        matched_artifact = artifact
+        break
+
+    if matched_artifact is None:
+        raise ValueError(
+            f"{record_name} envelope must contain artifact `{artifact_name}`"
+        )
+
+    artifact_payload = matched_artifact.get("data", matched_artifact.get("value"))
+    if isinstance(artifact_payload, dict):
+        return artifact_payload
+    if isinstance(artifact_payload, list):
+        if len(artifact_payload) != 1:
+            raise ValueError(f"{record_name} envelope must contain exactly one record")
+        record = artifact_payload[0]
+        if isinstance(record, dict):
+            return record
+
+    raise ValueError(
+        f"{record_name} envelope artifact `{artifact_name}` must contain a record object"
+    )
+
+
+def unwrap_generation_record(payload: dict[str, Any]) -> dict[str, Any]:
+    return _unwrap_single_artifact_record(
+        payload,
+        artifact_name="generation-results",
+        record_name="generation record",
+    )
+
+
+def unwrap_nugget_record(payload: dict[str, Any]) -> dict[str, Any]:
+    return _unwrap_single_artifact_record(
+        payload,
+        artifact_name="create-result",
+        record_name="nugget record",
+    )
+
+
 def _unwrap_castorini_envelope(payload: dict[str, Any]) -> dict[str, Any]:
     schema_version = payload.get("schema_version")
     artifacts = payload.get("artifacts")
