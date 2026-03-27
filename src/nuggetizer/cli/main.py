@@ -988,6 +988,7 @@ def _run_direct_create(args: argparse.Namespace) -> CommandResponse:
 def _run_direct_assign(args: argparse.Namespace) -> CommandResponse:
     payload = _read_direct_payload(args)
     validation = validate_assign_input(payload)
+    _query, _context, nuggets = direct_assign_inputs(payload)
     if args.validate_only or args.dry_run:
         return CommandResponse(
             command="assign",
@@ -999,7 +1000,7 @@ def _run_direct_assign(args: argparse.Namespace) -> CommandResponse:
                 "execution_mode": args.execution_mode,
             },
             validation=validation,
-            metrics={"nugget_count": len(payload["nuggets"])},
+            metrics={"nugget_count": len(nuggets)},
         )
     response = execute_direct_assign(payload, args=args)
     direct_output = cast(dict[str, Any], response.artifacts[0]["data"])

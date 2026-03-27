@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from nuggetizer.cli.normalize import (
+    direct_assign_inputs,
     unwrap_generation_record,
     unwrap_nugget_record,
 )
@@ -94,3 +95,99 @@ def test_unwrap_nugget_record_rejects_non_envelope_payload() -> None:
 
     with pytest.raises(ValueError, match="castorini.cli.v1 envelope"):
         unwrap_nugget_record(payload)
+
+
+def test_direct_assign_inputs_accepts_single_joined_records() -> None:
+    query, context, nuggets = direct_assign_inputs(
+        {
+            "answer_record": {
+                "topic_id": "q1",
+                "topic": "What is Python used for?",
+                "answer": [
+                    {"text": "Python is used for web development."},
+                    {"text": "It is also used for data analysis."},
+                ],
+            },
+            "nugget_record": {
+                "query": "What is Python used for?",
+                "qid": "q1",
+                "nuggets": [
+                    {
+                        "text": "Python is used for web development.",
+                        "importance": "vital",
+                    }
+                ],
+            },
+        }
+    )
+
+    assert query == "What is Python used for?"
+    assert (
+        context
+        == "Python is used for web development. It is also used for data analysis."
+    )
+    assert nuggets[0].text == "Python is used for web development."
+
+
+def test_direct_assign_inputs_accepts_single_joined_envelopes() -> None:
+    query, context, nuggets = direct_assign_inputs(
+        {
+            "answer_envelope": {
+                "schema_version": "castorini.cli.v1",
+                "artifacts": [
+                    {
+                        "name": "generation-results",
+                        "kind": "data",
+                        "data": [
+                            {
+                                "topic_id": "q1",
+                                "topic": "What is Python used for?",
+                                "answer": [
+                                    {"text": "Python is used for web development."}
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            },
+            "nugget_envelope": {
+                "schema_version": "castorini.cli.v1",
+                "artifacts": [
+                    {
+                        "name": "create-result",
+                        "kind": "data",
+                        "data": {
+                            "query": "What is Python used for?",
+                            "qid": "q1",
+                            "nuggets": [
+                                {
+                                    "text": "Python is used for web development.",
+                                    "importance": "vital",
+                                }
+                            ],
+                        },
+                    }
+                ],
+            },
+        }
+    )
+
+    assert query == "What is Python used for?"
+    assert context == "Python is used for web development."
+    assert nuggets[0].text == "Python is used for web development."
+
+
+def test_direct_assign_inputs_rejects_malformed_joined_envelope() -> None:
+    with pytest.raises(ValueError, match="generation-results"):
+        direct_assign_inputs(
+            {
+                "answer_envelope": {
+                    "schema_version": "castorini.cli.v1",
+                    "artifacts": [],
+                },
+                "nugget_envelope": {
+                    "schema_version": "castorini.cli.v1",
+                    "artifacts": [],
+                },
+            }
+        )

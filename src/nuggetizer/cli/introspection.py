@@ -448,10 +448,10 @@ def validate_create_input(payload: dict[str, Any]) -> dict[str, Any]:
 
 def validate_assign_input(payload: dict[str, Any]) -> dict[str, Any]:
     """Validate a direct assign payload."""
-    return {
-        "valid": all(key in payload for key in ["query", "context", "nuggets"]),
-        "record_count": 1,
-    }
+    from .normalize import direct_assign_inputs
+
+    direct_assign_inputs(payload)
+    return {"valid": True, "record_count": 1}
 
 
 def validate_create_batch_file(path: str) -> dict[str, Any]:

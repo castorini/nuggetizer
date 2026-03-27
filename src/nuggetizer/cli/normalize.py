@@ -60,6 +60,22 @@ def unwrap_nugget_record(payload: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def _answer_record_to_query_context(answer_record: dict[str, Any]) -> tuple[str, str]:
+    topic = answer_record.get("topic")
+    answer = answer_record.get("answer")
+    if not isinstance(topic, str):
+        raise ValueError("answer record must contain `topic` as a string")
+    if not isinstance(answer, list):
+        raise ValueError("answer record must contain `answer` as a list")
+    try:
+        context = " ".join(str(answer_sentence["text"]) for answer_sentence in answer)
+    except (TypeError, KeyError) as error:
+        raise ValueError(
+            "answer record `answer` entries must contain string `text` fields"
+        ) from error
+    return topic, context
+
+
 def _unwrap_castorini_envelope(payload: dict[str, Any]) -> dict[str, Any]:
     schema_version = payload.get("schema_version")
     artifacts = payload.get("artifacts")
@@ -141,11 +157,30 @@ def direct_assign_inputs(
     payload: dict[str, Any],
 ) -> tuple[str, str, list[ScoredNugget]]:
     """Normalize direct assign input into the core assign call shape."""
-    nugget_record = {
-        "nuggets": payload["nuggets"],
-    }
-    return (
-        payload["query"],
-        payload["context"],
-        scored_nuggets_from_record(nugget_record),
+    if all(key in payload for key in ["query", "context", "nuggets"]):
+        nugget_record = {
+            "nuggets": payload["nuggets"],
+        }
+        return (
+            payload["query"],
+            payload["context"],
+            scored_nuggets_from_record(nugget_record),
+        )
+
+    if all(key in payload for key in ["answer_record", "nugget_record"]):
+        query, context = _answer_record_to_query_context(payload["answer_record"])
+        nuggets = scored_nuggets_from_record(payload["nugget_record"])
+        return query, context, nuggets
+
+    if all(key in payload for key in ["answer_envelope", "nugget_envelope"]):
+        answer_record = unwrap_generation_record(payload["answer_envelope"])
+        nugget_record = unwrap_nugget_record(payload["nugget_envelope"])
+        query, context = _answer_record_to_query_context(answer_record)
+        nuggets = scored_nuggets_from_record(nugget_record)
+        return query, context, nuggets
+
+    raise ValueError(
+        "direct assign input requires either `query`/`context`/`nuggets`, "
+        "`answer_record`/`nugget_record`, or "
+        "`answer_envelope`/`nugget_envelope`"
     )

@@ -572,6 +572,136 @@ def test_direct_assign_via_input_json(monkeypatch: Any, capsys: Any) -> None:
     }
 
 
+def test_direct_assign_via_joined_record_input_json(
+    monkeypatch: Any, capsys: Any
+) -> None:
+    def fake_assign(
+        self: Nuggetizer, query: str, context: str, nuggets: list[ScoredNugget]
+    ) -> list[AssignedScoredNugget]:
+        assert query == "What is Python used for?"
+        assert context == "Python is commonly used for web development."
+        assert nuggets[0].text == "Python is used for web development."
+        return [
+            AssignedScoredNugget(
+                text=nuggets[0].text,
+                importance=nuggets[0].importance,
+                assignment="support",
+            )
+        ]
+
+    monkeypatch.setattr(Nuggetizer, "assign", fake_assign)
+
+    exit_code = main(
+        [
+            "assign",
+            "--input-json",
+            json.dumps(
+                {
+                    "answer_record": {
+                        "topic_id": "q1",
+                        "topic": "What is Python used for?",
+                        "answer": [
+                            {"text": "Python is commonly used for web development."}
+                        ],
+                    },
+                    "nugget_record": {
+                        "query": "What is Python used for?",
+                        "qid": "q1",
+                        "nuggets": [
+                            {
+                                "text": "Python is used for web development.",
+                                "importance": "vital",
+                            }
+                        ],
+                    },
+                }
+            ),
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["artifacts"][0]["data"]["query"] == "What is Python used for?"
+
+
+def test_direct_assign_via_joined_envelope_input_json(
+    monkeypatch: Any, capsys: Any
+) -> None:
+    def fake_assign(
+        self: Nuggetizer, query: str, context: str, nuggets: list[ScoredNugget]
+    ) -> list[AssignedScoredNugget]:
+        assert query == "What is Python used for?"
+        assert context == "Python is commonly used for web development."
+        assert nuggets[0].text == "Python is used for web development."
+        return [
+            AssignedScoredNugget(
+                text=nuggets[0].text,
+                importance=nuggets[0].importance,
+                assignment="support",
+            )
+        ]
+
+    monkeypatch.setattr(Nuggetizer, "assign", fake_assign)
+
+    exit_code = main(
+        [
+            "assign",
+            "--input-json",
+            json.dumps(
+                {
+                    "answer_envelope": {
+                        "schema_version": "castorini.cli.v1",
+                        "artifacts": [
+                            {
+                                "name": "generation-results",
+                                "kind": "data",
+                                "data": [
+                                    {
+                                        "topic_id": "q1",
+                                        "topic": "What is Python used for?",
+                                        "answer": [
+                                            {
+                                                "text": "Python is commonly used for web development."
+                                            }
+                                        ],
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                    "nugget_envelope": {
+                        "schema_version": "castorini.cli.v1",
+                        "artifacts": [
+                            {
+                                "name": "create-result",
+                                "kind": "data",
+                                "data": {
+                                    "query": "What is Python used for?",
+                                    "qid": "q1",
+                                    "nuggets": [
+                                        {
+                                            "text": "Python is used for web development.",
+                                            "importance": "vital",
+                                        }
+                                    ],
+                                },
+                            }
+                        ],
+                    },
+                }
+            ),
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["artifacts"][0]["data"]["query"] == "What is Python used for?"
+
+
 def test_direct_assign_text_output_prints_unique_reasoning_traces(
     monkeypatch: Any, capsys: Any
 ) -> None:
