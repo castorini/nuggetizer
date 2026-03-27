@@ -1035,6 +1035,158 @@ def test_serve_app_health_create_and_assign(monkeypatch: Any) -> None:
     assert assign_response.json()["artifacts"][0]["name"] == "assign-result"
 
 
+def test_serve_app_assign_accepts_joined_records(monkeypatch: Any) -> None:
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from nuggetizer.api.app import create_app
+    from nuggetizer.api.runtime import ServerConfig
+
+    seen: dict[str, Any] = {}
+
+    def fake_assign(
+        self: Nuggetizer, query: str, context: str, nuggets: list[Any]
+    ) -> list[AssignedScoredNugget]:
+        seen["query"] = query
+        seen["context"] = context
+        seen["nuggets"] = nuggets
+        return [
+            AssignedScoredNugget(
+                text="nugget",
+                importance="vital",
+                assignment="support",
+            )
+        ]
+
+    monkeypatch.setattr(Nuggetizer, "assign", fake_assign)
+
+    client = TestClient(create_app(ServerConfig(host="127.0.0.1", port=8085)))
+    response = client.post(
+        "/v1/assign",
+        json={
+            "answer_record": {
+                "topic_id": "q1",
+                "topic": "What is Python used for?",
+                "answer": [
+                    {"text": "Python is used for web development."},
+                    {"text": "It is also used for data science."},
+                ],
+            },
+            "nugget_record": {
+                "qid": "q1",
+                "query": "What is Python used for?",
+                "nuggets": [
+                    {
+                        "text": "Python is used for web development.",
+                        "importance": "vital",
+                    }
+                ],
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["artifacts"][0]["name"] == "assign-result"
+    assert seen["query"] == "What is Python used for?"
+    assert (
+        seen["context"]
+        == "Python is used for web development. It is also used for data science."
+    )
+    assert seen["nuggets"] == [
+        ScoredNugget(text="Python is used for web development.", importance="vital")
+    ]
+
+
+def test_serve_app_assign_accepts_joined_envelopes(monkeypatch: Any) -> None:
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from nuggetizer.api.app import create_app
+    from nuggetizer.api.runtime import ServerConfig
+
+    seen: dict[str, Any] = {}
+
+    def fake_assign(
+        self: Nuggetizer, query: str, context: str, nuggets: list[Any]
+    ) -> list[AssignedScoredNugget]:
+        seen["query"] = query
+        seen["context"] = context
+        seen["nuggets"] = nuggets
+        return [
+            AssignedScoredNugget(
+                text="nugget",
+                importance="vital",
+                assignment="support",
+            )
+        ]
+
+    monkeypatch.setattr(Nuggetizer, "assign", fake_assign)
+
+    client = TestClient(create_app(ServerConfig(host="127.0.0.1", port=8085)))
+    response = client.post(
+        "/v1/assign",
+        json={
+            "answer_envelope": {
+                "schema_version": "castorini.cli.v1",
+                "repo": "ragnarok",
+                "command": "generate",
+                "artifacts": [
+                    {
+                        "name": "generation-results",
+                        "kind": "data",
+                        "data": [
+                            {
+                                "topic_id": "q1",
+                                "topic": "What is Python used for?",
+                                "answer": [
+                                    {
+                                        "text": "Python is used for web development.",
+                                    },
+                                    {
+                                        "text": "It is also used for data science.",
+                                    },
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            },
+            "nugget_envelope": {
+                "schema_version": "castorini.cli.v1",
+                "repo": "nuggetizer",
+                "command": "create",
+                "artifacts": [
+                    {
+                        "name": "create-result",
+                        "kind": "data",
+                        "data": {
+                            "qid": "q1",
+                            "query": "What is Python used for?",
+                            "nuggets": [
+                                {
+                                    "text": "Python is used for web development.",
+                                    "importance": "vital",
+                                }
+                            ],
+                        },
+                    }
+                ],
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["artifacts"][0]["name"] == "assign-result"
+    assert seen["query"] == "What is Python used for?"
+    assert (
+        seen["context"]
+        == "Python is used for web development. It is also used for data science."
+    )
+    assert seen["nuggets"] == [
+        ScoredNugget(text="Python is used for web development.", importance="vital")
+    ]
+
+
 def test_serve_app_rejects_invalid_payload() -> None:
     pytest.importorskip("fastapi")
     from fastapi.testclient import TestClient
