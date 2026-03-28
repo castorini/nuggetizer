@@ -1567,6 +1567,9 @@ def test_serve_app_create_applies_request_overrides(monkeypatch: Any) -> None:
     assert captured["model"] == "gpt-4o"
     assert captured["creator_model"] == "gpt-4.1-mini"
     assert captured["scorer_model"] == "gpt-4.1-mini"
+    assert response.json()["resolved"]["creator_model"] == "gpt-4.1-mini"
+    assert response.json()["resolved"]["scorer_model"] == "gpt-4.1-mini"
+    assert response.json()["resolved"]["reasoning_effort"] is None
 
 
 def test_serve_app_assign_applies_request_model_override(monkeypatch: Any) -> None:
@@ -1615,6 +1618,43 @@ def test_serve_app_assign_applies_request_model_override(monkeypatch: Any) -> No
 
     assert response.status_code == 200
     assert captured["model"] == "gpt-4.1-mini"
+    assert response.json()["resolved"]["model"] == "gpt-4.1-mini"
+
+
+def test_serve_app_create_exposes_default_model_resolution(monkeypatch: Any) -> None:
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from nuggetizer.api.app import create_app
+    from nuggetizer.api.runtime import ServerConfig
+
+    def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        del self, request
+        return [ScoredNugget(text="nugget", importance="vital")]
+
+    monkeypatch.setattr(Nuggetizer, "create", fake_create)
+
+    client = TestClient(
+        create_app(
+            ServerConfig(
+                host="127.0.0.1",
+                port=8085,
+                model="gpt-4o",
+            )
+        )
+    )
+    response = client.post(
+        "/v1/create",
+        json={
+            "query": "What is Python used for?",
+            "candidates": ["web"],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["resolved"]["model"] == "gpt-4o"
+    assert response.json()["resolved"]["creator_model"] == "gpt-4o"
+    assert response.json()["resolved"]["scorer_model"] == "gpt-4o"
 
 
 def test_serve_app_rejects_invalid_override_combinations() -> None:
