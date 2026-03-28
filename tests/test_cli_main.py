@@ -69,6 +69,23 @@ def test_batch_json_output_suppresses_progress_bar(
     assert capsys.readouterr().err == ""
 
 
+def test_nuggetizer_init_does_not_require_api_key_until_runtime(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("AZURE_OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("AZURE_OPENAI_API_BASE", raising=False)
+    monkeypatch.delenv("AZURE_OPENAI_API_VERSION", raising=False)
+
+    nuggetizer = Nuggetizer()
+
+    assert nuggetizer.creator_llm is None
+    assert nuggetizer.scorer_llm is None
+    assert nuggetizer.assigner_llm is None
+
+
 def test_quiet_flag_suppresses_stderr(capsys: Any) -> None:
     exit_code = main(["--quiet", "doctor", "--output", "json"])
 

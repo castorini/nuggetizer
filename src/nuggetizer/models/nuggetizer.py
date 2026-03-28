@@ -94,9 +94,9 @@ class Nuggetizer(BaseNuggetizer):
             **llm_kwargs,
         }
 
-        self.creator_llm = LLMHandler(self.creator_model, **self._llm_config)
-        self.scorer_llm = LLMHandler(self.scorer_model, **self._llm_config)
-        self.assigner_llm = LLMHandler(self.assigner_model, **self._llm_config)
+        self.creator_llm: LLMHandler | None = None
+        self.scorer_llm: LLMHandler | None = None
+        self.assigner_llm: LLMHandler | None = None
 
         self.creator_llm_async: AsyncLLMHandler | None = None
         self.scorer_llm_async: AsyncLLMHandler | None = None
@@ -168,8 +168,19 @@ class Nuggetizer(BaseNuggetizer):
                 self.assigner_model, **self._llm_config
             )
 
+    def _ensure_sync_llm(self) -> None:
+        if self.creator_llm is None:
+            self.creator_llm = LLMHandler(self.creator_model, **self._llm_config)
+        if self.scorer_llm is None:
+            self.scorer_llm = LLMHandler(self.scorer_model, **self._llm_config)
+        if self.assigner_llm is None:
+            self.assigner_llm = LLMHandler(self.assigner_model, **self._llm_config)
+
     def create(self, request: Request) -> list[ScoredNugget]:
         """Create and score nuggets from the request documents."""
+        self._ensure_sync_llm()
+        assert self.creator_llm is not None
+        assert self.scorer_llm is not None
         self.creator_reasoning = None
         self.creator_reasoning_traces = []
         current_nuggets: list[str] = []
@@ -550,6 +561,8 @@ class Nuggetizer(BaseNuggetizer):
         self, query: str, context: str, nuggets: list[ScoredNugget]
     ) -> list[AssignedScoredNugget]:
         """Assign scored nuggets to the given context."""
+        self._ensure_sync_llm()
+        assert self.assigner_llm is not None
         assigned_nuggets = []
 
         start = 0
