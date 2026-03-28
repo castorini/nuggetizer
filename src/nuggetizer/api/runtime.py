@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, replace
 from typing import Any
 
 from nuggetizer.cli.adapters import (
@@ -18,6 +18,7 @@ from nuggetizer.cli.normalize import (
     direct_assign_inputs,
     direct_create_record,
     joined_assign_batch_records,
+    unwrap_direct_create_payload,
 )
 from nuggetizer.cli.operations import (
     build_assign_nuggetizer_kwargs,
@@ -47,6 +48,35 @@ class ServerConfig:
     quiet: bool = False
 
 
+_CREATE_OVERRIDABLE_FIELDS = {
+    "model",
+    "creator_model",
+    "scorer_model",
+    "window_size",
+    "max_nuggets",
+    "execution_mode",
+    "log_level",
+    "use_azure_openai",
+    "use_openrouter",
+    "reasoning_effort",
+    "include_trace",
+    "include_reasoning",
+    "redact_prompts",
+}
+
+_ASSIGN_OVERRIDABLE_FIELDS = {
+    "model",
+    "execution_mode",
+    "log_level",
+    "use_azure_openai",
+    "use_openrouter",
+    "reasoning_effort",
+    "include_trace",
+    "include_reasoning",
+    "redact_prompts",
+}
+
+
 def _base_args(config: ServerConfig) -> argparse.Namespace:
     return argparse.Namespace(
         model=config.model,
@@ -65,6 +95,50 @@ def _base_args(config: ServerConfig) -> argparse.Namespace:
         quiet=config.quiet,
         output="json",
     )
+
+
+def _extract_override_payload(
+    payload: dict[str, Any], *, allowed_fields: set[str], unwrap_create: bool = False
+) -> dict[str, Any]:
+    override_payload = payload.get("overrides", {})
+    if not isinstance(override_payload, dict):
+        raise ValueError("overrides must be an object when provided")
+    combined = dict(override_payload)
+    if unwrap_create:
+        unwrapped_payload = unwrap_direct_create_payload(payload)
+        unwrapped_override_payload = unwrapped_payload.get("overrides", {})
+        if not isinstance(unwrapped_override_payload, dict):
+            raise ValueError("overrides must be an object when provided")
+        combined.update(unwrapped_override_payload)
+    unknown_keys = sorted(set(combined) - allowed_fields)
+    if unknown_keys:
+        raise ValueError(
+            "unsupported nuggetizer override field(s): " + ", ".join(unknown_keys)
+        )
+    if combined.get("use_azure_openai") and combined.get("use_openrouter"):
+        raise ValueError(
+            "use_azure_openai and use_openrouter cannot both be true in overrides"
+        )
+    return combined
+
+
+def _merge_config_with_payload(
+    payload: dict[str, Any],
+    *,
+    config: ServerConfig,
+    allowed_fields: set[str],
+    unwrap_create: bool = False,
+) -> ServerConfig:
+    overrides = _extract_override_payload(
+        payload,
+        allowed_fields=allowed_fields,
+        unwrap_create=unwrap_create,
+    )
+    if not overrides:
+        return config
+    effective_values = asdict(config)
+    effective_values.update(overrides)
+    return replace(config, **effective_values)
 
 
 def execute_direct_create(
@@ -192,13 +266,24 @@ def execute_direct_assign(
 def run_create_request(
     payload: dict[str, Any], *, config: ServerConfig
 ) -> CommandResponse:
-    return execute_direct_create(payload, args=_base_args(config))
+    effective_config = _merge_config_with_payload(
+        payload,
+        config=config,
+        allowed_fields=_CREATE_OVERRIDABLE_FIELDS,
+        unwrap_create=True,
+    )
+    return execute_direct_create(payload, args=_base_args(effective_config))
 
 
 def run_assign_request(
     payload: dict[str, Any], *, config: ServerConfig
 ) -> CommandResponse:
-    return execute_direct_assign(payload, args=_base_args(config))
+    effective_config = _merge_config_with_payload(
+        payload,
+        config=config,
+        allowed_fields=_ASSIGN_OVERRIDABLE_FIELDS,
+    )
+    return execute_direct_assign(payload, args=_base_args(effective_config))
 
 
 def validation_error_response(command: str, message: str) -> CommandResponse:

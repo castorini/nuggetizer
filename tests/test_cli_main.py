@@ -1041,6 +1041,17 @@ def test_schema_assign_direct_input_includes_joined_batch_forms(capsys: Any) -> 
         set(option["required"]) == {"answers_envelope", "nugget_envelope"}
         for option in one_of
     )
+    assert "overrides" in output["artifacts"][0]["data"]["properties"]
+
+
+def test_schema_create_direct_input_includes_overrides(capsys: Any) -> None:
+    exit_code = main(["schema", "create-direct-input", "--output", "json"])
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    overrides = output["artifacts"][0]["data"]["properties"]["overrides"]["properties"]
+    assert "creator_model" in overrides
+    assert "scorer_model" in overrides
 
 
 def test_doctor_returns_json_envelope(capsys: Any) -> None:
@@ -1509,6 +1520,122 @@ def test_serve_app_rejects_invalid_payload() -> None:
     client = TestClient(create_app(ServerConfig(host="127.0.0.1", port=8085)))
 
     response = client.post("/v1/create", json={"query": 1})
+
+    assert response.status_code == 400
+    assert response.json()["status"] == "validation_error"
+
+
+def test_serve_app_create_applies_request_overrides(monkeypatch: Any) -> None:
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from nuggetizer.api.app import create_app
+    from nuggetizer.api.runtime import ServerConfig
+
+    captured: dict[str, Any] = {}
+
+    def fake_build_create_nuggetizer_kwargs(args: Any) -> dict[str, Any]:
+        captured["creator_model"] = args.creator_model
+        captured["scorer_model"] = args.scorer_model
+        captured["model"] = args.model
+        return {"model": args.model}
+
+    def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        del self, request
+        return [ScoredNugget(text="nugget", importance="vital")]
+
+    monkeypatch.setattr(
+        "nuggetizer.api.runtime.build_create_nuggetizer_kwargs",
+        fake_build_create_nuggetizer_kwargs,
+    )
+    monkeypatch.setattr(Nuggetizer, "create", fake_create)
+
+    client = TestClient(create_app(ServerConfig(host="127.0.0.1", port=8085)))
+    response = client.post(
+        "/v1/create",
+        json={
+            "query": "What is Python used for?",
+            "candidates": ["web"],
+            "overrides": {
+                "creator_model": "gpt-4.1-mini",
+                "scorer_model": "gpt-4.1-mini",
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    assert captured["model"] == "gpt-4o"
+    assert captured["creator_model"] == "gpt-4.1-mini"
+    assert captured["scorer_model"] == "gpt-4.1-mini"
+
+
+def test_serve_app_assign_applies_request_model_override(monkeypatch: Any) -> None:
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from nuggetizer.api.app import create_app
+    from nuggetizer.api.runtime import ServerConfig
+
+    captured: dict[str, Any] = {}
+
+    def fake_build_assign_nuggetizer_kwargs(args: Any) -> dict[str, Any]:
+        captured["model"] = args.model
+        return {"assigner_model": args.model}
+
+    def fake_assign(
+        self: Nuggetizer, query: str, context: str, nuggets: list[Any]
+    ) -> list[AssignedScoredNugget]:
+        del self, query, context, nuggets
+        return [
+            AssignedScoredNugget(
+                text="nugget",
+                importance="vital",
+                assignment="support",
+            )
+        ]
+
+    monkeypatch.setattr(
+        "nuggetizer.api.runtime.build_assign_nuggetizer_kwargs",
+        fake_build_assign_nuggetizer_kwargs,
+    )
+    monkeypatch.setattr(Nuggetizer, "assign", fake_assign)
+
+    client = TestClient(create_app(ServerConfig(host="127.0.0.1", port=8085)))
+    response = client.post(
+        "/v1/assign",
+        json={
+            "query": "What is Python used for?",
+            "context": "Python is used for web development.",
+            "nuggets": [
+                {"text": "Python is used for web development.", "importance": "vital"}
+            ],
+            "overrides": {"model": "gpt-4.1-mini"},
+        },
+    )
+
+    assert response.status_code == 200
+    assert captured["model"] == "gpt-4.1-mini"
+
+
+def test_serve_app_rejects_invalid_override_combinations() -> None:
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from nuggetizer.api.app import create_app
+    from nuggetizer.api.runtime import ServerConfig
+
+    client = TestClient(create_app(ServerConfig(host="127.0.0.1", port=8085)))
+    response = client.post(
+        "/v1/create",
+        json={
+            "query": "What is Python used for?",
+            "candidates": ["web"],
+            "overrides": {
+                "use_azure_openai": True,
+                "use_openrouter": True,
+            },
+        },
+    )
 
     assert response.status_code == 400
     assert response.json()["status"] == "validation_error"

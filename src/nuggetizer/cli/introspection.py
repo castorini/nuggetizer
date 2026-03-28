@@ -21,6 +21,13 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
                 "--output json"
             ),
             (
+                "curl -X POST http://127.0.0.1:8085/v1/create "
+                "-H 'content-type: application/json' "
+                '-d \'{"query":"q","candidates":["p"],'
+                '"overrides":{"creator_model":"gpt-4.1-mini",'
+                '"scorer_model":"gpt-4.1-mini"}}\''
+            ),
+            (
                 'curl -s "http://127.0.0.1:8081/v1/msmarco-v1-passage/search?query=q" '
                 "| curl -s -X POST http://127.0.0.1:8085/v1/create "
                 '-H "content-type: application/json" --data-binary @- | jq'
@@ -68,6 +75,12 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
                 "nuggetizer assign --input-json "
                 '\'{"answer_records":[{"run_id":"demo-run","topic_id":"q1","topic":"What is Python used for?","response_length":10,"answer":[{"text":"Python is used for web development."}]},{"topic_id":"q1","topic":"What is Python used for?","response_length":8,"answer":[{"text":"Python is also used for automation."}]}],"nugget_record":{"query":"What is Python used for?","qid":"q1","nuggets":[{"text":"Python is used for web development.","importance":"vital"}]}}\' '
                 "--output json"
+            ),
+            (
+                "curl -X POST http://127.0.0.1:8085/v1/assign "
+                "-H 'content-type: application/json' "
+                '-d \'{"query":"q","context":"ctx","nuggets":[{"text":"n","importance":"vital"}],'
+                '"overrides":{"model":"gpt-4.1-mini"}}\''
             ),
         ],
         "direct_input": {
@@ -247,6 +260,27 @@ SCHEMAS: dict[str, dict[str, Any]] = {
                     ]
                 },
             },
+            "overrides": {
+                "type": "object",
+                "properties": {
+                    "model": {"type": "string"},
+                    "creator_model": {"type": "string"},
+                    "scorer_model": {"type": "string"},
+                    "window_size": {"type": "integer"},
+                    "max_nuggets": {"type": "integer"},
+                    "execution_mode": {"type": "string", "enum": ["sync", "async"]},
+                    "log_level": {"type": "integer"},
+                    "use_azure_openai": {"type": "boolean"},
+                    "use_openrouter": {"type": "boolean"},
+                    "reasoning_effort": {
+                        "type": "string",
+                        "enum": ["none", "minimal", "low", "medium", "high", "xhigh"],
+                    },
+                    "include_trace": {"type": "boolean"},
+                    "include_reasoning": {"type": "boolean"},
+                    "redact_prompts": {"type": "boolean"},
+                },
+            },
         },
     },
     "create-batch-input-record": {
@@ -316,6 +350,25 @@ SCHEMAS: dict[str, dict[str, Any]] = {
                 },
             },
         ],
+        "properties": {
+            "overrides": {
+                "type": "object",
+                "properties": {
+                    "model": {"type": "string"},
+                    "execution_mode": {"type": "string", "enum": ["sync", "async"]},
+                    "log_level": {"type": "integer"},
+                    "use_azure_openai": {"type": "boolean"},
+                    "use_openrouter": {"type": "boolean"},
+                    "reasoning_effort": {
+                        "type": "string",
+                        "enum": ["none", "minimal", "low", "medium", "high", "xhigh"],
+                    },
+                    "include_trace": {"type": "boolean"},
+                    "include_reasoning": {"type": "boolean"},
+                    "redact_prompts": {"type": "boolean"},
+                },
+            },
+        },
         "$defs": {
             "assign-contexts-answers-input": {
                 "type": "object",

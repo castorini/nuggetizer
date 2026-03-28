@@ -143,7 +143,7 @@ def _answer_record_to_assignment_input(
     }
 
 
-def _unwrap_castorini_envelope(payload: dict[str, Any]) -> dict[str, Any]:
+def unwrap_direct_create_payload(payload: dict[str, Any]) -> dict[str, Any]:
     schema_version = payload.get("schema_version")
     artifacts = payload.get("artifacts")
     if schema_version != "castorini.cli.v1" or not isinstance(artifacts, list):
@@ -179,7 +179,7 @@ def _unwrap_castorini_envelope(payload: dict[str, Any]) -> dict[str, Any]:
 
 def direct_create_record(payload: dict[str, Any]) -> dict[str, Any]:
     """Normalize direct create input into the batch-like adapter shape."""
-    payload = _unwrap_castorini_envelope(payload)
+    payload = unwrap_direct_create_payload(payload)
     query = payload["query"]
     query_text = (
         query
