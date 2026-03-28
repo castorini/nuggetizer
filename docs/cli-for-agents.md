@@ -61,6 +61,15 @@ nuggetizer create \
   --output json
 ```
 
+Create directly from `umbrela` judgments. The default threshold keeps only
+`judgment >= 2`; set `--min-judgment 1` to include weakly relevant passages:
+
+```bash
+nuggetizer create \
+  --input-json '{"judgments":[{"query":"What is Python used for?","passage":"Python can be difficult for beginners.","judgment":1},{"query":"What is Python used for?","passage":"Python is used for web development.","judgment":2}]}' \
+  --output json
+```
+
 Assign without caller-supplied IDs:
 
 ```bash
@@ -130,11 +139,42 @@ nuggetizer prompt show create
 nuggetizer prompt show assign --assign-mode support_grade_2
 nuggetizer prompt render create \
   --input-json '{"query":"What is Python used for?","candidates":["Python is used for web development."]}'
+nuggetizer prompt render create \
+  --input-json '{"judgments":[{"query":"What is Python used for?","passage":"Python can be difficult for beginners.","judgment":1},{"query":"What is Python used for?","passage":"Python is used for web development.","judgment":2}]}'
 nuggetizer prompt render assign \
   --assign-mode support_grade_3 \
   --input-json '{"query":"What is Python used for?","context":"Python is used for web development.","nuggets":[{"text":"Python is used for web development.","importance":"vital"}]}'
 nuggetizer prompt render score \
   --input-json '{"query":"What is Python used for?","nuggets":["Python is used for web development."]}'
+```
+
+Serve-to-serve piping works for both rerank-style input and `umbrela` judgments:
+
+```bash
+curl -s "http://127.0.0.1:8081/v1/msmarco-v1-passage/search?query=what%20is%20python%20used%20for" \
+  | curl -s -X POST http://127.0.0.1:8085/v1/create \
+      -H 'content-type: application/json' \
+      --data-binary @-
+
+curl -s -X POST http://127.0.0.1:8086/v1/judge \
+    -H 'content-type: application/json' \
+    --data-binary '{"query":"what is python used for","candidates":["Python can be difficult for beginners.","Python is used for web development."]}' \
+  | curl -s -X POST http://127.0.0.1:8085/v1/create \
+      -H 'content-type: application/json' \
+      --data-binary @-
+
+curl -s -X POST http://127.0.0.1:8086/v1/judge \
+    -H 'content-type: application/json' \
+    --data-binary '{"query":"what is python used for","candidates":["Python can be difficult for beginners.","Python is used for web development."]}' \
+  | python - <<'PY'
+import json, sys
+payload = json.load(sys.stdin)
+payload["overrides"] = {"min_judgment": 1}
+print(json.dumps(payload))
+PY
+  | curl -s -X POST http://127.0.0.1:8085/v1/create \
+      -H 'content-type: application/json' \
+      --data-binary @-
 ```
 
 ## Failure Example
@@ -152,5 +192,6 @@ nuggetizer create \
 
 - Default execution mode is synchronous.
 - Async execution is opt-in via `--execution-mode async`.
+- `nuggetizer create` defaults to `--min-judgment 2` when a candidate has a `judgment` field.
 - Trace and reasoning fields are opt-in via `--include-trace` and `--include-reasoning`.
 - Prompt content inside traces can be removed with `--redact-prompts`.

@@ -111,6 +111,15 @@ nuggetizer create \
   --output json
 ```
 
+Create nuggets directly from `umbrela judge` output. By default, candidates with
+`judgment <= 1` are excluded; change that with `--min-judgment` when needed:
+
+```bash
+nuggetizer create \
+  --input-json '{"judgments":[{"query":"What is Python used for?","passage":"Python can be difficult for beginners.","judgment":1},{"query":"What is Python used for?","passage":"Python is widely used for web development.","judgment":2}]}' \
+  --output json
+```
+
 Assign nuggets to RAG answers:
 
 ```bash
@@ -167,6 +176,28 @@ curl -s "http://127.0.0.1:8081/v1/msmarco-v1-passage/search?query=what%20is%20py
       -H 'content-type: application/json' \
       --data-binary @- \
   | jq
+
+curl -s -X POST http://127.0.0.1:8086/v1/judge \
+    -H 'content-type: application/json' \
+    --data-binary '{"query":"what is python used for","candidates":["Python is difficult to learn.","Python is used for web development."]}' \
+  | curl -s -X POST http://127.0.0.1:8085/v1/create \
+      -H 'content-type: application/json' \
+      --data-binary @- \
+  | jq
+
+curl -s -X POST http://127.0.0.1:8086/v1/judge \
+    -H 'content-type: application/json' \
+    --data-binary '{"query":"what is python used for","candidates":["Python is difficult to learn.","Python is used for web development."]}' \
+  | python - <<'PY'
+import json, sys
+payload = json.load(sys.stdin)
+payload["overrides"] = {"min_judgment": 1}
+print(json.dumps(payload))
+PY
+  | curl -s -X POST http://127.0.0.1:8085/v1/create \
+      -H 'content-type: application/json' \
+      --data-binary @- \
+  | jq
 ```
 
 Inspect the CLI contract:
@@ -186,8 +217,10 @@ around the packaged CLI, but new automation and documentation should prefer
 ### CLI For Automation
 
 - Use `--output json` for automation; that is the authoritative machine-readable interface.
+- `nuggetizer create` defaults to `--min-judgment 2` when a candidate includes a `judgment` field; candidates without judgments are unaffected.
 - `nuggetizer doctor --output json` reports command and backend readiness with explicit `ready`, `missing_env`, or `blocked` states.
 - `nuggetizer serve` exposes `GET /healthz`, `POST /v1/create`, and `POST /v1/assign` on port `8085` by default and reuses the same direct-input payload contracts as the packaged CLI.
+- `POST /v1/create` accepts both standard `{query, candidates}` payloads and `umbrela judge` direct `judgments` payloads or envelopes, so `search | rerank | create` and `judge | create` can both be piped over HTTP without a reshape step.
 - `POST /v1/assign` accepts direct `{query, context, nuggets}` payloads plus join-oriented payloads built from `ragnarok generate` records or envelopes and `nuggetizer create` records or envelopes.
 - `nuggetizer describe ...` and `nuggetizer schema ...` expose the supported command metadata and payload contracts without running models.
 - `nuggetizer validate ...` is non-mutating and returns a real pass or fail instead of performing any repair work.
