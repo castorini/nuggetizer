@@ -9,7 +9,7 @@ from nuggetizer.cli.adapters import (
     assign_answer_output_record,
     collect_nonempty_reasoning_traces,
     collect_reasoning_traces,
-    request_from_create_record,
+    request_from_create_record_with_threshold,
     serialize_nugget,
 )
 from nuggetizer.cli.adapters_common import make_data_artifact
@@ -37,6 +37,7 @@ class ServerConfig:
     scorer_model: str | None = None
     window_size: int | None = None
     max_nuggets: int | None = None
+    min_judgment: int = 2
     execution_mode: str = "sync"
     log_level: int = 0
     use_azure_openai: bool = False
@@ -54,6 +55,7 @@ _CREATE_OVERRIDABLE_FIELDS = {
     "scorer_model",
     "window_size",
     "max_nuggets",
+    "min_judgment",
     "execution_mode",
     "log_level",
     "use_azure_openai",
@@ -84,6 +86,7 @@ def _base_args(config: ServerConfig) -> argparse.Namespace:
         scorer_model=config.scorer_model,
         window_size=config.window_size,
         max_nuggets=config.max_nuggets,
+        min_judgment=config.min_judgment,
         execution_mode=config.execution_mode,
         log_level=config.log_level,
         use_azure_openai=config.use_azure_openai,
@@ -146,7 +149,10 @@ def execute_direct_create(
 ) -> CommandResponse:
     validation = validate_create_input(payload)
     nuggetizer = Nuggetizer(**build_create_nuggetizer_kwargs(args))
-    request_obj = request_from_create_record(direct_create_record(payload))
+    request_obj = request_from_create_record_with_threshold(
+        direct_create_record(payload),
+        min_judgment=args.min_judgment,
+    )
     if args.execution_mode == "async":
         scored_nuggets = asyncio.run(nuggetizer.async_create(request_obj))
     else:
@@ -181,6 +187,7 @@ def execute_direct_create(
             "model": args.model,
             "creator_model": args.creator_model or args.model,
             "scorer_model": args.scorer_model or args.model,
+            "min_judgment": args.min_judgment,
             "reasoning_effort": args.reasoning_effort,
         },
         validation=validation,

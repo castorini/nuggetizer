@@ -7,6 +7,46 @@ from nuggetizer.core.types import ScoredNugget
 from .adapters import scored_nuggets_from_record
 
 
+def _normalize_umbrela_judgments(judgments: list[dict[str, Any]]) -> dict[str, Any]:
+    if not judgments:
+        raise ValueError("umbrela create input requires a non-empty `judgments` list")
+
+    query_text: str | None = None
+    candidates: list[dict[str, Any]] = []
+    for index, judgment in enumerate(judgments):
+        if not isinstance(judgment, dict):
+            raise ValueError("umbrela create input `judgments` must contain objects")
+        judgment_query = judgment.get("query")
+        passage = judgment.get("passage")
+        if not isinstance(judgment_query, str):
+            raise ValueError(
+                "umbrela create input judgments must contain `query` as a string"
+            )
+        if not isinstance(passage, str):
+            raise ValueError(
+                "umbrela create input judgments must contain `passage` as a string"
+            )
+        if query_text is None:
+            query_text = judgment_query
+        elif judgment_query != query_text:
+            raise ValueError(
+                "umbrela create input requires all judgments to share the same query"
+            )
+
+        candidate: dict[str, Any] = {
+            "docid": str(judgment.get("docid", f"d{index}")),
+            "doc": {"segment": passage},
+        }
+        if "judgment" in judgment:
+            candidate["judgment"] = judgment["judgment"]
+        candidates.append(candidate)
+
+    return {
+        "query": {"qid": "q0", "text": query_text},
+        "candidates": candidates,
+    }
+
+
 def _unwrap_artifact_payload(
     payload: dict[str, Any], *, artifact_name: str, record_name: str
 ) -> Any:
@@ -153,6 +193,13 @@ def unwrap_direct_create_payload(payload: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(artifact, dict):
             continue
         artifact_payload = artifact.get("data", artifact.get("value"))
+        artifact_name = artifact.get("name")
+        if artifact_name == "judgments":
+            if not isinstance(artifact_payload, list):
+                raise ValueError(
+                    "direct create envelope input `judgments` artifact must contain a list"
+                )
+            return {"judgments": artifact_payload}
         if (
             isinstance(artifact_payload, dict)
             and {
@@ -180,6 +227,11 @@ def unwrap_direct_create_payload(payload: dict[str, Any]) -> dict[str, Any]:
 def direct_create_record(payload: dict[str, Any]) -> dict[str, Any]:
     """Normalize direct create input into the batch-like adapter shape."""
     payload = unwrap_direct_create_payload(payload)
+    if "judgments" in payload:
+        judgments = payload.get("judgments")
+        if not isinstance(judgments, list):
+            raise ValueError("direct create input `judgments` must be a list")
+        return _normalize_umbrela_judgments(judgments)
     query = payload["query"]
     query_text = (
         query
@@ -213,6 +265,11 @@ def direct_create_record(payload: dict[str, Any]) -> dict[str, Any]:
                         or (candidate.get("doc") or {}).get("segment")
                         or (candidate.get("doc") or {}).get("contents")
                     },
+                    **(
+                        {"judgment": candidate["judgment"]}
+                        if "judgment" in candidate
+                        else {}
+                    ),
                 }
             )
             for index, candidate in enumerate(payload["candidates"])

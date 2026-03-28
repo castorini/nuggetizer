@@ -313,6 +313,185 @@ def test_direct_create_via_input_json(monkeypatch: Any, capsys: Any) -> None:
     }
 
 
+def test_direct_create_filters_judgments_by_default(
+    monkeypatch: Any, capsys: Any
+) -> None:
+    def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        del self
+        assert [document.docid for document in request.documents] == ["d1", "d2"]
+        return [ScoredNugget(text="filtered", importance="vital")]
+
+    monkeypatch.setattr(Nuggetizer, "create", fake_create)
+
+    exit_code = main(
+        [
+            "create",
+            "--input-json",
+            json.dumps(
+                {
+                    "query": "What is Python used for?",
+                    "candidates": [
+                        {"docid": "d0", "doc": {"segment": "bad"}, "judgment": 1},
+                        {"docid": "d1", "doc": {"segment": "good"}, "judgment": 2},
+                        {"docid": "d2", "doc": {"segment": "best"}, "judgment": 3},
+                    ],
+                }
+            ),
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["resolved"]["min_judgment"] == 2
+
+
+def test_direct_create_accepts_min_judgment_override(
+    monkeypatch: Any, capsys: Any
+) -> None:
+    def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        del self
+        assert [document.docid for document in request.documents] == ["d0", "d1"]
+        return [ScoredNugget(text="filtered", importance="vital")]
+
+    monkeypatch.setattr(Nuggetizer, "create", fake_create)
+
+    exit_code = main(
+        [
+            "create",
+            "--input-json",
+            json.dumps(
+                {
+                    "query": "What is Python used for?",
+                    "candidates": [
+                        {"docid": "d0", "doc": {"segment": "okay"}, "judgment": 1},
+                        {"docid": "d1", "doc": {"segment": "good"}, "judgment": 2},
+                    ],
+                }
+            ),
+            "--min-judgment",
+            "1",
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["resolved"]["min_judgment"] == 1
+
+
+def test_direct_create_accepts_umbrela_judgments(monkeypatch: Any, capsys: Any) -> None:
+    def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        del self
+        assert request.query.text == "What is Python used for?"
+        assert [document.docid for document in request.documents] == ["d1"]
+        assert request.documents[0].segment == "Python is used for web development."
+        return [ScoredNugget(text="nugget", importance="vital")]
+
+    monkeypatch.setattr(Nuggetizer, "create", fake_create)
+
+    exit_code = main(
+        [
+            "create",
+            "--input-json",
+            json.dumps(
+                {
+                    "judgments": [
+                        {
+                            "query": "What is Python used for?",
+                            "passage": "Python can be hard to learn.",
+                            "judgment": 1,
+                        },
+                        {
+                            "query": "What is Python used for?",
+                            "passage": "Python is used for web development.",
+                            "judgment": 2,
+                        },
+                    ]
+                }
+            ),
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["artifacts"][0]["name"] == "create-result"
+
+
+def test_direct_create_returns_empty_nuggets_when_all_candidates_are_filtered(
+    monkeypatch: Any, capsys: Any
+) -> None:
+    def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        del self
+        assert request.documents == []
+        return []
+
+    monkeypatch.setattr(Nuggetizer, "create", fake_create)
+
+    exit_code = main(
+        [
+            "create",
+            "--input-json",
+            json.dumps(
+                {
+                    "judgments": [
+                        {
+                            "query": "What is Python used for?",
+                            "passage": "Not relevant",
+                            "judgment": 0,
+                        }
+                    ]
+                }
+            ),
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["artifacts"][0]["data"]["nuggets"] == []
+
+
+def test_prompt_render_create_accepts_umbrela_judgments(capsys: Any) -> None:
+    exit_code = main(
+        [
+            "prompt",
+            "render",
+            "create",
+            "--input-json",
+            json.dumps(
+                {
+                    "judgments": [
+                        {
+                            "query": "What is Python used for?",
+                            "passage": "Bad passage",
+                            "judgment": 1,
+                        },
+                        {
+                            "query": "What is Python used for?",
+                            "passage": "Good passage",
+                            "judgment": 2,
+                        },
+                    ]
+                }
+            ),
+            "--output",
+            "json",
+        ]
+    )
+
+    assert exit_code == 0
+    output = json.loads(capsys.readouterr().out)
+    view = output["artifacts"][0]["data"]
+    assert view["inputs"]["candidate_count"] == 1
+    assert view["inputs"]["min_judgment"] == 2
+
+
 def test_direct_create_accepts_anserini_style_doc_contents(
     monkeypatch: Any, capsys: Any
 ) -> None:
@@ -1052,6 +1231,7 @@ def test_schema_create_direct_input_includes_overrides(capsys: Any) -> None:
     overrides = output["artifacts"][0]["data"]["properties"]["overrides"]["properties"]
     assert "creator_model" in overrides
     assert "scorer_model" in overrides
+    assert "min_judgment" in overrides
 
 
 def test_doctor_returns_json_envelope(capsys: Any) -> None:
@@ -1538,6 +1718,7 @@ def test_serve_app_create_applies_request_overrides(monkeypatch: Any) -> None:
         captured["creator_model"] = args.creator_model
         captured["scorer_model"] = args.scorer_model
         captured["model"] = args.model
+        captured["min_judgment"] = args.min_judgment
         return {"model": args.model}
 
     def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
@@ -1559,6 +1740,7 @@ def test_serve_app_create_applies_request_overrides(monkeypatch: Any) -> None:
             "overrides": {
                 "creator_model": "gpt-4.1-mini",
                 "scorer_model": "gpt-4.1-mini",
+                "min_judgment": 3,
             },
         },
     )
@@ -1567,8 +1749,10 @@ def test_serve_app_create_applies_request_overrides(monkeypatch: Any) -> None:
     assert captured["model"] == "gpt-4o"
     assert captured["creator_model"] == "gpt-4.1-mini"
     assert captured["scorer_model"] == "gpt-4.1-mini"
+    assert captured["min_judgment"] == 3
     assert response.json()["resolved"]["creator_model"] == "gpt-4.1-mini"
     assert response.json()["resolved"]["scorer_model"] == "gpt-4.1-mini"
+    assert response.json()["resolved"]["min_judgment"] == 3
     assert response.json()["resolved"]["reasoning_effort"] is None
 
 
@@ -1724,6 +1908,96 @@ def test_serve_app_create_accepts_rank_llm_envelope(monkeypatch: Any) -> None:
 
     assert response.status_code == 200
     assert response.json()["artifacts"][0]["name"] == "create-result"
+
+
+def test_serve_app_create_accepts_umbrela_judgments_envelope(
+    monkeypatch: Any,
+) -> None:
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from nuggetizer.api.app import create_app
+    from nuggetizer.api.runtime import ServerConfig
+
+    def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        del self
+        assert [document.docid for document in request.documents] == ["d1"]
+        assert request.documents[0].segment == "Python is used for web development."
+        return [ScoredNugget(text="nugget", importance="vital")]
+
+    monkeypatch.setattr(Nuggetizer, "create", fake_create)
+
+    client = TestClient(create_app(ServerConfig(host="127.0.0.1", port=8085)))
+    response = client.post(
+        "/v1/create",
+        json={
+            "schema_version": "castorini.cli.v1",
+            "repo": "umbrela",
+            "command": "judge",
+            "artifacts": [
+                {
+                    "name": "judgments",
+                    "kind": "data",
+                    "data": [
+                        {
+                            "query": "What is Python used for?",
+                            "passage": "Not relevant",
+                            "judgment": 1,
+                        },
+                        {
+                            "query": "What is Python used for?",
+                            "passage": "Python is used for web development.",
+                            "judgment": 2,
+                        },
+                    ],
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["artifacts"][0]["name"] == "create-result"
+
+
+def test_serve_app_create_accepts_umbrela_curl_payload(monkeypatch: Any) -> None:
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from nuggetizer.api.app import create_app
+    from nuggetizer.api.runtime import ServerConfig
+
+    def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        del self
+        assert [document.docid for document in request.documents] == ["d0"]
+        return [ScoredNugget(text="nugget", importance="vital")]
+
+    monkeypatch.setattr(Nuggetizer, "create", fake_create)
+
+    client = TestClient(create_app(ServerConfig(host="127.0.0.1", port=8085)))
+    response = client.post(
+        "/v1/create",
+        json={
+            "schema_version": "castorini.cli.v1",
+            "command": "judge",
+            "artifacts": [
+                {
+                    "name": "judgments",
+                    "kind": "data",
+                    "data": [
+                        {
+                            "query": "What is Python used for?",
+                            "passage": "Python is used for web development.",
+                            "judgment": 2,
+                        }
+                    ],
+                }
+            ],
+            "overrides": {"min_judgment": 2},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["resolved"]["min_judgment"] == 2
 
 
 def test_validate_create_batch_returns_json_envelope(

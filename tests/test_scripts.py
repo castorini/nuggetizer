@@ -58,7 +58,7 @@ def test_create_nuggets_script_skips_processed_qids(
                         "doc": {
                             "segment": "Python is widely used for web development."
                         },
-                        "judgment": 1,
+                        "judgment": 2,
                     }
                 ],
             },
@@ -68,7 +68,7 @@ def test_create_nuggets_script_skips_processed_qids(
                     {
                         "docid": "d2",
                         "doc": {"segment": "Python was created by Guido van Rossum."},
-                        "judgment": 1,
+                        "judgment": 2,
                     }
                 ],
             },
@@ -109,6 +109,55 @@ def test_create_nuggets_script_skips_processed_qids(
     assert records[1]["nuggets"] == [
         {"text": "Guido van Rossum created Python.", "importance": "vital"}
     ]
+
+
+def test_create_nuggets_script_honors_min_judgment_flag(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    input_path = tmp_path / "pool.jsonl"
+    output_path = tmp_path / "nuggets.jsonl"
+    write_jsonl(
+        input_path,
+        [
+            {
+                "query": {"qid": "q1", "text": "What is Python used for?"},
+                "candidates": [
+                    {
+                        "docid": "d1",
+                        "doc": {"segment": "Python is used for web development."},
+                        "judgment": 1,
+                    },
+                    {
+                        "docid": "d2",
+                        "doc": {"segment": "Python is used for automation."},
+                        "judgment": 2,
+                    },
+                ],
+            }
+        ],
+    )
+
+    def fake_create(self: Nuggetizer, request: Any) -> list[ScoredNugget]:
+        del self
+        assert [document.docid for document in request.documents] == ["d1", "d2"]
+        return [ScoredNugget(text="Python is used for many tasks.", importance="vital")]
+
+    monkeypatch.setattr(Nuggetizer, "create", fake_create)
+
+    run_script(
+        "create_nuggets.py",
+        [
+            "--input_file",
+            str(input_path),
+            "--output_file",
+            str(output_path),
+            "--min_judgment",
+            "1",
+        ],
+    )
+
+    records = read_jsonl(output_path)
+    assert records[0]["qid"] == "q1"
 
 
 def test_assign_nuggets_script_uses_missing_answer_fallback(

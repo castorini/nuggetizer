@@ -42,14 +42,25 @@ def collect_nonempty_reasoning_traces(traces: Sequence[str | None]) -> list[str]
 
 def request_from_create_record(record: dict[str, Any]) -> Request:
     """Convert a batch create record into a Request object."""
+    return request_from_create_record_with_threshold(record, min_judgment=2)
+
+
+def request_from_create_record_with_threshold(
+    record: dict[str, Any], *, min_judgment: int
+) -> Request:
+    """Convert a create record into a Request object with judgment filtering."""
     require_keys(record, ["query", "candidates"])
     query_data = record["query"]
     query = Query(qid=query_data["qid"], text=query_data["text"])
 
     documents = []
     for candidate in record["candidates"]:
-        if "judgment" in candidate and candidate["judgment"] <= 0:
-            continue
+        if "judgment" in candidate:
+            judgment = candidate["judgment"]
+            if isinstance(judgment, bool) or not isinstance(judgment, int | float):
+                raise ValueError("candidate `judgment` must be numeric when provided")
+            if judgment < min_judgment:
+                continue
         doc = candidate["doc"]
         segment = doc.get("segment") or doc.get("contents", "")
         documents.append(Document(docid=candidate["docid"], segment=segment))

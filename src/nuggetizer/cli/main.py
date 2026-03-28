@@ -22,7 +22,7 @@ from nuggetizer.prompts import (
 )
 
 from .adapters import (
-    request_from_create_record,
+    request_from_create_record_with_threshold,
 )
 from .adapters_common import make_data_artifact, make_file_artifact
 from .config import load_config
@@ -446,6 +446,12 @@ def build_parser() -> CLIArgumentParser:
         "--max-nuggets", type=int, help="Maximum nuggets to emit per request."
     )
     create_parser.add_argument(
+        "--min-judgment",
+        type=int,
+        default=2,
+        help="Minimum candidate judgment to include when a judgment field is present.",
+    )
+    create_parser.add_argument(
         "--log-level",
         type=int,
         default=0,
@@ -707,6 +713,12 @@ def build_parser() -> CLIArgumentParser:
         "--max-nuggets", type=int, help="Maximum nuggets to emit per request."
     )
     serve_parser.add_argument(
+        "--min-judgment",
+        type=int,
+        default=2,
+        help="Minimum candidate judgment to include when a judgment field is present.",
+    )
+    serve_parser.add_argument(
         "--execution-mode",
         choices=["sync", "async"],
         default="sync",
@@ -893,6 +905,12 @@ def build_parser() -> CLIArgumentParser:
         help="Maximum nuggets to include in create prompt rendering.",
     )
     prompt_render_parser.add_argument(
+        "--min-judgment",
+        type=int,
+        default=2,
+        help="Minimum candidate judgment to include when rendering create prompts.",
+    )
+    prompt_render_parser.add_argument(
         "--part",
         choices=["system", "user", "all"],
         default="all",
@@ -954,6 +972,10 @@ def build_parser() -> CLIArgumentParser:
 def _run_direct_create(args: argparse.Namespace) -> CommandResponse:
     payload = _read_direct_payload(args)
     validation = validate_create_input(payload)
+    request_obj = request_from_create_record_with_threshold(
+        direct_create_record(payload),
+        min_judgment=args.min_judgment,
+    )
     if args.validate_only or args.dry_run:
         return CommandResponse(
             command="create",
@@ -962,9 +984,10 @@ def _run_direct_create(args: argparse.Namespace) -> CommandResponse:
             resolved={
                 "input_mode": "direct",
                 "execution_mode": args.execution_mode,
+                "min_judgment": args.min_judgment,
             },
             validation=validation,
-            metrics={"candidate_count": len(payload["candidates"])},
+            metrics={"candidate_count": len(request_obj.documents)},
         )
     response = execute_direct_create(payload, args=args)
     direct_output = cast(dict[str, Any], response.artifacts[0]["data"])
@@ -1058,6 +1081,7 @@ def _run_create_batch_command(args: argparse.Namespace) -> CommandResponse:
             resolved={
                 "input_mode": "batch",
                 "execution_mode": args.execution_mode,
+                "min_judgment": args.min_judgment,
                 "write_policy": write_policy,
             },
             artifacts=[make_file_artifact("create-output", output_path)],
@@ -1073,6 +1097,7 @@ def _run_create_batch_command(args: argparse.Namespace) -> CommandResponse:
         scorer_model=args.scorer_model,
         window_size=args.window_size,
         max_nuggets=args.max_nuggets,
+        min_judgment=args.min_judgment,
         log_level=args.log_level,
         use_azure_openai=args.use_azure_openai,
         use_openrouter=args.use_openrouter,
@@ -1097,6 +1122,7 @@ def _run_create_batch_command(args: argparse.Namespace) -> CommandResponse:
     response.resolved = {
         "input_mode": "batch",
         "execution_mode": args.execution_mode,
+        "min_judgment": args.min_judgment,
         "write_policy": write_policy,
     }
     response.artifacts = [make_file_artifact("create-output", output_path)]
@@ -1275,6 +1301,7 @@ def _run_serve_command(args: argparse.Namespace) -> CommandResponse:
             scorer_model=args.scorer_model,
             window_size=args.window_size,
             max_nuggets=args.max_nuggets,
+            min_judgment=args.min_judgment,
             execution_mode=args.execution_mode,
             log_level=args.log_level,
             use_azure_openai=args.use_azure_openai,
@@ -1442,7 +1469,10 @@ def _run_prompt_render_command(args: argparse.Namespace) -> CommandResponse:
                 command="prompt",
                 details=validation,
             )
-        request_obj = request_from_create_record(direct_create_record(payload))
+        request_obj = request_from_create_record_with_threshold(
+            direct_create_record(payload),
+            min_judgment=args.min_judgment,
+        )
         messages = create_nugget_prompt(
             request_obj,
             0,
@@ -1454,6 +1484,7 @@ def _run_prompt_render_command(args: argparse.Namespace) -> CommandResponse:
             "query": request_obj.query.text,
             "candidate_count": len(request_obj.documents),
             "max_nuggets": args.max_nuggets,
+            "min_judgment": args.min_judgment,
         }
         resolved_assign_mode = None
     elif args.target == "assign":

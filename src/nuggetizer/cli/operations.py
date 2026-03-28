@@ -14,7 +14,7 @@ from .adapters import (
     assign_retrieval_output_record,
     create_output_record,
     metrics_output_records,
-    request_from_create_record,
+    request_from_create_record_with_threshold,
     scored_nuggets_from_record,
 )
 from .io import append_jsonl_record, get_processed_values, get_run_id, read_jsonl
@@ -91,7 +91,9 @@ def run_create_batch(args: Any, logger: logging.Logger) -> CommandResponse:
 
             logger.info("Processing record %d/%d", i, len(input_data))
             try:
-                request = request_from_create_record(record)
+                request = request_from_create_record_with_threshold(
+                    record, min_judgment=args.min_judgment
+                )
                 scored_nuggets = nuggetizer.create(request)
                 append_jsonl_record(
                     file_obj,
@@ -306,7 +308,9 @@ async def async_run_create_batch(args: Any, logger: logging.Logger) -> CommandRe
                 continue
             logger.info("Processing record %d/%d", i, len(input_data))
             try:
-                request = request_from_create_record(record)
+                request = request_from_create_record_with_threshold(
+                    record, min_judgment=args.min_judgment
+                )
                 scored_nuggets = await nuggetizer.async_create(request)
                 append_jsonl_record(
                     file_obj,

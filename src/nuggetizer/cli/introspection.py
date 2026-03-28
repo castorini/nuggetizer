@@ -21,11 +21,22 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
                 "--output json"
             ),
             (
+                "nuggetizer create --input-json "
+                '\'{"judgments":[{"query":"q","passage":"p1","judgment":1},{"query":"q","passage":"p2","judgment":2}]}\' '
+                "--output json"
+            ),
+            (
                 "curl -X POST http://127.0.0.1:8085/v1/create "
                 "-H 'content-type: application/json' "
                 '-d \'{"query":"q","candidates":["p"],'
                 '"overrides":{"creator_model":"gpt-4.1-mini",'
                 '"scorer_model":"gpt-4.1-mini"}}\''
+            ),
+            (
+                "curl -s -X POST http://127.0.0.1:8086/v1/judge "
+                '-H "content-type: application/json" --data-binary \'{"query":"q","candidates":["p"]}\' '
+                "| curl -s -X POST http://127.0.0.1:8085/v1/create "
+                '-H "content-type: application/json" --data-binary @- | jq'
             ),
             (
                 'curl -s "http://127.0.0.1:8081/v1/msmarco-v1-passage/search?query=q" '
@@ -42,13 +53,31 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
         ],
         "direct_input": {
             "ids_optional": True,
-            "shape": {
-                "query": "string | {text: string, qid?: string}",
-                "candidates": [
-                    "string | {text: string, docid?: string} | "
-                    "{doc: string | {segment: string} | {contents: string}, docid?: string}"
-                ],
-            },
+            "shapes": [
+                {
+                    "name": "rerank-style",
+                    "shape": {
+                        "query": "string | {text: string, qid?: string}",
+                        "candidates": [
+                            "string | {text: string, docid?: string} | "
+                            "{doc: string | {segment: string} | {contents: string}, docid?: string, judgment?: number}"
+                        ],
+                    },
+                },
+                {
+                    "name": "umbrela-judgments",
+                    "shape": {
+                        "judgments": [
+                            {
+                                "query": "string",
+                                "passage": "string",
+                                "judgment": "number",
+                                "docid": "string?",
+                            }
+                        ]
+                    },
+                },
+            ],
         },
         "batch_input": "JSONL records with query.qid/query.text and candidates[].doc.segment",
     },
@@ -158,6 +187,12 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
                 "| curl -s -X POST http://127.0.0.1:8085/v1/create "
                 '-H "content-type: application/json" --data-binary @- | jq'
             ),
+            (
+                "curl -s -X POST http://127.0.0.1:8086/v1/judge "
+                '-H "content-type: application/json" --data-binary \'{"query":"q","candidates":["p"]}\' '
+                "| curl -s -X POST http://127.0.0.1:8085/v1/create "
+                '-H "content-type: application/json" --data-binary @- | jq'
+            ),
         ],
         "routes": ["GET /healthz", "POST /v1/create", "POST /v1/assign"],
         "inspection_safe": True,
@@ -210,56 +245,82 @@ COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
 SCHEMAS: dict[str, dict[str, Any]] = {
     "create-direct-input": {
         "type": "object",
-        "required": ["query", "candidates"],
-        "properties": {
-            "query": {
-                "oneOf": [
-                    {"type": "string"},
-                    {
-                        "type": "object",
-                        "required": ["text"],
-                        "properties": {
-                            "qid": {"type": "string"},
-                            "text": {"type": "string"},
-                        },
-                    },
-                ]
-            },
-            "candidates": {
-                "type": "array",
-                "items": {
-                    "oneOf": [
-                        {"type": "string"},
-                        {
-                            "type": "object",
-                            "required": ["text"],
-                            "properties": {
-                                "text": {"type": "string"},
-                                "docid": {"type": "string"},
-                            },
-                        },
-                        {
-                            "type": "object",
-                            "required": ["doc"],
-                            "properties": {
-                                "docid": {"type": "string"},
-                                "doc": {
-                                    "oneOf": [
-                                        {"type": "string"},
-                                        {
-                                            "type": "object",
-                                            "properties": {
-                                                "segment": {"type": "string"},
-                                                "contents": {"type": "string"},
-                                            },
-                                        },
-                                    ]
+        "oneOf": [
+            {
+                "required": ["query", "candidates"],
+                "properties": {
+                    "query": {
+                        "oneOf": [
+                            {"type": "string"},
+                            {
+                                "type": "object",
+                                "required": ["text"],
+                                "properties": {
+                                    "qid": {"type": "string"},
+                                    "text": {"type": "string"},
                                 },
                             },
+                        ]
+                    },
+                    "candidates": {
+                        "type": "array",
+                        "items": {
+                            "oneOf": [
+                                {"type": "string"},
+                                {
+                                    "type": "object",
+                                    "required": ["text"],
+                                    "properties": {
+                                        "text": {"type": "string"},
+                                        "docid": {"type": "string"},
+                                        "judgment": {"type": "number"},
+                                    },
+                                },
+                                {
+                                    "type": "object",
+                                    "required": ["doc"],
+                                    "properties": {
+                                        "docid": {"type": "string"},
+                                        "judgment": {"type": "number"},
+                                        "doc": {
+                                            "oneOf": [
+                                                {"type": "string"},
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "segment": {"type": "string"},
+                                                        "contents": {"type": "string"},
+                                                    },
+                                                },
+                                            ]
+                                        },
+                                    },
+                                },
+                            ]
                         },
-                    ]
+                    },
                 },
             },
+            {
+                "required": ["judgments"],
+                "properties": {
+                    "judgments": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["query", "passage", "judgment"],
+                            "properties": {
+                                "query": {"type": "string"},
+                                "passage": {"type": "string"},
+                                "judgment": {"type": "number"},
+                                "docid": {"type": "string"},
+                            },
+                        },
+                    }
+                },
+            },
+        ],
+        "properties": {
             "overrides": {
                 "type": "object",
                 "properties": {
@@ -268,6 +329,7 @@ SCHEMAS: dict[str, dict[str, Any]] = {
                     "scorer_model": {"type": "string"},
                     "window_size": {"type": "integer"},
                     "max_nuggets": {"type": "integer"},
+                    "min_judgment": {"type": "integer"},
                     "execution_mode": {"type": "string", "enum": ["sync", "async"]},
                     "log_level": {"type": "integer"},
                     "use_azure_openai": {"type": "boolean"},
