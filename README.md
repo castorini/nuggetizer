@@ -57,7 +57,7 @@ If you prefer not to activate the virtual environment, run commands through `uv 
 
 ```bash
 uv run nuggetizer --help
-uv run pre-commit run --all-files
+uv run python scripts/quality_gate.py
 ```
 
 ### Environment Setup

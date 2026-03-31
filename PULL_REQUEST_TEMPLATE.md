@@ -12,8 +12,7 @@ Reference the GitHub issue this pull request addresses. If none exists, write `N
 
 ## Validation
 
-- [ ] `uv run pre-commit run --all-files`
-- [ ] `uv run pytest`
+- [ ] `uv run python scripts/quality_gate.py`
 - [ ] Not run, with justification explained below
 
 List any additional commands or manual checks used:
