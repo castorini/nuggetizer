@@ -32,16 +32,21 @@
   - vLLM uses local base URL (`http://localhost:<port>/v1`) with placeholder key.
 
 ## Coding Standards
-- Formatting/linting/type checks are enforced by pre-commit:
-  - Ruff (`ruff-check --fix`, `ruff-format`)
+- Formatting, linting, tests, and type checks are enforced by the repo-local quality gate:
+  - `uv run python scripts/quality_gate.py`
+- The gate runs, in order:
+  - Ruff check
+  - Ruff format check
+  - Core tests
+  - Integration tests
   - MyPy (strict-ish config in `pyproject.toml`)
-- Run before committing:
-  - `uv run pre-commit run --all-files`
+- `pre-commit` and `pre-push` both invoke the same `uv run`-backed gate from the repository environment.
 - Type hints are expected for new/changed code (`disallow_untyped_defs = true`).
 - Preserve dataclass and Enum-based type contracts in `core/types.py`.
 
 ## CI And Contribution Workflow
 - PR CI (`.github/workflows/pr-format.yml`) runs on PRs to `main`.
+- CI runs the quality gate in order: Ruff, core tests, integration tests, then MyPy.
 - Test tiers:
   - `core`: `uv run pytest -q -m core tests`
   - `integration`: `uv run pytest -q -m integration tests`
@@ -50,12 +55,8 @@
 - Apply the shared pytest markers `core`, `integration`, and `live` at the module level when adding or moving tests.
 
 ## Validation Commands
-- Lint/type:
-  - `uv run pre-commit run --all-files`
-- Core tests:
-  - `uv run pytest -q -m core tests`
-- Integration tests:
-  - `uv run pytest -q -m integration tests`
+- Full quality gate:
+  - `uv run python scripts/quality_gate.py`
 - Live smoke:
   - `NUGGETIZER_LIVE_OPENAI_SMOKE=1 uv run pytest tests/test_live_openai_smoke.py`
 - Quick CLI help checks:

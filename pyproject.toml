@@ -91,7 +91,7 @@ namespaces = false
 provides = ["nuggetizer"]
 
 [tool.mypy]
-files = ["src", "tests"]
+files = ["src", "tests", "scripts", "examples"]
 check_untyped_defs = true
 disallow_untyped_defs = true
 disallow_untyped_calls = false

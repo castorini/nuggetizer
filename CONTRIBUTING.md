@@ -24,15 +24,13 @@ If you prefer not to activate the virtual environment, run commands through `uv 
 
 ## Local Quality Gate
 
-Run these commands before opening a pull request:
+Run this ordered gate before opening a pull request:
 
 ```bash
-uv run pre-commit run --all-files
-uv run pytest -q -m core tests
-uv run pytest -q -m integration tests
+uv run python scripts/quality_gate.py
 ```
 
-The pre-commit hooks are the canonical lint, format, and type-check entrypoint for this repository. They currently run Ruff and MyPy.
+The repo-local gate runs Ruff, core tests, integration tests, and MyPy in that order. Both `pre-commit` and `pre-push` hooks invoke the same `uv run`-backed gate in the repository virtual environment, so push-time checks stay aligned with local validation.
 
 ## Testing Expectations
 
@@ -67,7 +65,7 @@ Before submitting:
 
 1. Run the local quality gate commands listed above.
 2. Summarize the user-visible behavior change and any schema impact.
-3. Mention whether the change affects prompt outputs, metrics, latency, or cost.
+3. Mention whether the change affects prompt outputs, metrics, latency, cost, or validation behavior.
 4. Include benchmark or comparison data when the change could affect quality or efficiency.
 
 ## Reporting Issues
