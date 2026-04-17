@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import subprocess
-import sys
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -16,16 +15,16 @@ def _run_step(label: str, command: Command) -> None:
 
 
 def main() -> int:
-    python = sys.executable
     steps: list[tuple[str, Command]] = [
-        ("ruff check", [python, "-m", "ruff", "check", "."]),
-        ("ruff format --check", [python, "-m", "ruff", "format", "--check", "."]),
-        ("pytest core", [python, "-m", "pytest", "-q", "-m", "core", "tests"]),
+        ("uv lock --check", ["uv", "lock", "--check"]),
+        ("ruff check", ["uv", "run", "ruff", "check", "."]),
+        ("ruff format --check", ["uv", "run", "ruff", "format", "--check", "."]),
+        ("pytest core", ["uv", "run", "pytest", "-q", "-m", "core", "tests"]),
         (
             "pytest integration",
-            [python, "-m", "pytest", "-q", "-m", "integration", "tests"],
+            ["uv", "run", "pytest", "-q", "-m", "integration", "tests"],
         ),
-        ("mypy", [python, "-m", "mypy", "src", "tests"]),
+        ("mypy", ["uv", "run", "mypy", "src", "tests"]),
     ]
     for label, command in steps:
         _run_step(label, command)

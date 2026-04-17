@@ -12,7 +12,7 @@ Reference the GitHub issue this pull request addresses. If none exists, write `N
 
 ## Validation
 
-- [ ] `uv run python scripts/quality_gate.py`
+- [ ] `uv run python scripts/quality_gate.py` (includes `uv lock --check`)
 - [ ] Not run, with justification explained below
 
 List any additional commands or manual checks used:

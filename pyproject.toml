@@ -16,8 +16,15 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 keywords = ["Nuggetizer", "Fact Recall", "LLM", "Nuggets", "Fact Extraction", "RAG Evaluation", "Evaluation", "RAG"]
-dynamic = ["dependencies"]
 requires-python = ">= 3.11"
+dependencies = [
+    "openai>=2.1.0",
+    "python-dotenv>=0.19.0",
+    "typing-extensions>=4.0.0",
+    "requests>=2.25.0",
+    "tqdm>=4.65.0",
+    "tiktoken>=0.8",
+]
 
 [project.scripts]
 nuggetizer = "nuggetizer.cli.main:main"
@@ -31,9 +38,6 @@ all = [
     "fastapi>=0.115.0",
     "uvicorn>=0.30.0",
 ]
-
-[tool.setuptools.dynamic]
-dependencies = {file = ["requirements.txt"]}
 
 [dependency-groups]
 dev = [

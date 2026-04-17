@@ -35,25 +35,34 @@ export PATH="$HOME/.local/bin:$PATH"
 Create an isolated virtual environment and install the published package:
 
 ```bash
+uv python install 3.11
 uv venv --python 3.11
-source .venv/bin/activate
-uv pip install nuggetizer
+uv pip install --python .venv/bin/python nuggetizer
 ```
 
 ### Development Installation
 
-For development or the latest features, install from source with the development toolchain:
+For development or the latest features, install from source with the development toolchain.
+`uv sync --group dev` installs the base package plus the `dev` dependency group by default.
+Optional extras remain opt-in and are only installed when you pass `--extra ...`:
 
 ```bash
 git clone https://github.com/castorini/nuggetizer.git
 cd nuggetizer
 uv python install 3.11
 uv venv --python 3.11
-source .venv/bin/activate
 uv sync --group dev
 ```
 
-If you prefer not to activate the virtual environment, run commands through `uv run`, for example:
+Add extras only when you need them:
+
+```bash
+uv sync --group dev --extra api
+```
+
+`uv.lock` captures the resolved versions for the declared project dependencies and extras, but extras are still not installed unless you request them with `--extra ...`.
+
+Prefer `uv run` instead of activating the virtual environment manually, for example:
 
 ```bash
 uv run nuggetizer --help

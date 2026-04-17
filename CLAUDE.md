@@ -15,8 +15,9 @@
 
 ## Packaging And Environment
 - Build backend: `setuptools.build_meta` via `pyproject.toml`.
-- Dependencies are dynamic and sourced from `requirements.txt`.
+- Base runtime dependencies are declared in `pyproject.toml` under `[project.dependencies]`.
 - Development tooling is defined in the `dev` dependency group in `pyproject.toml`.
+- `.python-version` pins Python `3.11` for local `uv` workflows.
 - Install for development with `uv sync --group dev`.
 - Recommended local environment from README: `uv`-managed Python 3.11 virtual environment.
 - Do not rely on `source "$HOME/.local/bin/env"` for `uv`; only add `~/.local/bin` to `PATH` when `uv` is not already available in the shell.
@@ -35,6 +36,7 @@
 - Formatting, linting, tests, and type checks are enforced by the repo-local quality gate:
   - `uv run python scripts/quality_gate.py`
 - The gate runs, in order:
+  - `uv lock --check`
   - Ruff check
   - Ruff format check
   - Core tests

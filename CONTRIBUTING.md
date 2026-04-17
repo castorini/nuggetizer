@@ -15,12 +15,17 @@ This repository uses `uv` and the `dev` dependency group defined in `pyproject.t
 ```bash
 uv python install 3.11
 uv venv --python 3.11
-source .venv/bin/activate
 uv sync --group dev
 pre-commit install
 ```
 
-If you prefer not to activate the virtual environment, run commands through `uv run`.
+The base package and `dev` tools are installed by default with `uv sync --group dev`. Optional extras such as `api` remain opt-in:
+
+```bash
+uv sync --group dev --extra api
+```
+
+Prefer `uv run ...` instead of activating the virtual environment manually.
 
 ## Local Quality Gate
 
@@ -30,7 +35,7 @@ Run this ordered gate before opening a pull request:
 uv run python scripts/quality_gate.py
 ```
 
-The repo-local gate runs Ruff, core tests, integration tests, and MyPy in that order. Both `pre-commit` and `pre-push` hooks invoke the same `uv run`-backed gate in the repository virtual environment, so push-time checks stay aligned with local validation.
+The repo-local gate runs `uv lock --check`, Ruff, core tests, integration tests, and MyPy in that order. Both `pre-commit` and `pre-push` hooks invoke the same `uv run`-backed gate in the repository virtual environment, so push-time checks stay aligned with local validation.
 
 ## Testing Expectations
 

@@ -17,8 +17,10 @@ jobs:
         with:
           python-version: "3.11"
           enable-cache: true
+      - name: Check lockfile
+        run: uv lock --check
       - name: Install dependencies
-        run: uv sync --group dev
+        run: uv sync --locked --group dev
       - name: Run Ruff checks
         run: uv run ruff check .
       - name: Run Ruff format check
@@ -32,8 +34,10 @@ jobs:
         with:
           python-version: "3.11"
           enable-cache: true
+      - name: Check lockfile
+        run: uv lock --check
       - name: Install dependencies
-        run: uv sync --group dev
+        run: uv sync --locked --group dev
       - name: Run core tests
         run: uv run pytest -q -m core tests
   tests-integration:
@@ -45,8 +49,10 @@ jobs:
         with:
           python-version: "3.11"
           enable-cache: true
+      - name: Check lockfile
+        run: uv lock --check
       - name: Install dependencies
-        run: uv sync --group dev
+        run: uv sync --locked --group dev
       - name: Run deterministic integration regressions
         run: uv run pytest -q -m integration tests
   typecheck:
@@ -58,7 +64,9 @@ jobs:
         with:
           python-version: "3.11"
           enable-cache: true
+      - name: Check lockfile
+        run: uv lock --check
       - name: Install dependencies
-        run: uv sync --group dev
+        run: uv sync --locked --group dev
       - name: Run mypy
         run: uv run mypy src tests
