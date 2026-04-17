@@ -47,4 +47,3 @@ ENV/
 **/.env
 **/.env.*
 notebooks/
-uv.lock
