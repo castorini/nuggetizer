@@ -13,8 +13,8 @@ Thank you for contributing to nuggetizer. This repository is the Castorini toolk
 This repository uses `uv` and the `dev` dependency group defined in `pyproject.toml`.
 
 ```bash
-uv python install 3.11
-uv venv --python 3.11
+uv python install 3.12
+uv venv --python 3.12
 uv sync --group dev
 pre-commit install
 ```

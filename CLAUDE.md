@@ -2,7 +2,7 @@
 
 ## Scope
 - Repository: `castorini/nuggetizer`
-- Primary language: Python 3.11+
+- Primary language: Python 3.12+
 - Purpose: create/score/assign factual nuggets for RAG evaluation using LLM backends (OpenAI, Azure OpenAI, OpenRouter, vLLM).
 
 ## Project Layout
@@ -17,9 +17,9 @@
 - Build backend: `setuptools.build_meta` via `pyproject.toml`.
 - Base runtime dependencies are declared in `pyproject.toml` under `[project.dependencies]`.
 - Development tooling is defined in the `dev` dependency group in `pyproject.toml`.
-- `.python-version` pins Python `3.11` for local `uv` workflows.
+- `.python-version` pins Python `3.12` for local `uv` workflows.
 - Install for development with `uv sync --group dev`.
-- Recommended local environment from README: `uv`-managed Python 3.11 virtual environment.
+- Recommended local environment from README: `uv`-managed Python 3.12 virtual environment.
 - Do not rely on `source "$HOME/.local/bin/env"` for `uv`; only add `~/.local/bin` to `PATH` when `uv` is not already available in the shell.
 
 ## LLM Provider Conventions

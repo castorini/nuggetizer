@@ -4,6 +4,7 @@ Initial release-note scaffold for the packaged CLI and JSONL pipeline workflow.
 
 ## Included In This Baseline
 
+- The supported interpreter floor is now Python 3.12 across package metadata, `.python-version`, contributor setup docs, and GitHub Actions validation.
 - Packaged `nuggetizer` CLI for create, assign, metrics, validation, doctor, prompt inspection, and view commands.
 - FastAPI `nuggetizer serve` command exposing `GET /healthz`, `POST /v1/create`, and `POST /v1/assign` on port `8085` by default.
 - Direct `create` input now also accepts Anserini REST payloads with `query.text` plus candidates whose `doc` is either a plain string or an object containing `contents`, so Anserini search results can be piped directly into `POST /v1/create` without a `jq` reshape step.
@@ -24,5 +25,6 @@ Document a migration note whenever a change affects:
 - JSON or JSONL schema emitted by `create`, `assign`, or `metrics`
 - metric definitions or aggregation behavior
 - CLI defaults or compatibility-wrapper behavior
+- supported Python version or default contributor runtime
 
 - `create` now treats `judgment` as a first-class input signal. If your existing pools include `judgment: 1` candidates that should still contribute to nugget creation, pass `--min-judgment 1` on the CLI or `{"overrides":{"min_judgment":1}}` to `POST /v1/create`.

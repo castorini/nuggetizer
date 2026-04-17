@@ -35,8 +35,8 @@ export PATH="$HOME/.local/bin:$PATH"
 Create an isolated virtual environment and install the published package:
 
 ```bash
-uv python install 3.11
-uv venv --python 3.11
+uv python install 3.12
+uv venv --python 3.12
 uv pip install --python .venv/bin/python nuggetizer
 ```
 
@@ -49,8 +49,8 @@ Optional extras remain opt-in and are only installed when you pass `--extra ...`
 ```bash
 git clone https://github.com/castorini/nuggetizer.git
 cd nuggetizer
-uv python install 3.11
-uv venv --python 3.11
+uv python install 3.12
+uv venv --python 3.12
 uv sync --group dev
 ```
 
