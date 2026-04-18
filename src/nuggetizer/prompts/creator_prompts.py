@@ -1,9 +1,5 @@
-"""
-Prompts for nugget creation
-"""
-
 from ..core.types import Request
-from .template_loader import format_template
+from .service import create_nugget_messages
 
 
 def create_nugget_prompt(
@@ -13,29 +9,10 @@ def create_nugget_prompt(
     nuggets: list[str],
     creator_max_nuggets: int = 30,
 ) -> list[dict[str, str]]:
-    """
-    Creates a prompt for nugget creation using YAML template.
-    """
-
-    # prepare context from docs
-    context = "\n".join(
-        [
-            f"[{i + 1}] {doc.segment}"
-            for i, doc in enumerate(request.documents[start:end])
-        ]
-    )
-
-    # format template with variables
-    template_data = format_template(
-        "creator_template",
-        query=request.query.text,
-        context=context,
-        nuggets=nuggets,
-        nuggets_length=len(nuggets),
+    return create_nugget_messages(
+        request,
+        start,
+        end,
+        nuggets,
         creator_max_nuggets=creator_max_nuggets,
     )
-
-    return [
-        {"role": "system", "content": template_data["system"]},
-        {"role": "user", "content": template_data["user"]},
-    ]

@@ -3,26 +3,14 @@ from __future__ import annotations
 from typing import Any
 
 from nuggetizer.core.types import NuggetAssignMode
-from nuggetizer.prompts.template_loader import PromptTemplate, get_template
-
-PROMPT_TARGETS = {
-    "create": "creator_template",
-    "score": "scorer_template",
-}
+from nuggetizer.prompts.service import resolve_template
+from nuggetizer.prompts.template_loader import PromptTemplate
 
 
 def resolve_prompt_template(
     target: str, assign_mode: NuggetAssignMode = NuggetAssignMode.SUPPORT_GRADE_3
 ) -> tuple[str, PromptTemplate]:
-    if target == "assign":
-        template_name = (
-            "assigner_template"
-            if assign_mode == NuggetAssignMode.SUPPORT_GRADE_3
-            else "assigner_2grade_template"
-        )
-        return template_name, get_template(template_name)
-    template_name = PROMPT_TARGETS[target]
-    return template_name, get_template(template_name)
+    return resolve_template(target, assign_mode)
 
 
 def list_prompt_templates() -> list[dict[str, Any]]:
