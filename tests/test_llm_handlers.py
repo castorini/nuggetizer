@@ -258,3 +258,98 @@ def test_async_llm_handler_uses_openrouter_reasoning_payload() -> None:
         "reasoning": {"effort": "high", "exclude": False}
     }
     assert "reasoning_effort" not in recorded_kwargs
+
+
+def test_llm_handler_prefers_openai_key_before_openrouter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("nuggetizer.core.llm.get_openai_api_key", lambda: "openai-key")
+    monkeypatch.setattr(
+        "nuggetizer.core.llm.get_openrouter_api_key", lambda: "openrouter-key"
+    )
+
+    handler = LLMHandler(model="gpt-4o")
+
+    assert handler.api_keys == ["openai-key"]
+
+
+def test_llm_handler_falls_back_to_openrouter_when_openai_missing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("nuggetizer.core.llm.get_openai_api_key", lambda: None)
+    monkeypatch.setattr(
+        "nuggetizer.core.llm.get_openrouter_api_key", lambda: "openrouter-key"
+    )
+
+    handler = LLMHandler(model="openrouter/model-name")
+
+    assert handler.api_keys == ["openrouter-key"]
+
+
+def test_llm_handler_requires_openrouter_key_when_forced(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("nuggetizer.core.llm.get_openrouter_api_key", lambda: None)
+
+    with pytest.raises(ValueError, match="use_openrouter=True"):
+        LLMHandler(model="openrouter/model-name", use_openrouter=True)
+
+
+def test_llm_handler_uses_vllm_placeholder_key_and_local_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("nuggetizer.core.llm.get_vllm_api_key", lambda: "EMPTY")
+
+    handler = LLMHandler(model="meta-llama", use_vllm=True, vllm_port=8012)
+
+    assert handler.api_keys == ["EMPTY"]
+    assert "localhost:8012" in str(handler.client.base_url)
+
+
+def test_async_llm_handler_uses_vllm_placeholder_key_and_local_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("nuggetizer.core.async_llm.get_vllm_api_key", lambda: "EMPTY")
+
+    handler = AsyncLLMHandler(model="meta-llama", use_vllm=True, vllm_port=8012)
+
+    assert handler.api_keys == ["EMPTY"]
+    assert "localhost:8012" in str(handler.client.base_url)
+
+
+def test_llm_handler_prefers_azure_settings_when_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "nuggetizer.core.llm.get_azure_openai_args",
+        lambda: {
+            "api_type": "azure",
+            "api_version": "2024-01-01",
+            "api_base": "https://azure.example.com",
+            "api_key": "azure-key",
+        },
+    )
+    monkeypatch.setattr(
+        "nuggetizer.core.llm.get_openai_api_key", lambda: "fallback-openai"
+    )
+
+    handler = LLMHandler(model="gpt-4o", use_azure_openai=True)
+
+    assert handler.api_keys == ["azure-key"]
+    assert cast(Any, handler.client)._api_version == "2024-01-01"
+
+
+def test_sync_reasoning_models_merge_system_and_user_messages() -> None:
+    merged = LLMHandler._normalize_messages(
+        [
+            {"role": "system", "content": "system"},
+            {"role": "user", "content": "user"},
+            {"role": "assistant", "content": "assistant"},
+        ],
+        "o4-mini",
+    )
+
+    assert merged == [
+        {"role": "user", "content": "system\nuser"},
+        {"role": "assistant", "content": "assistant"},
+    ]

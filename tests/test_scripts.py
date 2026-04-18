@@ -27,6 +27,110 @@ def run_script(script_name: str, args: list[str]) -> None:
         sys.argv = old_argv
 
 
+def test_create_script_translates_legacy_flags(monkeypatch: Any) -> None:
+    recorded: dict[str, Any] = {}
+
+    def fake_main(argv: list[str]) -> int:
+        recorded["argv"] = argv
+        return 0
+
+    monkeypatch.setattr("nuggetizer.cli.main.main", fake_main)
+
+    run_script(
+        "create_nuggets.py",
+        ["--input_file", "pool.jsonl", "--output_file", "out.jsonl"],
+    )
+
+    assert recorded["argv"] == [
+        "create",
+        "--input-file",
+        "pool.jsonl",
+        "--output-file",
+        "out.jsonl",
+        "--resume",
+    ]
+
+
+def test_assign_answers_script_translates_legacy_flags(monkeypatch: Any) -> None:
+    recorded: dict[str, Any] = {}
+
+    def fake_main(argv: list[str]) -> int:
+        recorded["argv"] = argv
+        return 0
+
+    monkeypatch.setattr("nuggetizer.cli.main.main", fake_main)
+
+    run_script(
+        "assign_nuggets.py",
+        ["--nugget_file", "nuggets.jsonl", "--answer_file", "answers.jsonl"],
+    )
+
+    assert recorded["argv"] == [
+        "assign",
+        "--input-kind",
+        "answers",
+        "--nuggets",
+        "nuggets.jsonl",
+        "--contexts",
+        "answers.jsonl",
+        "--resume",
+    ]
+
+
+def test_assign_retrieval_script_translates_legacy_flags(monkeypatch: Any) -> None:
+    recorded: dict[str, Any] = {}
+
+    def fake_main(argv: list[str]) -> int:
+        recorded["argv"] = argv
+        return 0
+
+    monkeypatch.setattr("nuggetizer.cli.main.main", fake_main)
+
+    run_script(
+        "assign_nuggets_retrieve_results.py",
+        [
+            "--nugget_file",
+            "nuggets.jsonl",
+            "--retrieve_results_file",
+            "retrieval.jsonl",
+        ],
+    )
+
+    assert recorded["argv"] == [
+        "assign",
+        "--input-kind",
+        "retrieval",
+        "--nuggets",
+        "nuggets.jsonl",
+        "--contexts",
+        "retrieval.jsonl",
+        "--resume",
+    ]
+
+
+def test_metrics_script_translates_legacy_flags(monkeypatch: Any) -> None:
+    recorded: dict[str, Any] = {}
+
+    def fake_main(argv: list[str]) -> int:
+        recorded["argv"] = argv
+        return 0
+
+    monkeypatch.setattr("nuggetizer.cli.main.main", fake_main)
+
+    run_script(
+        "calculate_metrics.py",
+        ["--input_file", "assignments.jsonl", "--output_file", "metrics.jsonl"],
+    )
+
+    assert recorded["argv"] == [
+        "metrics",
+        "--input-file",
+        "assignments.jsonl",
+        "--output-file",
+        "metrics.jsonl",
+    ]
+
+
 def write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
     path.write_text(
         "".join(json.dumps(record) + "\n" for record in records),
