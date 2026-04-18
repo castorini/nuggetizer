@@ -11,8 +11,6 @@ from typing import Any, NoReturn, cast
 
 from nuggetizer.api.runtime import (
     ServerConfig,
-    execute_direct_assign,
-    execute_direct_create,
 )
 from nuggetizer.core.types import Nugget, NuggetAssignMode
 from nuggetizer.prompts import (
@@ -26,6 +24,13 @@ from .adapters import (
 )
 from .adapters_common import make_data_artifact, make_file_artifact
 from .config import load_config
+from .execution import (
+    AssignExecutionConfig,
+    CreateExecutionConfig,
+    ExecutionMode,
+    execute_direct_assign,
+    execute_direct_create,
+)
 from .introspection import (
     COMMAND_DESCRIPTIONS,
     SCHEMAS,
@@ -43,6 +48,10 @@ from .normalize import (
     joined_assign_batch_records,
 )
 from .operations import (
+    AssignAnswersBatchConfig,
+    AssignRetrievalBatchConfig,
+    CreateBatchConfig,
+    MetricsBatchConfig,
     async_run_assign_answers_batch,
     async_run_assign_retrieval_batch,
     async_run_create_batch,
@@ -989,7 +998,27 @@ def _run_direct_create(args: argparse.Namespace) -> CommandResponse:
             validation=validation,
             metrics={"candidate_count": len(request_obj.documents)},
         )
-    response = execute_direct_create(payload, args=args)
+    response = execute_direct_create(
+        payload,
+        config=CreateExecutionConfig(
+            model=args.model,
+            creator_model=args.creator_model,
+            scorer_model=args.scorer_model,
+            window_size=args.window_size,
+            max_nuggets=args.max_nuggets,
+            min_judgment=args.min_judgment,
+            execution_mode=cast(ExecutionMode, args.execution_mode),
+            log_level=args.log_level,
+            use_azure_openai=args.use_azure_openai,
+            use_openrouter=args.use_openrouter,
+            reasoning_effort=args.reasoning_effort,
+            include_trace=args.include_trace,
+            include_reasoning=args.include_reasoning,
+            redact_prompts=args.redact_prompts,
+            quiet=getattr(args, "quiet", False),
+            output=args.output,
+        ),
+    )
     direct_output = cast(dict[str, Any], response.artifacts[0]["data"])
     if args.output == "json":
         return response
@@ -1039,7 +1068,22 @@ def _run_direct_assign(args: argparse.Namespace) -> CommandResponse:
                 "nugget_count": len(nuggets),
             },
         )
-    response = execute_direct_assign(payload, args=args)
+    response = execute_direct_assign(
+        payload,
+        config=AssignExecutionConfig(
+            model=args.model,
+            execution_mode=cast(ExecutionMode, args.execution_mode),
+            log_level=args.log_level,
+            use_azure_openai=args.use_azure_openai,
+            use_openrouter=args.use_openrouter,
+            reasoning_effort=args.reasoning_effort,
+            include_trace=args.include_trace,
+            include_reasoning=args.include_reasoning,
+            redact_prompts=args.redact_prompts,
+            quiet=getattr(args, "quiet", False),
+            output=args.output,
+        ),
+    )
     direct_output = response.artifacts[0]["data"]
     if args.output == "json":
         return response
@@ -1089,33 +1133,38 @@ def _run_create_batch_command(args: argparse.Namespace) -> CommandResponse:
             metrics={"record_count": validation["record_count"]},
         )
         return response
-    compat_args = argparse.Namespace(
+    batch_config = CreateBatchConfig(
         input_file=args.input_file,
         output_file=output_path,
-        model=args.model,
-        creator_model=args.creator_model,
-        scorer_model=args.scorer_model,
-        window_size=args.window_size,
-        max_nuggets=args.max_nuggets,
-        min_judgment=args.min_judgment,
-        log_level=args.log_level,
-        use_azure_openai=args.use_azure_openai,
-        use_openrouter=args.use_openrouter,
-        reasoning_effort=args.reasoning_effort,
-        include_trace=args.include_trace,
-        include_reasoning=args.include_reasoning,
-        redact_prompts=args.redact_prompts,
+        execution=CreateExecutionConfig(
+            model=args.model,
+            creator_model=args.creator_model,
+            scorer_model=args.scorer_model,
+            window_size=args.window_size,
+            max_nuggets=args.max_nuggets,
+            min_judgment=args.min_judgment,
+            execution_mode=cast(ExecutionMode, args.execution_mode),
+            log_level=args.log_level,
+            use_azure_openai=args.use_azure_openai,
+            use_openrouter=args.use_openrouter,
+            reasoning_effort=args.reasoning_effort,
+            include_trace=args.include_trace,
+            include_reasoning=args.include_reasoning,
+            redact_prompts=args.redact_prompts,
+            quiet=getattr(args, "quiet", False),
+            output=args.output,
+        ),
     )
     if args.execution_mode == "async":
         response = asyncio.run(
             async_run_create_batch(
-                compat_args,
+                batch_config,
                 setup_logging(args.log_level, quiet=getattr(args, "quiet", False)),
             )
         )
     else:
         response = run_create_batch(
-            compat_args,
+            batch_config,
             setup_logging(args.log_level, quiet=getattr(args, "quiet", False)),
         )
     response.inputs = {"input_file": args.input_file}
@@ -1166,55 +1215,65 @@ def _run_assign_batch_command(args: argparse.Namespace) -> CommandResponse:
         return response
 
     if args.input_kind == "answers":
-        compat_args = argparse.Namespace(
+        answers_batch_config = AssignAnswersBatchConfig(
             nugget_file=args.nuggets,
             answer_file=args.contexts,
             output_file=output_path,
-            model=args.model,
-            use_azure_openai=args.use_azure_openai,
-            use_openrouter=args.use_openrouter,
-            reasoning_effort=args.reasoning_effort,
-            log_level=args.log_level,
-            include_trace=args.include_trace,
-            include_reasoning=args.include_reasoning,
-            redact_prompts=args.redact_prompts,
+            execution=AssignExecutionConfig(
+                model=args.model,
+                execution_mode=cast(ExecutionMode, args.execution_mode),
+                log_level=args.log_level,
+                use_azure_openai=args.use_azure_openai,
+                use_openrouter=args.use_openrouter,
+                reasoning_effort=args.reasoning_effort,
+                include_trace=args.include_trace,
+                include_reasoning=args.include_reasoning,
+                redact_prompts=args.redact_prompts,
+                quiet=getattr(args, "quiet", False),
+                output=args.output,
+            ),
         )
         if args.execution_mode == "async":
             response = asyncio.run(
                 async_run_assign_answers_batch(
-                    compat_args,
+                    answers_batch_config,
                     setup_logging(args.log_level, quiet=getattr(args, "quiet", False)),
                 )
             )
         else:
             response = run_assign_answers_batch(
-                compat_args,
+                answers_batch_config,
                 setup_logging(args.log_level, quiet=getattr(args, "quiet", False)),
             )
     else:
-        compat_args = argparse.Namespace(
+        retrieval_batch_config = AssignRetrievalBatchConfig(
             nugget_file=args.nuggets,
             retrieve_results_file=args.contexts,
             output_file=output_path,
-            model=args.model,
-            log_level=args.log_level,
-            use_azure_openai=args.use_azure_openai,
-            use_openrouter=args.use_openrouter,
-            reasoning_effort=args.reasoning_effort,
-            include_trace=args.include_trace,
-            include_reasoning=args.include_reasoning,
-            redact_prompts=args.redact_prompts,
+            execution=AssignExecutionConfig(
+                model=args.model,
+                execution_mode=cast(ExecutionMode, args.execution_mode),
+                log_level=args.log_level,
+                use_azure_openai=args.use_azure_openai,
+                use_openrouter=args.use_openrouter,
+                reasoning_effort=args.reasoning_effort,
+                include_trace=args.include_trace,
+                include_reasoning=args.include_reasoning,
+                redact_prompts=args.redact_prompts,
+                quiet=getattr(args, "quiet", False),
+                output=args.output,
+            ),
         )
         if args.execution_mode == "async":
             response = asyncio.run(
                 async_run_assign_retrieval_batch(
-                    compat_args,
+                    retrieval_batch_config,
                     setup_logging(args.log_level, quiet=getattr(args, "quiet", False)),
                 )
             )
         else:
             response = run_assign_retrieval_batch(
-                compat_args,
+                retrieval_batch_config,
                 setup_logging(args.log_level, quiet=getattr(args, "quiet", False)),
             )
 
@@ -1238,9 +1297,7 @@ def _run_assign_batch_command(args: argparse.Namespace) -> CommandResponse:
 def _run_metrics_command(args: argparse.Namespace) -> CommandResponse:
     _ensure_file_exists(args.input_file, command="metrics", field_name="input_file")
     output_path = _prepare_output_path(args, command="metrics")
-    compat_args = argparse.Namespace(
-        input_file=args.input_file, output_file=output_path
-    )
+    config = MetricsBatchConfig(input_file=args.input_file, output_file=output_path)
     input_records = read_jsonl(args.input_file)
     if args.validate_only or args.dry_run:
         return CommandResponse(
@@ -1255,7 +1312,7 @@ def _run_metrics_command(args: argparse.Namespace) -> CommandResponse:
             validation={"valid": True, "record_count": len(input_records)},
             metrics={"record_count": len(input_records)},
         )
-    processed_records, global_metrics = run_metrics(compat_args)
+    processed_records, global_metrics = run_metrics(config)
     with open(output_path, "w", encoding="utf-8") as file_obj:
         for record in processed_records:
             file_obj.write(json.dumps(record) + "\n")

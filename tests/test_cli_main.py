@@ -1743,7 +1743,7 @@ def test_serve_app_create_applies_request_overrides(monkeypatch: Any) -> None:
         return [ScoredNugget(text="nugget", importance="vital")]
 
     monkeypatch.setattr(
-        "nuggetizer.api.runtime.build_create_nuggetizer_kwargs",
+        "nuggetizer.cli.execution.build_create_nuggetizer_kwargs",
         fake_build_create_nuggetizer_kwargs,
     )
     monkeypatch.setattr(Nuggetizer, "create", fake_create)
@@ -1799,7 +1799,7 @@ def test_serve_app_assign_applies_request_model_override(monkeypatch: Any) -> No
         ]
 
     monkeypatch.setattr(
-        "nuggetizer.api.runtime.build_assign_nuggetizer_kwargs",
+        "nuggetizer.cli.execution.build_assign_nuggetizer_kwargs",
         fake_build_assign_nuggetizer_kwargs,
     )
     monkeypatch.setattr(Nuggetizer, "assign", fake_assign)
