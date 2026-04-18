@@ -6,13 +6,10 @@ import sys
 
 def cli_compatible_main(argv: list[str] | None = None) -> int:
     from nuggetizer.cli.main import main as cli_main
+    from nuggetizer.cli.script_compat import translate_legacy_argv
 
     argv = sys.argv[1:] if argv is None else argv
-    translated = ["metrics"]
-    for token in argv:
-        translated.append(
-            f"--{token[2:].replace('_', '-')}" if token.startswith("--") else token
-        )
+    translated = translate_legacy_argv(argv, command_prefix=["metrics"])
     return cli_main(translated)
 
 

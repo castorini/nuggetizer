@@ -6,16 +6,15 @@ import sys
 
 def cli_compatible_main(argv: list[str] | None = None) -> int:
     from nuggetizer.cli.main import main as cli_main
+    from nuggetizer.cli.script_compat import translate_legacy_argv
 
     argv = sys.argv[1:] if argv is None else argv
-    translated = ["assign", "--input-kind", "answers"]
-    rename_map = {"--nugget_file": "--nuggets", "--answer_file": "--contexts"}
-    for token in argv:
-        if token.startswith("--"):
-            translated.append(rename_map.get(token, f"--{token[2:].replace('_', '-')}"))
-        else:
-            translated.append(token)
-    translated.append("--resume")
+    translated = translate_legacy_argv(
+        argv,
+        command_prefix=["assign", "--input-kind", "answers"],
+        rename_map={"--nugget_file": "--nuggets", "--answer_file": "--contexts"},
+        append_resume=True,
+    )
     return cli_main(translated)
 
 
