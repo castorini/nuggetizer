@@ -28,18 +28,6 @@ def get_azure_openai_args() -> dict[str, str | None]:
         return azure_args
 
 
-def get_cohere_api_key() -> str | None:
-    load_dotenv(dotenv_path=".env.local")
-    co_api_key = os.getenv("CO_API_KEY")
-    return co_api_key
-
-
-def get_anyscale_api_key() -> str | None:
-    load_dotenv(dotenv_path=".env.local")
-    anyscale_api_key = os.getenv("ANYSCALE_API_KEY")
-    return anyscale_api_key
-
-
 def get_openrouter_api_key() -> str | None:
     load_dotenv(dotenv_path=".env")
     return os.getenv("OPENROUTER_API_KEY") or None

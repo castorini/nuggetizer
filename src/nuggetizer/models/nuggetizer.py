@@ -122,14 +122,6 @@ class Nuggetizer(BaseNuggetizer):
         self.creator_reasoning: str | None = None
         self.creator_reasoning_traces: list[str] = []
 
-    def _get_nugget_prompt_content(
-        self, request: Request, start: int, end: int, nuggets: list[str]
-    ) -> list[dict[str, str]]:
-        """Get the prompt content for nugget creation."""
-        return create_nugget_prompt(
-            request, start, end, nuggets, self.creator_max_nuggets
-        )
-
     def _create_trace(
         self,
         component: Literal["creator", "scorer", "assigner"],

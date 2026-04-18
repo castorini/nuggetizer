@@ -40,11 +40,6 @@ def collect_nonempty_reasoning_traces(traces: Sequence[str | None]) -> list[str]
     return collected
 
 
-def request_from_create_record(record: dict[str, Any]) -> Request:
-    """Convert a batch create record into a Request object."""
-    return request_from_create_record_with_threshold(record, min_judgment=2)
-
-
 def request_from_create_record_with_threshold(
     record: dict[str, Any], *, min_judgment: int
 ) -> Request:
