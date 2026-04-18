@@ -1,0 +1,558 @@
+from __future__ import annotations
+
+from typing import Any
+
+COMMAND_DESCRIPTIONS: dict[str, dict[str, Any]] = {
+    "create": {
+        "summary": "Create and score nuggets from either batch JSONL or direct JSON input.",
+        "execution_mode_default": "sync",
+        "inspection_safe": False,
+        "examples": [
+            "nuggetizer create --input-file pool.jsonl --output-file nuggets.jsonl",
+            (
+                "nuggetizer create --input-json "
+                '\'{"query":"What is Python used for?","candidates":["Python is used for web development."]}\' '
+                "--output json"
+            ),
+            (
+                "nuggetizer create --input-json "
+                '\'{"judgments":[{"query":"q","passage":"p1","judgment":1},{"query":"q","passage":"p2","judgment":2}]}\' '
+                "--output json"
+            ),
+            (
+                "curl -X POST http://127.0.0.1:8085/v1/create "
+                "-H 'content-type: application/json' "
+                '-d \'{"query":"q","candidates":["p"],'
+                '"overrides":{"creator_model":"gpt-4.1-mini",'
+                '"scorer_model":"gpt-4.1-mini"}}\''
+            ),
+            (
+                "curl -s -X POST http://127.0.0.1:8086/v1/judge "
+                '-H "content-type: application/json" --data-binary \'{"query":"q","candidates":["p"]}\' '
+                "| curl -s -X POST http://127.0.0.1:8085/v1/create "
+                '-H "content-type: application/json" --data-binary @- | jq'
+            ),
+            (
+                'curl -s "http://127.0.0.1:8081/v1/msmarco-v1-passage/search?query=q" '
+                "| curl -s -X POST http://127.0.0.1:8085/v1/create "
+                '-H "content-type: application/json" --data-binary @- | jq'
+            ),
+            (
+                'curl -s "http://127.0.0.1:8081/v1/msmarco-v1-passage/search?query=q" '
+                "| curl -s -X POST http://127.0.0.1:8082/v1/rerank "
+                '-H "content-type: application/json" --data-binary @- '
+                "| curl -s -X POST http://127.0.0.1:8085/v1/create "
+                '-H "content-type: application/json" --data-binary @- | jq'
+            ),
+        ],
+        "direct_input": {
+            "ids_optional": True,
+            "shapes": [
+                {
+                    "name": "rerank-style",
+                    "shape": {
+                        "query": "string | {text: string, qid?: string}",
+                        "candidates": [
+                            "string | {text: string, docid?: string} | "
+                            "{doc: string | {segment: string} | {contents: string}, docid?: string, judgment?: number}"
+                        ],
+                    },
+                },
+                {
+                    "name": "umbrela-judgments",
+                    "shape": {
+                        "judgments": [
+                            {
+                                "query": "string",
+                                "passage": "string",
+                                "judgment": "number",
+                                "docid": "string?",
+                            }
+                        ]
+                    },
+                },
+            ],
+        },
+        "batch_input": "JSONL records with query.qid/query.text and candidates[].doc.segment",
+    },
+    "assign": {
+        "summary": "Assign nuggets to either a direct context string or batch answers/retrieval records.",
+        "execution_mode_default": "sync",
+        "inspection_safe": False,
+        "examples": [
+            (
+                "nuggetizer assign --input-kind answers --nuggets nuggets.jsonl "
+                "--contexts answers.jsonl --output-file assignments.jsonl"
+            ),
+            (
+                "nuggetizer assign --input-json "
+                '\'{"query":"What is Python used for?","context":"Python is used for web development.","nuggets":[{"text":"Python is used for web development.","importance":"vital"}]}\' '
+                "--output json"
+            ),
+            (
+                "nuggetizer assign --input-json "
+                '\'{"answer_record":{"topic_id":"q1","topic":"What is Python used for?","answer":[{"text":"Python is used for web development."}]},"nugget_record":{"query":"What is Python used for?","qid":"q1","nuggets":[{"text":"Python is used for web development.","importance":"vital"}]}}\' '
+                "--output json"
+            ),
+            (
+                "nuggetizer assign --input-json "
+                '\'{"answer_records":[{"run_id":"demo-run","topic_id":"q1","topic":"What is Python used for?","response_length":10,"answer":[{"text":"Python is used for web development."}]},{"topic_id":"q1","topic":"What is Python used for?","response_length":8,"answer":[{"text":"Python is also used for automation."}]}],"nugget_record":{"query":"What is Python used for?","qid":"q1","nuggets":[{"text":"Python is used for web development.","importance":"vital"}]}}\' '
+                "--output json"
+            ),
+            (
+                "curl -X POST http://127.0.0.1:8085/v1/assign "
+                "-H 'content-type: application/json' "
+                '-d \'{"query":"q","context":"ctx","nuggets":[{"text":"n","importance":"vital"}],'
+                '"overrides":{"model":"gpt-4.1-mini"}}\''
+            ),
+        ],
+        "direct_input": {
+            "ids_optional": True,
+            "shapes": [
+                {
+                    "name": "context",
+                    "shape": {
+                        "query": "string",
+                        "context": "string",
+                        "nuggets": [{"text": "string", "importance": "string"}],
+                    },
+                },
+                {
+                    "name": "joined-single-records",
+                    "shape": {
+                        "answer_record": "ragnarok generation record",
+                        "nugget_record": "nuggetizer create record",
+                    },
+                },
+                {
+                    "name": "joined-single-envelopes",
+                    "shape": {
+                        "answer_envelope": "castorini.cli.v1 ragnarok generate envelope",
+                        "nugget_envelope": "castorini.cli.v1 nuggetizer create envelope",
+                    },
+                },
+                {
+                    "name": "joined-batch-records",
+                    "shape": {
+                        "answer_records": ["ragnarok generation record"],
+                        "nugget_record": "nuggetizer create record",
+                    },
+                },
+                {
+                    "name": "joined-batch-envelopes",
+                    "shape": {
+                        "answers_envelope": "castorini.cli.v1 ragnarok generate envelope",
+                        "nugget_envelope": "castorini.cli.v1 nuggetizer create envelope",
+                    },
+                },
+            ],
+        },
+        "batch_input_kinds": ["answers", "retrieval"],
+        "script_wrappers": [
+            "scripts/assign_nuggets.py",
+            "scripts/assign_nuggets_retrieve_results.py",
+        ],
+    },
+    "metrics": {
+        "summary": "Calculate per-query and global nugget metrics from assignment JSONL.",
+        "inspection_safe": False,
+        "examples": [
+            "nuggetizer metrics --input-file assignments.jsonl --output-file metrics.jsonl"
+        ],
+    },
+    "serve": {
+        "summary": "Start a FastAPI server for direct nugget creation and assignment requests.",
+        "examples": [
+            "nuggetizer serve --port 8085",
+            (
+                "curl -X POST http://127.0.0.1:8085/v1/create "
+                "-H 'content-type: application/json' "
+                '-d \'{"query":"q","candidates":["p"]}\''
+            ),
+            (
+                'curl -s "http://127.0.0.1:8081/v1/msmarco-v1-passage/search?query=q" '
+                "| curl -s -X POST http://127.0.0.1:8085/v1/create "
+                '-H "content-type: application/json" --data-binary @- | jq'
+            ),
+            (
+                'curl -s "http://127.0.0.1:8081/v1/msmarco-v1-passage/search?query=q" '
+                "| curl -s -X POST http://127.0.0.1:8082/v1/rerank "
+                '-H "content-type: application/json" --data-binary @- '
+                "| curl -s -X POST http://127.0.0.1:8085/v1/create "
+                '-H "content-type: application/json" --data-binary @- | jq'
+            ),
+            (
+                "curl -s -X POST http://127.0.0.1:8086/v1/judge "
+                '-H "content-type: application/json" --data-binary \'{"query":"q","candidates":["p"]}\' '
+                "| curl -s -X POST http://127.0.0.1:8085/v1/create "
+                '-H "content-type: application/json" --data-binary @- | jq'
+            ),
+        ],
+        "routes": ["GET /healthz", "POST /v1/create", "POST /v1/assign"],
+        "inspection_safe": True,
+    },
+    "view": {
+        "summary": "Inspect Nuggetizer artifact files with a human-readable preview.",
+        "examples": [
+            "nuggetizer view nuggets.jsonl",
+            "nuggetizer view assignments.jsonl --records 1",
+        ],
+        "supported_types": [
+            "create-output",
+            "assign-output-answers",
+            "assign-output-retrieval",
+            "metrics-output",
+        ],
+        "inspection_safe": True,
+    },
+    "prompt": {
+        "summary": "Inspect built-in Nuggetizer prompt templates.",
+        "examples": [
+            "nuggetizer prompt list",
+            "nuggetizer prompt show create",
+            'nuggetizer prompt render create --input-json \'{"query":"q","candidates":["p"]}\'',
+            "nuggetizer prompt show assign --assign-mode support_grade_2 --output json",
+        ],
+        "inspection_safe": True,
+        "subcommands": ["list", "show", "render"],
+    },
+    "describe": {
+        "summary": "Inspect structured metadata for a public Nuggetizer command.",
+        "inspection_safe": True,
+    },
+    "schema": {
+        "summary": "Print JSON schemas for supported Nuggetizer inputs, outputs, and envelopes.",
+        "inspection_safe": True,
+    },
+    "doctor": {
+        "summary": "Report environment and backend readiness for the packaged Nuggetizer CLI.",
+        "inspection_safe": True,
+    },
+    "validate": {
+        "summary": "Validate direct JSON input or batch JSONL inputs without running models.",
+        "targets": ["create", "assign"],
+        "inspection_safe": True,
+    },
+}
+
+
+SCHEMAS: dict[str, dict[str, Any]] = {
+    "create-direct-input": {
+        "type": "object",
+        "oneOf": [
+            {
+                "required": ["query", "candidates"],
+                "properties": {
+                    "query": {
+                        "oneOf": [
+                            {"type": "string"},
+                            {
+                                "type": "object",
+                                "required": ["text"],
+                                "properties": {
+                                    "qid": {"type": "string"},
+                                    "text": {"type": "string"},
+                                },
+                            },
+                        ]
+                    },
+                    "candidates": {
+                        "type": "array",
+                        "items": {
+                            "oneOf": [
+                                {"type": "string"},
+                                {
+                                    "type": "object",
+                                    "required": ["text"],
+                                    "properties": {
+                                        "text": {"type": "string"},
+                                        "docid": {"type": "string"},
+                                        "judgment": {"type": "number"},
+                                    },
+                                },
+                                {
+                                    "type": "object",
+                                    "required": ["doc"],
+                                    "properties": {
+                                        "docid": {"type": "string"},
+                                        "judgment": {"type": "number"},
+                                        "doc": {
+                                            "oneOf": [
+                                                {"type": "string"},
+                                                {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "segment": {"type": "string"},
+                                                        "contents": {"type": "string"},
+                                                    },
+                                                },
+                                            ]
+                                        },
+                                    },
+                                },
+                            ]
+                        },
+                    },
+                },
+            },
+            {
+                "required": ["judgments"],
+                "properties": {
+                    "judgments": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["query", "passage", "judgment"],
+                            "properties": {
+                                "query": {"type": "string"},
+                                "passage": {"type": "string"},
+                                "judgment": {"type": "number"},
+                                "docid": {"type": "string"},
+                            },
+                        },
+                    }
+                },
+            },
+        ],
+        "properties": {
+            "overrides": {
+                "type": "object",
+                "properties": {
+                    "model": {"type": "string"},
+                    "creator_model": {"type": "string"},
+                    "scorer_model": {"type": "string"},
+                    "window_size": {"type": "integer"},
+                    "max_nuggets": {"type": "integer"},
+                    "min_judgment": {"type": "integer"},
+                    "execution_mode": {"type": "string", "enum": ["sync", "async"]},
+                    "log_level": {"type": "integer"},
+                    "use_azure_openai": {"type": "boolean"},
+                    "use_openrouter": {"type": "boolean"},
+                    "reasoning_effort": {
+                        "type": "string",
+                        "enum": ["none", "minimal", "low", "medium", "high", "xhigh"],
+                    },
+                    "include_trace": {"type": "boolean"},
+                    "include_reasoning": {"type": "boolean"},
+                    "redact_prompts": {"type": "boolean"},
+                },
+            },
+        },
+    },
+    "create-batch-input-record": {
+        "type": "object",
+        "required": ["query", "candidates"],
+        "properties": {
+            "query": {
+                "type": "object",
+                "required": ["qid", "text"],
+                "properties": {
+                    "qid": {"type": "string"},
+                    "text": {"type": "string"},
+                },
+            },
+            "candidates": {"type": "array"},
+        },
+    },
+    "create-output": {
+        "type": "object",
+        "required": ["query", "qid", "nuggets"],
+        "properties": {
+            "query": {"type": "string"},
+            "qid": {"type": "string"},
+            "nuggets": {"type": "array"},
+        },
+    },
+    "assign-direct-input": {
+        "type": "object",
+        "oneOf": [
+            {
+                "required": ["query", "context", "nuggets"],
+                "properties": {
+                    "query": {"type": "string"},
+                    "context": {"type": "string"},
+                    "nuggets": {"type": "array"},
+                },
+            },
+            {
+                "required": ["answer_record", "nugget_record"],
+                "properties": {
+                    "answer_record": {"$ref": "#/$defs/assign-contexts-answers-input"},
+                    "nugget_record": {"$ref": "#/$defs/create-output"},
+                },
+            },
+            {
+                "required": ["answer_envelope", "nugget_envelope"],
+                "properties": {
+                    "answer_envelope": {"$ref": "#/$defs/cli-envelope"},
+                    "nugget_envelope": {"$ref": "#/$defs/cli-envelope"},
+                },
+            },
+            {
+                "required": ["answer_records", "nugget_record"],
+                "properties": {
+                    "answer_records": {
+                        "type": "array",
+                        "items": {"$ref": "#/$defs/assign-contexts-answers-input"},
+                    },
+                    "nugget_record": {"$ref": "#/$defs/create-output"},
+                },
+            },
+            {
+                "required": ["answers_envelope", "nugget_envelope"],
+                "properties": {
+                    "answers_envelope": {"$ref": "#/$defs/cli-envelope"},
+                    "nugget_envelope": {"$ref": "#/$defs/cli-envelope"},
+                },
+            },
+        ],
+        "properties": {
+            "overrides": {
+                "type": "object",
+                "properties": {
+                    "model": {"type": "string"},
+                    "execution_mode": {"type": "string", "enum": ["sync", "async"]},
+                    "log_level": {"type": "integer"},
+                    "use_azure_openai": {"type": "boolean"},
+                    "use_openrouter": {"type": "boolean"},
+                    "reasoning_effort": {
+                        "type": "string",
+                        "enum": ["none", "minimal", "low", "medium", "high", "xhigh"],
+                    },
+                    "include_trace": {"type": "boolean"},
+                    "include_reasoning": {"type": "boolean"},
+                    "redact_prompts": {"type": "boolean"},
+                },
+            },
+        },
+        "$defs": {
+            "assign-contexts-answers-input": {
+                "type": "object",
+                "required": ["topic_id", "answer"],
+                "properties": {
+                    "topic_id": {"type": "string"},
+                    "topic": {"type": "string"},
+                    "response_length": {"type": "integer"},
+                    "run_id": {"type": "string"},
+                    "answer": {"type": "array"},
+                },
+            },
+            "create-output": {
+                "type": "object",
+                "required": ["query", "qid", "nuggets"],
+                "properties": {
+                    "query": {"type": "string"},
+                    "qid": {"type": "string"},
+                    "nuggets": {"type": "array"},
+                },
+            },
+            "cli-envelope": {
+                "type": "object",
+                "required": [
+                    "schema_version",
+                    "repo",
+                    "command",
+                    "mode",
+                    "status",
+                    "exit_code",
+                    "inputs",
+                    "resolved",
+                    "artifacts",
+                    "validation",
+                    "metrics",
+                    "warnings",
+                    "errors",
+                ],
+            },
+        },
+    },
+    "assign-contexts-answers-input": {
+        "type": "object",
+        "required": ["topic_id", "answer"],
+        "properties": {
+            "topic_id": {"type": "string"},
+            "answer": {"type": "array"},
+        },
+    },
+    "assign-contexts-retrieval-input": {
+        "type": "object",
+        "required": ["query", "candidates"],
+        "properties": {
+            "query": {"type": "object"},
+            "candidates": {"type": "array"},
+        },
+    },
+    "assign-output-answers": {
+        "type": "object",
+        "required": [
+            "query",
+            "qid",
+            "answer_text",
+            "response_length",
+            "run_id",
+            "nuggets",
+        ],
+    },
+    "assign-output-retrieval": {
+        "type": "object",
+        "required": ["text", "qid", "candidate_text", "docid", "nuggets"],
+    },
+    "metrics-output": {
+        "type": "object",
+        "required": [
+            "qid",
+            "strict_vital_score",
+            "strict_all_score",
+            "vital_score",
+            "all_score",
+        ],
+    },
+    "view-summary": {
+        "type": "object",
+        "required": ["path", "artifact_type", "summary", "sampled_records"],
+    },
+    "prompt-catalog": {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "required": ["target", "template_name", "assign_mode", "template"],
+        },
+    },
+    "prompt-template": {
+        "type": "object",
+        "required": ["target", "template_name", "assign_mode", "template"],
+    },
+    "rendered-prompt": {
+        "type": "object",
+        "required": ["target", "template_name", "assign_mode", "messages", "inputs"],
+    },
+    "doctor-output": {
+        "type": "object",
+        "required": [
+            "python_version",
+            "python_ok",
+            "env_file_present",
+            "backend_readiness",
+            "command_readiness",
+            "overall_status",
+        ],
+    },
+    "cli-envelope": {
+        "type": "object",
+        "required": [
+            "schema_version",
+            "repo",
+            "command",
+            "mode",
+            "status",
+            "exit_code",
+            "inputs",
+            "resolved",
+            "artifacts",
+            "validation",
+            "metrics",
+            "warnings",
+            "errors",
+        ],
+    },
+}
