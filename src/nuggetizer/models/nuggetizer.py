@@ -680,31 +680,40 @@ class Nuggetizer(BaseNuggetizer):
             timestamp_utc=datetime.utcnow().isoformat() + "Z",
         )
 
-    def _ensure_async_llm(self) -> None:
+    def _ensure_creator_llm_async(self) -> None:
         if self.creator_llm_async is None:
             self.creator_llm_async = AsyncLLMHandler(
                 self.creator_model, **self._llm_config
             )
+
+    def _ensure_scorer_llm_async(self) -> None:
         if self.scorer_llm_async is None:
             self.scorer_llm_async = AsyncLLMHandler(
                 self.scorer_model, **self._llm_config
             )
+
+    def _ensure_assigner_llm_async(self) -> None:
         if self.assigner_llm_async is None:
             self.assigner_llm_async = AsyncLLMHandler(
                 self.assigner_model, **self._llm_config
             )
 
-    def _ensure_sync_llm(self) -> None:
+    def _ensure_creator_llm(self) -> None:
         if self.creator_llm is None:
             self.creator_llm = LLMHandler(self.creator_model, **self._llm_config)
+
+    def _ensure_scorer_llm(self) -> None:
         if self.scorer_llm is None:
             self.scorer_llm = LLMHandler(self.scorer_model, **self._llm_config)
+
+    def _ensure_assigner_llm(self) -> None:
         if self.assigner_llm is None:
             self.assigner_llm = LLMHandler(self.assigner_model, **self._llm_config)
 
     def create(self, request: Request) -> list[ScoredNugget]:
         """Create and score nuggets from the request documents."""
-        self._ensure_sync_llm()
+        self._ensure_creator_llm()
+        self._ensure_scorer_llm()
         self.creator_reasoning = None
         self.creator_reasoning_traces = []
         current_nuggets: list[str] = []
@@ -737,7 +746,8 @@ class Nuggetizer(BaseNuggetizer):
 
     async def async_create(self, request: Request) -> list[ScoredNugget]:
         """Async create and score nuggets from the request documents."""
-        self._ensure_async_llm()
+        self._ensure_creator_llm_async()
+        self._ensure_scorer_llm_async()
         self.creator_reasoning = None
         self.creator_reasoning_traces = []
         current_nuggets: list[str] = []
@@ -774,7 +784,7 @@ class Nuggetizer(BaseNuggetizer):
         self, query: str, context: str, nuggets: list[ScoredNugget]
     ) -> list[AssignedScoredNugget]:
         """Assign scored nuggets to the given context."""
-        self._ensure_sync_llm()
+        self._ensure_assigner_llm()
         assigned_nuggets: list[AssignedScoredNugget] = []
         for start, end in self._iter_window_bounds(
             len(nuggets), self.assigner_window_size
@@ -793,7 +803,7 @@ class Nuggetizer(BaseNuggetizer):
         self, query: str, context: str, nuggets: list[ScoredNugget]
     ) -> list[AssignedScoredNugget]:
         """Async assign scored nuggets to the given context."""
-        self._ensure_async_llm()
+        self._ensure_assigner_llm_async()
         assigned_nuggets: list[AssignedScoredNugget] = []
         for start, end in self._iter_window_bounds(
             len(nuggets), self.assigner_window_size

@@ -198,3 +198,33 @@ def test_batch_methods_preserve_order_and_validate_lengths() -> None:
 
     with pytest.raises(ValueError, match="same length"):
         nuggetizer.assign_batch(["q1"], ["context-1", "context-2"], [created[0]])
+
+
+def test_operations_only_initialize_required_handlers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("AZURE_OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("AZURE_OPENAI_API_BASE", raising=False)
+    monkeypatch.delenv("AZURE_OPENAI_API_VERSION", raising=False)
+
+    create_nuggetizer = Nuggetizer()
+    cast(Any, create_nuggetizer).creator_llm = FakeSyncLLM([("['alpha']", None, None)])
+    cast(Any, create_nuggetizer).scorer_llm = FakeSyncLLM([("['vital']", None, None)])
+
+    created = create_nuggetizer.create(_request(doc_count=1))
+
+    assert [n.text for n in created] == ["alpha"]
+    assert create_nuggetizer.assigner_llm is None
+
+    assign_nuggetizer = Nuggetizer()
+    cast(Any, assign_nuggetizer).assigner_llm = FakeSyncLLM(
+        [("['support']", None, None)]
+    )
+
+    assigned = assign_nuggetizer.assign("query", "context", created)
+
+    assert [n.assignment for n in assigned] == ["support"]
+    assert assign_nuggetizer.creator_llm is None
+    assert assign_nuggetizer.scorer_llm is None
