@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import sqlite3
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -8,6 +11,7 @@ import pytest
 from openai import AsyncOpenAI, OpenAI
 
 from nuggetizer.core.async_llm import AsyncLLMHandler
+from nuggetizer.core.cache import _get_database_path
 from nuggetizer.core.llm import LLMHandler
 
 pytestmark = pytest.mark.core
@@ -353,3 +357,113 @@ def test_sync_reasoning_models_merge_system_and_user_messages() -> None:
         {"role": "user", "content": "system\nuser"},
         {"role": "assistant", "content": "assistant"},
     ]
+
+
+def test_sync_llm_handler_uses_sqlite_cache_when_enabled(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("CACHE_DIR", str(tmp_path))
+    call_count = 0
+    handler = LLMHandler(model="gpt-4o", api_keys="test-key")
+
+    def fake_create(**kwargs: Any) -> Any:
+        nonlocal call_count
+        del kwargs
+        call_count += 1
+        return _fake_completion(SimpleNamespace(content="cached response"))
+
+    handler.client = cast(
+        OpenAI,
+        SimpleNamespace(
+            chat=SimpleNamespace(completions=SimpleNamespace(create=fake_create))
+        ),
+    )
+
+    first_response, _, _, _ = handler.run([{"role": "user", "content": "prompt"}])
+    second_response, _, _, _ = handler.run([{"role": "user", "content": "prompt"}])
+
+    assert first_response == "cached response"
+    assert second_response == "cached response"
+    assert call_count == 1
+    assert _get_database_path(str(tmp_path)).exists()
+
+
+def test_sync_llm_handler_stores_request_json_in_cache(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("CACHE_DIR", str(tmp_path))
+    handler = LLMHandler(model="gpt-4o", api_keys="test-key")
+
+    def fake_create(**kwargs: Any) -> Any:
+        del kwargs
+        return _fake_completion(SimpleNamespace(content="cached response"))
+
+    handler.client = cast(
+        OpenAI,
+        SimpleNamespace(
+            chat=SimpleNamespace(completions=SimpleNamespace(create=fake_create))
+        ),
+    )
+
+    handler.run([{"role": "user", "content": "prompt"}], temperature=0.25)
+
+    with sqlite3.connect(_get_database_path(str(tmp_path))) as connection:
+        row = connection.execute(
+            "SELECT request_json, response_json FROM chat_completions_cache"
+        ).fetchone()
+
+    assert row is not None
+    request_json, response_json = row
+    assert json.loads(request_json) == {
+        "max_completion_tokens": 4096,
+        "messages": [{"content": "prompt", "role": "user"}],
+        "model": "gpt-4o",
+        "temperature": 0.25,
+        "timeout": 60,
+    }
+    assert json.loads(response_json)["choices"][0]["message"]["content"] == (
+        "cached response"
+    )
+
+
+def test_sync_llm_handler_cache_key_distinguishes_models(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("CACHE_DIR", str(tmp_path))
+    call_count = 0
+
+    def fake_create(**kwargs: Any) -> Any:
+        nonlocal call_count
+        call_count += 1
+        return _fake_completion(SimpleNamespace(content=kwargs["model"]))
+
+    first_handler = LLMHandler(model="gpt-4o", api_keys="test-key")
+    first_handler.client = cast(
+        OpenAI,
+        SimpleNamespace(
+            chat=SimpleNamespace(completions=SimpleNamespace(create=fake_create))
+        ),
+    )
+    second_handler = LLMHandler(model="gpt-4.1", api_keys="test-key")
+    second_handler.client = cast(
+        OpenAI,
+        SimpleNamespace(
+            chat=SimpleNamespace(completions=SimpleNamespace(create=fake_create))
+        ),
+    )
+
+    first_response, _, _, _ = first_handler.run([{"role": "user", "content": "prompt"}])
+    second_response, _, _, _ = second_handler.run(
+        [{"role": "user", "content": "prompt"}]
+    )
+
+    with sqlite3.connect(_get_database_path(str(tmp_path))) as connection:
+        row_count = connection.execute(
+            "SELECT COUNT(*) FROM chat_completions_cache"
+        ).fetchone()
+
+    assert first_response == "gpt-4o"
+    assert second_response == "gpt-4.1"
+    assert call_count == 2
+    assert row_count is not None
+    assert row_count[0] == 2

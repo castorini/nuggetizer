@@ -23,6 +23,7 @@ from ._llm_shared import (
     uses_responses_reasoning_api,
     validate_reasoning_effort,
 )
+from .cache import cache_is_enabled, create_cached_chat_completion
 
 
 class LLMHandler:
@@ -195,9 +196,14 @@ class LLMHandler:
                             "timeout": 60,
                         }
                         completion_params.update(self._build_reasoning_params())
-                    completion = self.client.chat.completions.create(
-                        **completion_params
-                    )
+                    if cache_is_enabled():
+                        completion = create_cached_chat_completion(
+                            self.client, completion_params
+                        )
+                    else:
+                        completion = self.client.chat.completions.create(
+                            **completion_params
+                        )
 
                     response = completion.choices[0].message.content
 
