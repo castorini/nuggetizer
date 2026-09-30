@@ -283,7 +283,13 @@ class Nuggetizer(BaseNuggetizer):
         self, request: Request, start: int, end: int, current_nuggets: list[str]
     ) -> list[str]:
         assert self.creator_llm is not None
-        prompt = create_nugget_prompt(request, start, end, current_nuggets)
+        prompt = create_nugget_prompt(
+            request,
+            start,
+            end,
+            current_nuggets,
+            creator_max_nuggets=self.creator_max_nuggets,
+        )
         if self.log_level >= 2:
             self.logger.info(f"Generated prompt:\n{prompt}")
 
@@ -325,7 +331,13 @@ class Nuggetizer(BaseNuggetizer):
         self, request: Request, start: int, end: int, current_nuggets: list[str]
     ) -> list[str]:
         assert self.creator_llm_async is not None
-        prompt = create_nugget_prompt(request, start, end, current_nuggets)
+        prompt = create_nugget_prompt(
+            request,
+            start,
+            end,
+            current_nuggets,
+            creator_max_nuggets=self.creator_max_nuggets,
+        )
         if self.log_level >= 2:
             self.logger.info(f"Generated prompt:\n{prompt}")
 

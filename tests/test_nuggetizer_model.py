@@ -115,6 +115,30 @@ def test_create_falls_back_to_okay_after_parse_failures(
     assert nuggets[0].reasoning == "score"
 
 
+def test_create_prompt_uses_configured_max_nuggets() -> None:
+    nuggetizer = Nuggetizer(max_nuggets=150)
+    creator_llm = FakeSyncLLM([("['alpha']", None, None)])
+    cast(Any, nuggetizer).creator_llm = creator_llm
+    cast(Any, nuggetizer).scorer_llm = FakeSyncLLM([("['vital']", None, None)])
+
+    nuggetizer.create(_request(doc_count=1))
+
+    user_prompt = creator_llm.calls[0][1]["content"]
+    assert "at most 150 nuggets" in user_prompt
+
+
+def test_async_create_prompt_uses_configured_max_nuggets() -> None:
+    nuggetizer = Nuggetizer(max_nuggets=150)
+    creator_llm = FakeAsyncLLM([("['alpha']", None, None)])
+    cast(Any, nuggetizer).creator_llm_async = creator_llm
+    cast(Any, nuggetizer).scorer_llm_async = FakeAsyncLLM([("['vital']", None, None)])
+
+    asyncio.run(nuggetizer.async_create(_request(doc_count=1)))
+
+    user_prompt = creator_llm.calls[0][1]["content"]
+    assert "at most 150 nuggets" in user_prompt
+
+
 def test_assign_falls_back_to_failed_after_parse_failures(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
